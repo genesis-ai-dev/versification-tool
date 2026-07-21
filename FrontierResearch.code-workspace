@@ -2,9 +2,6 @@
 	"folders": [
 		{
 			"path": "."
-		},
-		{
-			"path": "../OSI/PemPal-Demo-1"
 		}
 	],
 	"settings": {}
