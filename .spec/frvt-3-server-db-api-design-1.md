@@ -41,6 +41,27 @@ The PEMPal demo at [../OSI/PemPal-Demo-1](../../OSI/PemPal-Demo-1) is the techni
 - **Versification detection.** The POC does not run the Copenhagen sniffer. Detection happens outside the tool; the tool ingests the resulting files. This matches the POC scope.
 - **Production concerns.** Authentication beyond a simple gate, horizontal scaling, and multi-tenancy are out of scope, consistent with the POC.
 
+### 2.3 Capability traceability
+
+Every POC capability that touches the server, database, or API traces to an endpoint and a data-model element below. Visual rendering (outlines, connector lines, highlight, toggle) is UI-owned; this spec supplies the data those features consume.
+
+| # | POC capability | API surface | Data-model element | Rendering owner |
+| --- | --- | --- | --- | --- |
+| 1 | Side-by-side display of two translations | `GET /api/translations`, `GET /api/translations/{id}/spans` | `translation`, `verse_span` | UI |
+| 2 | Navigation in one column drives alignment in the other | `GET /api/resolve` | `mapping_record` | UI |
+| 3 | Per-column book/chapter/verse selector | `GET /api/translations/{id}/navigation`, `GET /api/translations/{id}/spans` | `verse_span`, `versification_scheme.ingredient` (`maxVerses`) | UI |
+| 4 | Per-column jump menu (mapped areas, common misalignments, arbitrary verses) | `GET /api/resolve/deltas`, `GET /api/resolve/misalignments`, `GET /api/translations/{id}/navigation` | `mapping_record` | UI |
+| 5 | Outlines around mapped verses and partial spans | `GET /api/resolve` (spans carry `part`) | `verse_span.part`, `mapping_record` (`partial`) | UI |
+| 6 | Connector lines between mapped spans | `GET /api/resolve` (`source_spans`/`target_spans` with `seq`) | `verse_span.seq` | UI |
+| 7 | Always-on highlight of current verse and its lines | `GET /api/resolve` | `mapping_record` | UI |
+| 8 | Toggle for other-verse mappings | `GET /api/resolve/deltas` | `mapping_record` | UI |
+| 9 | On-the-fly switching of an associated versification | `PUT /api/translations/{id}/versifications/{scheme_id}/active` | `translation_versification.active` | UI |
+| 10 | Ingest translation plus `custom.vrs` from a zipped project | `POST /api/ingest/project` | `translation`, `verse_span`, `versification_scheme`, `mapping_record` | n/a |
+| 11 | Direct upload of VRS and Copenhagen/Burrito files | `POST /api/versifications/upload` | `versification_scheme`, `mapping_record` | n/a |
+| 12 | Association of an uploaded versification with a translation | `POST /api/translations/{id}/versifications` | `translation_versification` | n/a |
+| 13 | CRUD for translations | Section 7.3 | `translation` | UI |
+| 14 | CRUD for associated versifications | Sections 7.5 and 7.6 | `versification_scheme`, `translation_versification` | UI |
+
 ---
 
 ## 3. Basis and assumptions
@@ -69,7 +90,7 @@ These are decisions this document makes at boundaries owned by other specificati
 ## 4. Technology stack
 
 | Concern | Choice | Rationale |
-|---|---|---|
+| --- | --- | --- |
 | Language | Python 3.11+ | Matches PEMPal and keeps the API, resolver, and ETL in one language. |
 | Web framework | FastAPI on Uvicorn | Same as PEMPal. Typed request/response models, automatic OpenAPI, dependency injection for the DB session. |
 | Validation / DTOs | Pydantic v2 | Request and response models, ingredient field validation at the edge. |
@@ -151,7 +172,7 @@ flowchart TD
 Read from environment (loaded from `.env` at startup, following PEMPal). All have defaults suitable for local Compose.
 
 | Variable | Default | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `POSTGRES_HOST` | `localhost` | Database host. |
 | `POSTGRES_PORT` | `5433` | Database port (Compose maps container `5432` to host `5433`, as PEMPal does). |
 | `POSTGRES_DB` | `frvt` | Database name. |
@@ -187,7 +208,7 @@ All error responses share one JSON envelope so the UI can handle them uniformly:
 - Status code usage:
 
 | Status | When |
-|---|---|
+| --- | --- |
 | `400` | Malformed request (bad reference grammar, bad query parameter, unparseable file). |
 | `401` | Missing or invalid credentials. |
 | `404` | A referenced translation, scheme, or association does not exist. |
@@ -270,7 +291,7 @@ erDiagram
 A single Bible translation loaded into the tool.
 
 | Column | Type | Notes |
-|---|---|---|
+| --- | --- | --- |
 | `id` | `uuid` PK | Server-generated. |
 | `name` | `text` not null | Display name, unique per case-insensitive value. |
 | `language` | `text` not null | Free-text language label. |
@@ -285,7 +306,7 @@ Deleting a translation cascades to its verse spans and its association rows. It 
 One addressable span of scripture text within a translation. A span can be a whole verse, a Psalm-title span (`verse = 0`), or a sub-verse part (`part` set), which is what lets the model represent partial verses.
 
 | Column | Type | Notes |
-|---|---|---|
+| --- | --- | --- |
 | `id` | `uuid` PK | |
 | `translation_id` | `uuid` FK not null | References `translation.id`, `ON DELETE CASCADE`. |
 | `seq` | `int` not null | Document order assigned by the parser during ingest. A column always renders by `seq`, so reading order is stable regardless of the active versification. Each part of a split verse gets its own consecutive `seq`. |
@@ -306,7 +327,7 @@ Constraints and indexes:
 A versification stored as a Copenhagen/Burrito ingredient, plus the metadata the tool needs to resolve through it.
 
 | Column | Type | Notes |
-|---|---|---|
+| --- | --- | --- |
 | `id` | `uuid` PK | |
 | `name` | `text` not null | Display name (for example `eng`, `org`, `french org custom`). |
 | `based_on` | `text` null | The canonical base this scheme maps against, from the ingredient's `basedOn`. Null or self-referential for a root canonical scheme such as `org`. |
@@ -320,7 +341,7 @@ A versification stored as a Copenhagen/Burrito ingredient, plus the metadata the
 The association join. A translation can be associated with several schemes and can switch the active one on the fly.
 
 | Column | Type | Notes |
-|---|---|---|
+| --- | --- | --- |
 | `id` | `uuid` PK | |
 | `translation_id` | `uuid` FK not null | `ON DELETE CASCADE`. |
 | `scheme_id` | `uuid` FK not null | `ON DELETE RESTRICT`, so a scheme in use cannot be deleted out from under a translation. |
@@ -336,7 +357,7 @@ Constraints:
 The flattened, queryable form of a scheme's ingredient relationships, derived at load time from the `ingredient` jsonb (the ingredient-as-system-of-record assumption, Section 3.2). These rows exist to make resolution and jump-menu queries straightforward and fast; they are never the system of record.
 
 | Column | Type | Notes |
-|---|---|---|
+| --- | --- | --- |
 | `id` | `uuid` PK | |
 | `scheme_id` | `uuid` FK not null | `ON DELETE CASCADE`. |
 | `source_ref` | `text` not null | A reference or range in this scheme, BCV grammar. |
@@ -351,7 +372,7 @@ Indexes: `(scheme_id, source_ref)` and `(scheme_id, relation)`.
 `relation_type` is a fixed vocabulary shared by the data model, the resolver contract, and the API. It travels with every resolved result because the UI draws each case differently.
 
 | Value | Meaning |
-|---|---|
+| --- | --- |
 | `one_to_one` | One span maps to one span with the same number. |
 | `shift` | One span maps to one span with a different number (for example a Psalm-title offset). |
 | `renumber` | A block moves across a chapter boundary or into a different chapter count. |
@@ -365,7 +386,7 @@ Indexes: `(scheme_id, source_ref)` and `(scheme_id, relation)`.
 The `ingredient` jsonb is kept verbatim so the interchange format round-trips without loss, including fields the POC does not use. Deriving `mapping_record` rows from it, rather than normalizing every ingredient field into its own tables, keeps queries simple while preserving fidelity. The derivation reads each ingredient field and emits rows as follows. Examples are taken from the real samples in [research/CopenhagenFormat](../research/CopenhagenFormat).
 
 | Ingredient field | Example (from samples) | Derived `mapping_record` rows |
-|---|---|---|
+| --- | --- | --- |
 | `basedOn` | `"org"` (in [validated.json](../research/CopenhagenFormat/validated.json)) | Not a row; stored on `versification_scheme.based_on`. |
 | `maxVerses` | `"GEN": ["31","25",...]` (in [eng.json](../research/CopenhagenFormat/eng.json)) | Not rows; used to validate references and drive navigation bounds. |
 | `mappedVerses` | `"GEN 31:55": "GEN 32:1"`, `"PSA 3:0-8": "PSA 3:1-9"`, `"NEH 7:69-73": "NEH 7:68-72"` (in [eng.json](../research/CopenhagenFormat/eng.json)) | One row per entry: `source_ref` = key, `base_ref` = value, `relation` classified as `shift` or `renumber` by comparing book/chapter/verse deltas. |
@@ -374,6 +395,8 @@ The `ingredient` jsonb is kept verbatim so the interchange format round-trips wi
 | `partialVerses` | `"SIR 36:13": ["a"]`, `"ESG 3:13": ["-","a","b",...]` (in [validated.json](../research/CopenhagenFormat/validated.json)) | One row per part with `relation` = `partial`; the `part` component is encoded in `source_ref`. |
 
 The concrete classification rules (how `shift` versus `renumber` is decided, how `mergedVerses` join to `mappedVerses`) belong to the resolver/ETL specifications. This document requires only that the derivation is deterministic, is rebuildable from the ingredient, and populates the columns above. See the ingredient-as-system-of-record assumption (Section 3.2) and [Section 8](#8-boundary-interface-contracts).
+
+`mapping_record.source_ref` and `base_ref` stay in range form here, mirroring the ingredient's range keys. The `/api/resolve` endpoint expands the covering record into individual single-verse spans at query time ([Section 7.8](#78-reference-resolution)); range form is preserved in storage and in the jump-menu deltas, and denormalized only where the viewer needs per-span anchors.
 
 ### 6.4 Coverage check
 
@@ -387,7 +410,8 @@ This section is self-contained so it can be updated independently during reconci
 
 ### 7.1 Conventions
 
-- List endpoints return `{ "items": [...], "total": <int> }` and accept `limit` (default `100`, max `500`) and `offset` (default `0`).
+- Paginated collection endpoints (`/api/translations`, `/api/versifications`, `/api/translations/{id}/spans`, `/api/resolve/deltas`, `/api/resolve/misalignments`) return `{ "items": [...], "total": <int> }` and accept `limit` (default `100`, max `500`) and `offset` (default `0`).
+- Small bounded nested lists that are not paginated (`/api/translations/{id}/versifications`, `/api/translations/{id}/navigation`) return a bare JSON array.
 - Reference strings follow the BCV grammar defined in Section 3.2.
 - Write endpoints validate the body with a Pydantic model and return the created or updated resource.
 - Errors follow [Section 5.4](#54-error-contract).
@@ -406,12 +430,6 @@ class RelationType(str, Enum):
     merge = "merge"
     exclude = "exclude"
     partial = "partial"
-
-class SpanRef(BaseModel):
-    book: str          # ^[A-Z1-6]{3}$
-    chapter: int
-    verse: int         # 0 == Psalm title
-    part: str | None = None
 
 # Translations
 class TranslationCreate(BaseModel):
@@ -469,14 +487,22 @@ class AssociationOut(BaseModel):
 
 # Resolution
 class ResolvedSpan(BaseModel):
-    ref: str                 # BCV string in the target scheme
+    ref: str                 # single-verse BCV string, never a range
     seq: int | None          # verse_span.seq when a stored span exists
     part: str | None = None
 
 class ResolveResult(BaseModel):
-    source_ref: str
-    relation: RelationType
+    # Both sides are denormalized to individual verse/partial-verse spans,
+    # so each entry maps directly to one rendered span. Cardinality is carried
+    # by list length, not by range strings:
+    #   one_to_one / shift / renumber -> 1 source, 1 target
+    #   split                         -> 1 source, N targets
+    #   merge                         -> N sources, 1 target
+    #   exclude                       -> 1 source, 0 targets
+    #   partial                       -> spans carry `part`
+    source_spans: list[ResolvedSpan]   # the queried verse, plus merge siblings
     target_spans: list[ResolvedSpan]   # empty for `exclude`
+    relation: RelationType
 
 # Navigation
 class NavBook(BaseModel):
@@ -497,7 +523,7 @@ class MisalignmentEntry(BaseModel):
 ### 7.3 Translations CRUD
 
 | Method | Path | Purpose | Success |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `GET` | `/api/translations` | List translations. | `200` `{items, total}` of `TranslationOut`. |
 | `POST` | `/api/translations` | Create a metadata-only translation (content arrives via ingest). | `201` `TranslationOut`. |
 | `GET` | `/api/translations/{id}` | Get one translation. | `200` `TranslationOut`. |
@@ -509,7 +535,7 @@ class MisalignmentEntry(BaseModel):
 ### 7.4 Scripture content reads
 
 | Method | Path | Query | Purpose | Success |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `GET` | `/api/translations/{id}/spans` | `book` (required), `chapter` (optional), `limit`, `offset` | Return verse spans for a column, ordered by `seq`. | `200` `{items, total}` of `VerseSpanOut`. |
 
 Behavior: `book` filters to one book; adding `chapter` narrows to one chapter. Ordering is always by `seq` so reading order is stable regardless of the active versification (see `verse_span.seq`). Unknown `book` returns an empty list, not an error. Missing translation returns `404`.
@@ -517,7 +543,7 @@ Behavior: `book` filters to one book; adding `chapter` narrows to one chapter. O
 ### 7.5 Versifications CRUD
 
 | Method | Path | Purpose | Success |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `GET` | `/api/versifications` | List schemes. Supports `canonical` boolean filter. | `200` `{items, total}` of `VersificationOut`. |
 | `GET` | `/api/versifications/{id}` | Get one scheme including its `ingredient`. | `200` `VersificationDetailOut`. |
 | `PATCH` | `/api/versifications/{id}` | Rename a scheme. | `200` `VersificationOut`. |
@@ -528,7 +554,7 @@ Creation of a scheme happens through upload ([Section 7.7](#77-file-ingest-and-u
 ### 7.6 Associations
 
 | Method | Path | Purpose | Success |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `GET` | `/api/translations/{id}/versifications` | List schemes associated with a translation, marking the active one. | `200` list of `AssociationOut`. |
 | `POST` | `/api/translations/{id}/versifications` | Associate an existing scheme with the translation. | `201` `AssociationOut`. |
 | `PUT` | `/api/translations/{id}/versifications/{scheme_id}/active` | Make this association the active one. | `200` `AssociationOut`. |
@@ -543,7 +569,7 @@ Both endpoints accept `multipart/form-data`. Both enforce `MAX_UPLOAD_BYTES` and
 #### 7.7.1 Load a project
 
 | Method | Path | Form fields | Purpose |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `POST` | `/api/ingest/project` | `file` (zip), `name`, `language` | Ingest a zipped Paratext-style project: USX content plus a `custom.vrs`. |
 
 Flow, matching the POC "Loading a Project" workflow:
@@ -567,7 +593,7 @@ Success returns `201` with a body containing the created `TranslationOut` and th
 #### 7.7.2 Upload a versification
 
 | Method | Path | Form fields | Purpose |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `POST` | `/api/versifications/upload` | `file` (`.vrs` or Copenhagen/Burrito `.json`), `name` (optional) | Create a scheme from a standalone file. |
 
 Flow, matching the POC "Uploading Versifications" workflow: the ingest port detects the format, converts VRS to a Copenhagen ingredient when needed (noting VRS cannot express splits), validates against the schema, stores the scheme, and derives records. The scheme is created unassociated; the caller associates it separately via [Section 7.6](#76-associations). Success returns `201` `VersificationOut`. Invalid input returns `422` with per-item `errors`.
@@ -575,15 +601,17 @@ Flow, matching the POC "Uploading Versifications" workflow: the ingest port dete
 ### 7.8 Reference resolution
 
 | Method | Path | Query | Purpose |
-|---|---|---|---|
-| `GET` | `/api/resolve` | `from_translation` (uuid), `to_translation` (uuid), `ref` (BCV string) | Resolve a reference in the source translation's active scheme to matching spans in the target translation's active scheme. |
+| --- | --- | --- | --- |
+| `GET` | `/api/resolve` | `from_translation` (uuid), `to_translation` (uuid), `ref` (single-verse BCV string) | Resolve a reference in the source translation's active scheme to matching spans in the target translation's active scheme. |
 
 Behavior:
 
 1. Load the active scheme for each translation (`404` if either translation is missing; `409 conflict` if either has no active scheme).
-2. Validate `ref` against the BCV grammar (`400 bad_request` on failure).
+2. Validate `ref` against the BCV grammar (`400 bad_request` on failure). The endpoint expects a single verse or partial verse, not a range; a range `ref` is rejected with `400 bad_request`.
 3. Call the resolver port ([Section 8.1](#81-resolver-contract)) with the source ref and the two schemes.
-4. Return `200` `ResolveResult`. An `exclude` relation returns an empty `target_spans`, which the UI renders as a gap rather than a false match.
+4. Return `200` `ResolveResult`. Both `source_spans` and `target_spans` are denormalized to individual verse/partial-verse spans so each entry maps to one rendered span (see [Section 7.2](#72-pydantic-models)). An `exclude` relation returns an empty `target_spans`, which the UI renders as a gap rather than a false match; a `merge` returns the full set of sibling verses in `source_spans`.
+
+Storage keeps ranges (`mapping_record.source_ref` and `base_ref` mirror the ingredient's range keys), but resolution expands the covering record into concrete single-verse spans at query time. This keeps storage faithful to the interchange format while giving the viewer per-span results it can anchor connectors to. The jump-menu endpoints in [Section 7.9](#79-navigation-and-jump-menu-data) intentionally keep range form, since those are navigation targets rather than per-span connectors.
 
 The resolver performs the pivot through the base, the multi-hop indirection, and the shared-base short-cut described in the POC; the API does not implement resolution logic itself. The sequence:
 
@@ -611,7 +639,7 @@ sequenceDiagram
 These endpoints supply the higher-level navigation controls: places where two versifications are explicitly mapped, common misalignment categories, and the book/chapter structure for arbitrary navigation.
 
 | Method | Path | Query | Purpose | Success |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `GET` | `/api/translations/{id}/navigation` | none | Books and chapter numbers available for the translation's active scheme, from `maxVerses` and stored spans. | `200` list of `NavBook`. |
 | `GET` | `/api/resolve/deltas` | `from_translation`, `to_translation`, `book` (optional), `limit`, `offset` | The explicit mapping deltas between the two active schemes: every place they differ. | `200` `{items, total}` of `DeltaEntry`. |
 | `GET` | `/api/resolve/misalignments` | `from_translation`, `to_translation`, `category` (optional), `limit`, `offset` | Deltas grouped into common misalignment categories. | `200` `{items, total}` of `MisalignmentEntry`. |
@@ -621,7 +649,7 @@ The `category` vocabulary, drawn from the research's known divergence categories
 ### 7.10 Health
 
 | Method | Path | Purpose | Success |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `GET` | `/api/health` | Liveness plus a database ping. | `200` `{"status":"ok"}`, or `503 database_unavailable`. |
 
 ---
@@ -645,14 +673,17 @@ class SchemeRef:
 
 @dataclass(frozen=True)
 class ResolvedSpanDTO:
-    ref: str                 # BCV string in the target scheme
+    ref: str                 # single-verse BCV string, never a range
     part: str | None
 
 @dataclass(frozen=True)
 class ResolutionDTO:
-    source_ref: str
-    relation: str            # a relation_type value
+    # Both sides denormalized to individual spans; cardinality carried by
+    # length (see ResolveResult in Section 7.2). The resolver expands the
+    # covering range-based mapping_record into concrete single-verse spans.
+    source_spans: tuple[ResolvedSpanDTO, ...]   # queried verse plus merge siblings
     target_spans: tuple[ResolvedSpanDTO, ...]   # empty for exclude
+    relation: str            # a relation_type value
 
 def resolve(
     session: Session,
@@ -661,14 +692,15 @@ def resolve(
     target_scheme: SchemeRef,
 ) -> ResolutionDTO:
     """
-    Resolve `source_ref` from the source scheme to the target scheme by
-    pivoting through the shared or canonical base. Returns matched spans and
-    the relation type. Raises ReferenceError for a syntactically invalid ref
-    and LookupError when a scheme cannot be loaded.
+    Resolve a single-verse `source_ref` from the source scheme to the target
+    scheme by pivoting through the shared or canonical base. Expands the
+    covering mapping into individual spans on both sides and returns them with
+    the relation type. Raises ReferenceError for a syntactically invalid or
+    range-valued ref and LookupError when a scheme cannot be loaded.
     """
 ```
 
-The API adapter (`resolver port`) maps `ResolutionDTO` to `ResolveResult`, attaches the `verse_span.seq` for each target ref when a stored span exists, and translates the two exceptions to `400` and `409` respectively.
+The API adapter (`resolver port`) maps `ResolutionDTO` to `ResolveResult`, attaches the `verse_span.seq` for each span (source and target) when a stored span exists, and translates the two exceptions to `400` and `409` respectively.
 
 ### 8.2 ETL / ingest contract
 
@@ -718,6 +750,16 @@ def ingest_versification(file_bytes: bytes, filename: str) -> tuple[ParsedScheme
     parsed scheme and any blocking issues. Does not touch the database.
     """
 
+@dataclass(frozen=True)
+class MappingRecordDTO:
+    # Mirrors the mapping_record columns minus id and scheme_id, which the API
+    # assigns on insert. Kept in range form here; the resolve endpoint expands
+    # ranges into single-verse spans at query time (Sections 6.3, 7.8).
+    source_ref: str          # reference or range, BCV grammar
+    base_ref: str | None     # counterpart in based_on; None for an exclusion
+    relation: str            # a relation_type value
+    ordinal: int             # stable ordering for deterministic output
+
 def derive_mapping_records(scheme: ParsedScheme) -> tuple[MappingRecordDTO, ...]:
     """
     Flatten an ingredient into mapping_record rows per Section 6.3. Pure and
@@ -725,7 +767,7 @@ def derive_mapping_records(scheme: ParsedScheme) -> tuple[MappingRecordDTO, ...]
     """
 ```
 
-When `issues` is non-empty, the API rolls back and returns `422 validation_failed` with the issues in the `errors` array. The `MappingRecordDTO` mirrors the `mapping_record` columns minus `id` and `scheme_id`, which the API assigns on insert.
+When `issues` is non-empty, the API rolls back and returns `422 validation_failed` with the issues in the `errors` array.
 
 ### 8.3 UI boundary
 
@@ -794,7 +836,7 @@ Using the shared logger (Section 5.6), which checks the level before formatting:
 
 Per the testing rules, cover happy paths and essential failures for behavior that carries a contract, not implementation detail:
 
-- Resolution adapter: a `one_to_one`, a `shift` (Psalm title, `PSA 3:0-8` to `PSA 3:1-9`), a `split`, and an `exclude` returning empty spans.
+- Resolution adapter: a `one_to_one`, a `shift` (Psalm title, `PSA 3:0-8` to `PSA 3:1-9`), a `split` (one `source_spans`, several `target_spans`), a `merge` (several `source_spans`, one `target_spans`), and an `exclude` (one `source_spans`, empty `target_spans`). Each asserts spans are single-verse, never ranges.
 - Association invariant: activating a second scheme deactivates the first; activating an unassociated scheme returns `409`.
 - Ingest endpoints: a valid project loads; a project missing `custom.vrs` returns `400`; an invalid ingredient returns `422` with populated `errors`.
 - Error contract: `404` for missing ids; `413` over the size cap.
@@ -821,6 +863,7 @@ Consolidated boundary assumptions from Section 3.2, to confirm with the resolver
 - **BCV reference grammar.** BCV grammar for references, including `verse 0` for Psalm titles and a `part` for partial verses (Section 3.2). Confirm the resolver and UI use the same grammar.
 - **Ingredient as system of record.** The ingredient jsonb is the system of record; `mapping_record` rows are derived and rebuildable (Sections 6.3, 8.2). Confirm the ETL derivation is deterministic and owns the classification rules.
 - Delta and misalignment categorization (Section 7.9): confirm whether the category vocabulary and the rules assigning deltas to categories live in the ETL derivation or the resolver.
+- Resolve denormalization (Sections 7.2, 7.8, 8.1): confirm the resolver expands range-based mapping records into individual single-verse spans on both sides, returns `merge` siblings in `source_spans`, and rejects a range-valued `ref`. Storage and jump-menu deltas remain range-form.
 
 ---
 
