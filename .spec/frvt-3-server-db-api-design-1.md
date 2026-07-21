@@ -18,9 +18,9 @@ The backend has three responsibilities:
 
 The server calls a mapping resolver and a set of ETL/ingest routines. Both are implemented against separate specifications. This document defines the contracts the server depends on so the pieces reconcile cleanly later. See [Section 8](#8-boundary-interface-contracts).
 
-### 1.1 Reference implementation
+### 1.1 Operational conventions
 
-The PEMPal demo at [../OSI/PemPal-Demo-1](../../OSI/PemPal-Demo-1) is the technical reference for stack shape and operational conventions: FastAPI on Uvicorn, PostgreSQL in Docker Compose, `.env`-based configuration, HTTP Basic authentication as a middleware, a static-file mount that serves the UI from the same process, and a shared logging module with a custom `TRACE` level. This document reuses those conventions and calls out the two deliberate divergences: an ORM with migrations instead of hand-written SQL, and a read/write CRUD API instead of PEMPal's read-only API.
+The server follows these stack and operational conventions: FastAPI on Uvicorn, PostgreSQL in Docker Compose, `.env`-based configuration, HTTP Basic authentication as middleware, a static-file mount that serves the UI from the same process, and a shared logging module with a custom `TRACE` level. Persistence uses an ORM with versioned migrations (rather than hand-written SQL applied from a single schema file), and the API is read/write CRUD (not read-only).
 
 ---
 
@@ -72,7 +72,7 @@ Every POC capability that touches the server, database, or API traces to an endp
 - Versification domain and format background: [research/frvt-versification-standards-and-tooling-1.md](../research/frvt-versification-standards-and-tooling-1.md).
 - Copenhagen/Burrito ingredient schema: [research/CopenhagenFormat/versification_schema.json](../research/CopenhagenFormat/versification_schema.json).
 - Concrete ingredient samples used for the examples below: [research/CopenhagenFormat/eng.json](../research/CopenhagenFormat/eng.json), [research/CopenhagenFormat/org.json](../research/CopenhagenFormat/org.json), and [research/CopenhagenFormat/validated.json](../research/CopenhagenFormat/validated.json).
-- Stack and operational reference: the PEMPal demo, notably [api/main.py](../../OSI/PemPal-Demo-1/api/main.py), [api/auth.py](../../OSI/PemPal-Demo-1/api/auth.py), [etl/common/logging_config.py](../../OSI/PemPal-Demo-1/etl/common/logging_config.py), and [docker-compose.yml](../../OSI/PemPal-Demo-1/docker-compose.yml).
+- Stack and operational conventions: FastAPI on Uvicorn, PostgreSQL in Docker Compose, `.env`-based configuration, HTTP Basic middleware, same-process static UI mount, and a shared logging module with a custom `TRACE` level (see Section 1.1).
 
 ### 3.2 Assumptions to reconcile
 
@@ -91,18 +91,18 @@ These are decisions this document makes at boundaries owned by other specificati
 
 | Concern | Choice | Rationale |
 | --- | --- | --- |
-| Language | Python 3.11+ | Matches PEMPal and keeps the API, resolver, and ETL in one language. |
-| Web framework | FastAPI on Uvicorn | Same as PEMPal. Typed request/response models, automatic OpenAPI, dependency injection for the DB session. |
+| Language | Python 3.11+ | Keeps the API, resolver, and ETL in one language. |
+| Web framework | FastAPI on Uvicorn | Typed request/response models, automatic OpenAPI, dependency injection for the DB session. |
 | Validation / DTOs | Pydantic v2 | Request and response models, ingredient field validation at the edge. |
-| ORM | SQLAlchemy 2.0 (typed, declarative) | Divergence from PEMPal's raw SQL. The CRUD surface and the association join are relational and benefit from an ORM. |
-| Migrations | Alembic | Divergence from PEMPal's `schema.sql` + apply script. Schema evolves across CRUD entities, so versioned migrations are warranted. |
-| Database | PostgreSQL 15 | Same engine as PEMPal, without PostGIS (no geometry here). |
+| ORM | SQLAlchemy 2.0 (typed, declarative) | The CRUD surface and the association join are relational and benefit from an ORM over hand-written SQL. |
+| Migrations | Alembic | Schema evolves across CRUD entities, so versioned migrations are preferred to a single `schema.sql` apply script. |
+| Database | PostgreSQL 15 | Relational store with `jsonb` support; PostGIS is not required (no geometry). |
 | Ingredient storage | `jsonb` column | Preserves the Copenhagen/Burrito ingredient verbatim for round-trip fidelity, while allowing indexed queries on derived rows. |
-| DB driver | `psycopg2-binary` | Matches PEMPal's driver; works with SQLAlchemy 2.0. |
-| Config | `python-dotenv` + environment | Same `.env` pattern as PEMPal. |
-| Auth | HTTP Basic via Starlette middleware | Same simple gate as PEMPal's [`BasicAuthMiddleware`](../../OSI/PemPal-Demo-1/api/auth.py). |
-| Logging | Shared module with a custom `TRACE` level | Mirrors PEMPal's [`logging_config`](../../OSI/PemPal-Demo-1/etl/common/logging_config.py) so getter-style reads log at `TRACE`. |
-| Tests | Pytest + Starlette `TestClient` | Matches PEMPal's test tooling. |
+| DB driver | `psycopg2-binary` | Works with SQLAlchemy 2.0. |
+| Config | `python-dotenv` + environment | Local Compose defaults via `.env`. |
+| Auth | HTTP Basic via Starlette middleware | Simple gate for the POC: one shared username/password for API, UI, and docs. |
+| Logging | Shared module with a custom `TRACE` level | Getter-style reads log at `TRACE` (numeric `5`, below `DEBUG`). |
+| Tests | Pytest + Starlette `TestClient` | API and adapter contract tests. |
 
 ### 4.1 Dependencies
 
@@ -161,7 +161,7 @@ flowchart TD
 
 ### 5.1 Request lifecycle
 
-1. Every request passes through the HTTP Basic middleware first, including static assets and the OpenAPI docs, exactly as PEMPal gates everything. Unauthenticated requests get `401` with a `WWW-Authenticate` challenge.
+1. Every request passes through the HTTP Basic middleware first, including static assets and the OpenAPI docs. Unauthenticated requests get `401` with a `WWW-Authenticate` challenge.
 2. Authenticated requests route to a router. The router validates the request body or query with a Pydantic model.
 3. Handlers acquire a database session through a FastAPI dependency (`Depends(get_session)`), which yields a session and closes it after the response, committing on success and rolling back on error.
 4. Handlers that resolve references call the resolver port. Handlers that ingest files call the ingest port. Both ports are thin adapters over the imported implementation modules, so the API depends on a stable signature rather than on internals.
@@ -169,12 +169,12 @@ flowchart TD
 
 ### 5.2 Configuration
 
-Read from environment (loaded from `.env` at startup, following PEMPal). All have defaults suitable for local Compose.
+Read from environment (loaded from `.env` at startup). All have defaults suitable for local Compose.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `POSTGRES_HOST` | `localhost` | Database host. |
-| `POSTGRES_PORT` | `5433` | Database port (Compose maps container `5432` to host `5433`, as PEMPal does). |
+| `POSTGRES_PORT` | `5433` | Database port (Compose maps container `5432` to host `5433`). |
 | `POSTGRES_DB` | `frvt` | Database name. |
 | `POSTGRES_USER` | `frvt` | Database user. |
 | `POSTGRES_PASSWORD` | `frvt` | Database password. |
@@ -188,7 +188,7 @@ Configuration is centralized in a single settings object (a Pydantic `BaseSettin
 
 ### 5.3 Authentication
 
-Reuse PEMPal's approach verbatim in shape: a `BaseHTTPMiddleware` subclass that validates the `Authorization: Basic` header against the configured credentials using `secrets.compare_digest`, and returns `401` with `WWW-Authenticate: Basic realm="FRVT"` on failure. Credentials are cached with `lru_cache`. This gates the API, the static UI, and the `/docs` page. This is a simple gate only and is not a production authentication system.
+Implement HTTP Basic as a `BaseHTTPMiddleware` subclass that validates the `Authorization: Basic` header against the configured credentials using `secrets.compare_digest`, and returns `401` with `WWW-Authenticate: Basic realm="FRVT"` on failure. Credentials are cached with `lru_cache`. This gates the API, the static UI, and the `/docs` page. This is a simple gate only and is not a production authentication system.
 
 ### 5.4 Error contract
 
@@ -216,17 +216,17 @@ All error responses share one JSON envelope so the UI can handle them uniformly:
 | `413` | Upload exceeds `MAX_UPLOAD_BYTES`. |
 | `422` | A file or ingredient fails schema or content validation (invalid ingredient, USX that does not parse into spans). FastAPI also emits `422` for request-model validation. |
 | `500` | Unexpected server error. |
-| `503` | Database unavailable, matching PEMPal's behavior. |
+| `503` | Database unavailable. |
 
 A fixed `code` vocabulary: `bad_request`, `unauthorized`, `not_found`, `conflict`, `payload_too_large`, `validation_failed`, `internal_error`, `database_unavailable`.
 
 ### 5.5 Static UI serving
 
-Mount the UI directory at `/` with `StaticFiles(html=True)`, exactly as PEMPal mounts `web/`. The mount comes after the API routes so `/api/...` is never shadowed. The middleware still gates static assets.
+Mount the UI directory at `/` with `StaticFiles(html=True)`. The mount comes after the API routes so `/api/...` is never shadowed. The middleware still gates static assets.
 
 ### 5.6 Logging
 
-Reuse PEMPal's logging module shape under a `frvt` logger root: a custom `TRACE` level (numeric `5`, below `DEBUG`) added to `logging.Logger`, a single stream handler configured once, and `get_logger(__name__)` used at import time. Per the project logging rules, these APIs check the level before building the message, so callers pass format args rather than pre-building strings. Logging expectations for generated code are in [Section 10.2](#102-logging).
+Use a shared logging module under a `frvt` logger root: a custom `TRACE` level (numeric `5`, below `DEBUG`) added to `logging.Logger`, a single stream handler configured once, and `get_logger(__name__)` used at import time. Per the project logging rules, these APIs check the level before building the message, so callers pass format args rather than pre-building strings. Logging expectations for generated code are in [Section 10.2](#102-logging).
 
 ---
 
@@ -782,10 +782,10 @@ frvt/
   api/
     main.py            # app bootstrap, middleware, static mount, router include
     config.py          # Pydantic settings object
-    auth.py            # HTTP Basic middleware (mirrors PemPal)
+    auth.py            # HTTP Basic middleware
     db.py              # engine, session factory, get_session dependency
     errors.py          # error envelope, exception handlers, code vocabulary
-    logging_config.py  # shared logger with TRACE level (mirrors PemPal)
+    logging_config.py  # shared logger with TRACE level
     ports/
       resolver_port.py # adapter over frvt.resolver
       ingest_port.py   # adapter over frvt.ingest
@@ -828,7 +828,7 @@ Every new field and non-overriding method, at every access level, carries an ori
 Using the shared logger (Section 5.6), which checks the level before formatting:
 
 - Public backend method invocations log at `DEBUG` with enough arguments to troubleshoot (for example, `logger.debug("Resolving ref=%s from=%s to=%s", ref, from_id, to_id)`).
-- Caught exceptions log at `ERROR` with `exc_info=True`, matching PEMPal's handlers, before mapping to the error envelope.
+- Caught exceptions log at `ERROR` with `exc_info=True` before mapping to the error envelope.
 - Getter-style reads that do not modify state log at `TRACE`.
 - Do not pre-check the level except when building a genuinely large string inline with the call.
 
