@@ -35,8 +35,8 @@ The server follows these stack and operational conventions: FastAPI on Uvicorn, 
 
 ### 2.2 Non-goals (owned by other specifications)
 
-- **Resolver internals.** The algorithm that pivots through a base translation and classifies relations is specified in [frvt-3-resolver-1.md](./frvt-3-resolver-1.md). This document defines only the callable the API invokes and the data it exchanges. See [Section 8.1](#81-resolver-contract).
-- **ETL/ingest internals.** Parsing USX into verse spans, converting VRS to a Copenhagen ingredient, validating an ingredient, and deriving `mapping_record` rows are specified in [frvt-3-resolver-1.md](./frvt-3-resolver-1.md) (§§7–8). This document defines only the callables the ingest endpoints invoke. See [Section 8.2](#82-etl--ingest-contract).
+- **Resolver internals.** The algorithm that pivots through a base translation and classifies relations is specified in [frvt-3-resolver-and-etl-spec-1.md](./frvt-3-resolver-and-etl-spec-1.md). This document defines only the callable the API invokes and the data it exchanges. See [Section 8.1](#81-resolver-contract).
+- **ETL/ingest internals.** Parsing USX into verse spans, converting VRS to a Copenhagen ingredient, validating an ingredient, and deriving `mapping_record` rows are specified in [frvt-3-resolver-and-etl-spec-1.md](./frvt-3-resolver-and-etl-spec-1.md) (§§7–8). This document defines only the callables the ingest endpoints invoke. See [Section 8.2](#82-etl--ingest-contract).
 - **UI.** The React frontend, the overlay rendering of outlines and connectors, and client-side navigation are specified elsewhere. This document defines the API the UI consumes.
 - **Versification detection.** The POC does not run the Copenhagen sniffer. Detection happens outside the tool; the tool ingests the resulting files. This matches the POC scope.
 - **Production concerns.** Authentication beyond a simple gate, horizontal scaling, and multi-tenancy are out of scope, consistent with the POC.
@@ -320,7 +320,7 @@ A single Bible translation loaded into the tool.
 | `created_at` | `timestamptz` not null default now | |
 | `updated_at` | `timestamptz` not null default now | Updated on write. |
 
-Deleting a translation cascades to its verse spans and its association rows. It does not delete versification schemes, which can be shared by other translations via new or remaining associations. Deleting a translation that is referenced as `versification_scheme.based_on_id` is rejected (`409 conflict` / `ON DELETE RESTRICT`) so numbering-space anchors in scheme chains stay consistent. That FK is for chain integrity: resolution maps BCV coordinates through `mapping_record` rows and does not require the base translation’s verse text (see [frvt-3-resolver-1.md](./frvt-3-resolver-1.md) §1.1 and requirements A20).
+Deleting a translation cascades to its verse spans and its association rows. It does not delete versification schemes, which can be shared by other translations via new or remaining associations. Deleting a translation that is referenced as `versification_scheme.based_on_id` is rejected (`409 conflict` / `ON DELETE RESTRICT`) so numbering-space anchors in scheme chains stay consistent. That FK is for chain integrity: resolution maps BCV coordinates through `mapping_record` rows and does not require the base translation’s verse text (see [frvt-3-resolver-and-etl-spec-1.md](./frvt-3-resolver-and-etl-spec-1.md) §1.1 and requirements A20).
 
 #### 6.1.2 `verse_span`
 

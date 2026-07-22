@@ -8,7 +8,7 @@
 
 ## 1. Overview
 
-This specification describes the frontend for the versification viewer proof-of-concept (POC). The POC displays two Bible translations side by side and aligns them across differing versifications, as described in [research/frvt-versification-viewer-poc-1.md](../research/frvt-versification-viewer-poc-1.md). The HTTP API this UI consumes is defined in [frvt-3-server-db-api-design-1.md](frvt-3-server-db-api-design-1.md).
+This specification describes the frontend for the versification viewer proof-of-concept (POC). The POC displays two Bible translations side by side and aligns them across differing versifications, as described in [research/frvt-versification-viewer-poc-1.md](../research/frvt-versification-viewer-poc-1.md). The HTTP API this UI consumes is defined in [frvt-3-server-and-api-spec-1.md](frvt-3-server-and-api-spec-1.md).
 
 The frontend has four responsibilities:
 
@@ -40,7 +40,7 @@ The UI is a React + TypeScript SPA. Vite emits built assets to `frvt/web/dist/`;
 
 ### 2.2 Non-goals (owned by other specifications)
 
-- **HTTP API, database, and server bootstrap.** Defined in [frvt-3-server-db-api-design-1.md](frvt-3-server-db-api-design-1.md). This document consumes those endpoints and flags reconciliation items only.
+- **HTTP API, database, and server bootstrap.** Defined in [frvt-3-server-and-api-spec-1.md](frvt-3-server-and-api-spec-1.md). This document consumes those endpoints and flags reconciliation items only.
 - **Resolver internals.** Mapping pivot and relation classification are specified elsewhere. The UI consumes `ResolveResult` and its `relation` field (values from the `relation_type` vocabulary) as given.
 - **ETL/ingest internals.** Parsing and ingredient derivation are specified elsewhere. The UI only posts files and displays validation errors from the envelope.
 - **Versification detection.** No sniffer UI. Detection remains external.
@@ -78,7 +78,7 @@ Every POC capability the UI owns traces to a screen or component and the API sur
 
 - Architecture and capabilities: [research/frvt-versification-viewer-poc-1.md](../research/frvt-versification-viewer-poc-1.md).
 - Domain background: [research/frvt-versification-standards-and-tooling-1.md](../research/frvt-versification-standards-and-tooling-1.md).
-- API, auth, error envelope, static mount, and DTOs: [frvt-3-server-db-api-design-1.md](frvt-3-server-db-api-design-1.md).
+- API, auth, error envelope, static mount, and DTOs: [frvt-3-server-and-api-spec-1.md](frvt-3-server-and-api-spec-1.md).
 - Relation vocabulary: server §6.2.
 - Locked product decisions from FRVT-3 UI design review (this document's §3.2).
 
@@ -487,7 +487,7 @@ When `relation === "exclude"` and `target_spans` is empty:
 
 ## 9. API consumption boundary
 
-The UI consumes the contract in server [§7](frvt-3-server-db-api-design-1.md#7-api-contract). This section defines client conventions and reconciliation asks only. It does not redefine DTO fields except where a required gap is called out in §9.2.
+The UI consumes the contract in server [§7](frvt-3-server-and-api-spec-1.md#7-api-contract). This section defines client conventions and reconciliation asks only. It does not redefine DTO fields except where a required gap is called out in §9.2.
 
 ### 9.1 Client conventions
 

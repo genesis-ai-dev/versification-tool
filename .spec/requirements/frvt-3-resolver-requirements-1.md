@@ -8,9 +8,9 @@ translation’s **preferred** scheme. This avoids requiring a full
 N-squared set of pairwise scheme mappings.
 
 The resolver is a Python module invoked in-process by the FastAPI application
-(see [frvt-3-server-db-api-design-1.md](./frvt-3-server-db-api-design-1.md)
+(see [frvt-3-server-and-api-spec-1.md](../frvt-3-server-and-api-spec-1.md)
 §8.1 and the resolver specification
-[frvt-3-resolver-1.md](./frvt-3-resolver-1.md)). HTTP transport,
+[frvt-3-resolver-and-etl-spec-1.md](../frvt-3-resolver-and-etl-spec-1.md)). HTTP transport,
 auth, and persistence ownership stay with the API design; this document and the
 resolver spec own ingest derivation of mapping rows and the resolution
 algorithm.
@@ -24,9 +24,9 @@ implementing; change them there, not by editing scattered prose.
 
 Reference samples for schema and layout:
 
-- Copenhagen/Burrito schema and examples: [research/CopenhagenFormat/](../research/CopenhagenFormat/)
-- Canonical base ingredients: [research/CopenhagenFormat/](../research/CopenhagenFormat/) (`eng.json`, `org.json`, …)
-- Paratext VRS samples: [research/ParatextFormat/](../research/ParatextFormat/) (`eng.vrs`, `org.vrs`, `lxx.vrs`, …)
+- Copenhagen/Burrito schema and examples: [research/CopenhagenFormat/](../../research/CopenhagenFormat/)
+- Canonical base ingredients: [research/CopenhagenFormat/](../../research/CopenhagenFormat/) (`eng.json`, `org.json`, …)
+- Paratext VRS samples: [research/ParatextFormat/](../../research/ParatextFormat/) (`eng.vrs`, `org.vrs`, `lxx.vrs`, …)
 
 # Scope
 
@@ -71,7 +71,7 @@ design disagree, reconcile both; do not silently diverge.
 | A11 | Rules for combining successive relation types across hops (beyond A6), and the deterministic `shift` vs `renumber` classifier for `mappedVerses`, are TBD. |
 | A12 | POC translation text format is USX. Prefer USX because it is XML: standard tooling, fail-fast on malformed input. |
 | A13 | USFM-only projects are accepted by converting USFM → USX (e.g. usfm-grammar or equivalent) before parse/persist. Conversion failure is an ingest failure. |
-| A14 | A Paratext/DBL-style project input is a zip. Expected layout: `metadata.xml`, `release/USX_1/*.usx` (or `release/USX_*`), and `release/versification.vrs` (not necessarily `custom.vrs`). Ingest must locate USX under a `release/USX_*` (or equivalent) tree and a `.vrs` versification when present. Standalone VRS examples live under [research/ParatextFormat/](../research/ParatextFormat/). Exact required-file policy beyond this layout is TBD; missing expected content fails closed. |
+| A14 | A Paratext/DBL-style project input is a zip. Expected layout: `metadata.xml`, `release/USX_1/*.usx` (or `release/USX_*`), and `release/versification.vrs` (not necessarily `custom.vrs`). Ingest must locate USX under a `release/USX_*` (or equivalent) tree and a `.vrs` versification when present. Standalone VRS examples live under [research/ParatextFormat/](../../research/ParatextFormat/). Exact required-file policy beyond this layout is TBD; missing expected content fails closed. |
 | A15 | In a project ingest, a successful USX parse yields a `TRANSLATION` and its `VERSE_SPAN`s, and the **required** versification file yields a `VERSIFICATION_SCHEME` (ingredient stored verbatim), derived `MAPPING_RECORD`s (A19), and a `TRANSLATION_VERSIFICATION` linking scheme to that translation and marked **preferred** (the default scheme, A25). All of these are persisted together or not at all (all-or-nothing project ingest); a missing versification file or any failure aborts the ingest with nothing persisted. |
 | A16 | A versification-only input (VRS or Copenhagen/Burrito) creates an unassociated scheme; association to an existing `TRANSLATION` is a separate API step. Ingest of the file does not create a translation. |
 | A17 | The Copenhagen/Burrito ingredient’s `basedOn` names the base (e.g. `"org"`). Ingestion looks up an existing `TRANSLATION` by that name, stores `based_on_name` (display) and `based_on_id` (FK to that translation) (A1). For uploaded/ingested schemes a missing `basedOn` defaults to `org` (A22); the named base translation is guaranteed present because canonical anchors are bootstrapped (A21). Unresolvable `basedOn` (a name that matches no bootstrapped anchor or prior translation) is an ingest failure. The null-`basedOn` root case (A1) applies only to bootstrapped canonical roots, not to uploads. |
@@ -125,7 +125,7 @@ section defines required ingest behavior only.
 # Schema
 
 Aligned with the API data model
-([frvt-3-server-db-api-design-1.md](./frvt-3-server-db-api-design-1.md)
+([frvt-3-server-and-api-spec-1.md](../frvt-3-server-and-api-spec-1.md)
 §6). Resolver-facing fields only; timestamps and CRUD-only columns omitted.
 
 ```mermaid
@@ -210,7 +210,7 @@ erDiagram
 Ingestion implements the [Ingestion workflow](#ingestion-workflow). It has two
 stages: translation ingest (Path A) and the shared versification pipeline
 (both paths). Callables match the API ingest port
-([frvt-3-server-db-api-design-1.md](./frvt-3-server-db-api-design-1.md)
+([frvt-3-server-and-api-spec-1.md](../frvt-3-server-and-api-spec-1.md)
 §8.2).
 
 ## Translation ingest (Path A)
@@ -254,7 +254,7 @@ Failure cases: [Failure / rejection](#failure--rejection).
 ## Contract
 
 Matches the API resolver port
-([frvt-3-server-db-api-design-1.md](./frvt-3-server-db-api-design-1.md)
+([frvt-3-server-and-api-spec-1.md](../frvt-3-server-and-api-spec-1.md)
 §8.1).
 
 - **Inputs:** `source_ref` (bcv or bcvRange, A8) plus an optional separate `part`

@@ -3,8 +3,8 @@
 **Status:** Draft for implementation (implementation-ready interim bindings)
 **Audience:** Developers (or coding agents) implementing `frvt.resolver` and the mapping/ingest derivation pieces of `frvt.ingest`; planners combining this work with API, ORM, and UI delivery.
 **Companion documents:**
-- API / DB / HTTP: [frvt-3-server-db-api-design-1.md](./frvt-3-server-db-api-design-1.md) (contracts §8.1–§8.2, data model §6)
-- Working requirements / assumption ids: [frvt-3-resolver-requirements-1.md](./frvt-3-resolver-requirements-1.md)
+- API / DB / HTTP: [frvt-3-server-and-api-spec-1.md](./frvt-3-server-and-api-spec-1.md) (contracts §8.1–§8.2, data model §6)
+- Working requirements / assumption ids: [frvt-3-resolver-requirements-1.md](./requirements/frvt-3-resolver-requirements-1.md)
 - Samples: [research/CopenhagenFormat/](../research/CopenhagenFormat/), [research/ParatextFormat/](../research/ParatextFormat/)
 - POC context: [research/frvt-versification-viewer-poc-1.md](../research/frvt-versification-viewer-poc-1.md)
 
