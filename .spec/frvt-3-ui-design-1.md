@@ -58,17 +58,17 @@ Every POC capability the UI owns traces to a screen or component and the API sur
 | 1 | Side-by-side display of two translations | `ViewerPage` / `ScriptureColumn` | `GET /api/translations`, `GET /api/translations/{id}/spans` | Spans rendered by `seq`. |
 | 2 | Navigation in one column drives alignment in the other | `ViewerSession` resolve cycle | `GET /api/resolve` | Drive→from / follower→to ([§7.6](#76-resolve-request-mapping)); follower may load a new chapter before scroll ([§6.4](#64-viewer-workflow)). |
 | 3 | Per-column book/chapter/verse selector | `ColumnChrome` / BCV selectors | `GET /api/translations/{id}/navigation`, spans | Verse options from loaded chapter spans when navigation omits verse lists. |
-| 4 | Per-column jump menu | `JumpMenu` | `GET /api/resolve/deltas`, `/misalignments`, `/navigation` | **Blocked** until `navigation_ref` lands ([§9.2](#92-required-api-reconciliation)). |
+| 4 | Per-column jump menu | `JumpMenu` | `GET /api/resolve/deltas`, `/misalignments`, `/navigation` | Unblocked: server provides discrete `navigation_ref` / `navigation` ([§9.2](#92-required-api-reconciliation) #1). |
 | 5 | Outlines around mapped verses and partial spans | `MappingOverlay` | `GET /api/resolve` (`part`) | Partial outlines the part node only. |
 | 6 | Connector lines between mapped spans | `OverlayController` | `GET /api/resolve` (`seq`) | Topology by `relation` value; edges follow drive/follower, not left/right ([§8.4](#84-overlay-redraw-pipeline)). |
 | 7 | Always-on highlight of current verse and its lines | `VerseSpan` CSS + overlay | `GET /api/resolve` | Text highlight stays on; connectors follow toggle. |
-| 8 | Toggle for mapping overlays | `ViewerToolbar` `map` URL param | Current `ResolveResult` only | **Not** chapter-wide deltas. Server §2.3 row 8 reword ask: [§9.2](#92-required-api-reconciliation) #5. |
-| 9 | On-the-fly switching of an associated versification | `ColumnChrome` scheme select | `PUT .../versifications/{scheme_id}/active` | Labels via versification list join ([§6.5](#65-switching-versifications)). |
+| 8 | Toggle for mapping overlays | `ViewerToolbar` `map` URL param | Current `ResolveResult` only | **Not** chapter-wide deltas. Server §2.3 row 8 reworded to match ([§9.2](#92-required-api-reconciliation) #5). |
+| 9 | Per-column on-the-fly versification selection (viewer) | `ColumnChrome` scheme select | optional `*_versification` param on resolve / deltas / misalignments / navigation | Local per-request selection sent with all relevant calls; **does not** change the preferred scheme ([§6.5](#65-switching-versifications)). |
 | 10 | Ingest translation plus `custom.vrs` from a zipped project | Empty state + upload modal | `POST /api/ingest/project` | Synchronous; UI blocks on the request. |
 | 11 | Direct upload of VRS and Copenhagen/Burrito files | Manage versifications modal | `POST /api/versifications/upload` | Then associate separately. |
 | 12 | Association of an uploaded versification with a translation | Associate modal; remove association action | `POST` / `DELETE .../versifications/{scheme_id}` | Confirm-delete modal for remove. |
 | 13 | CRUD for translations | `/manage/translations` | Server §7.3 | |
-| 14 | CRUD for associated versifications | `/manage/versifications` + associations | Server §§7.5–7.6 | |
+| 14 | CRUD for associated versifications, incl. changing the **preferred** scheme | `/manage/versifications` + associations | Server §§7.5–7.6 | `PUT .../versifications/{scheme_id}/preferred` sets the default; the preferred association cannot be deleted (server §7.6). |
 
 ---
 
@@ -86,15 +86,15 @@ Every POC capability the UI owns traces to a screen or component and the API sur
 
 These are UI decisions at boundaries shared with sibling specifications. They are collected again in [Section 12](#12-open-questions-and-reconciliation-items).
 
-- **Single active scheme.** Accept one globally active scheme per translation for the POC. Activation from either column invalidates all affected mapping data. If the same translation appears in both columns, both columns necessarily share that scheme.
-- **BCV grammar.** Use the server grammar, including verse `0` and optional parts. `GET /api/resolve` receives only a single concrete span. Range-based jump entries carry a server-provided `navigation_ref`; the frontend does not duplicate a BCV range parser.
+- **Preferred scheme vs. per-request selection.** Each translation has one **preferred** scheme (its default), managed only through the CRUD screens (`PUT .../preferred`, server §7.6); the ingested scheme is preferred by default and the preferred association cannot be deleted. In the side-by-side viewer, each column independently **selects** a versification (from that translation's associated schemes) that is passed as an optional `*_versification` override on every relevant request; this selection is per-request UI state and **never** changes the preferred scheme. When a column makes no selection, requests omit the param and the server falls back to that translation's preferred scheme. Changing a column's selection invalidates that column's affected mapping data. The two columns select independently and need not share a scheme.
+- **BCV grammar.** Use the server grammar, including verse `0`. A sub-verse part is sent as a separate `part` param, never embedded in the `ref` (server §3.2). `GET /api/resolve` receives one concrete verse `ref` plus an optional `part`. Range-based jump entries carry a server-provided discrete `navigation_ref` / structured `navigation`; the frontend never parses a BCV range.
 - **Resolve denormalization.** Require individual source and target spans suitable for DOM anchoring. Splits return one-to-many, merges include all source siblings, exclusions return an empty target list, and partial mappings carry part identifiers. `seq` remains the stable rendered anchor.
 - **Mapping toggle.** Toggles drawing of the **current** alignment only. It does not load or draw all mappings in the chapter.
 - **Exclude presentation.** Connector-to-void: a dashed connector from the source toward a void terminator in the inter-column gutter. No invented target span.
 - **Visual language.** Relation-colored outlines, branch/converge topology, line patterns, and textual labels form the v1 baseline. Iteration after the first usable build is expected and allowed.
 - **Desktop only.** Target usable layout at approximately 1280px and above. No mobile collapse.
 - **Manage IA.** Separate routes away from the viewer. Modals only for upload, rename, associate, remove association, and confirm-delete.
-- **Empty state.** When no translations exist, require project upload through an explanatory empty state. Seeded fixtures are appropriate for development, automated tests, and demonstrations only — not as default production content.
+- **Empty state.** When no translations exist, require project upload through an explanatory empty state. Bootstrapped canonical numbering-space anchors (`org`, `eng`, ...) are excluded server-side from `GET /api/translations` (server §5.7), so a clean install still reports `total === 0` and shows the empty state; the UI needs no client-side anchor filtering. Seeded fixtures are appropriate for development, automated tests, and demonstrations only — not as default production content.
 - **Auth.** Rely on the browser's native HTTP Basic prompt.
 - **Verse 0 display.** Show both `Title` and `0` (for example `Title (0)`). Machine/API value remains `0`.
 - **Styling.** Dark, understated, VS Code–like via semantic tokens. Not described as pixel-accurate Codex/Aquilla reproduction.
@@ -274,24 +274,26 @@ After a successful resolve:
 
 Follower **scroll offset** is derived, not stored in the URL. Follower **book/chapter/verse** after a cross-chapter resolve **are** written to the URL so refresh stays consistent.
 
-### 6.5 Switching versifications
+### 6.5 Selecting a versification (viewer)
 
-1. User selects another associated scheme in a column's scheme control.
-2. Scheme option labels: baseline is `GET /api/translations/{id}/versifications` joined to `GET /api/versifications` by `scheme_id` to obtain `name` / `canonical` / `based_on`. If the server later enriches `AssociationOut` ([§9.2](#92-required-api-reconciliation) optional), use the enriched fields and skip the join.
-3. UI calls `PUT /api/translations/{id}/versifications/{scheme_id}/active`.
-4. Session invalidates resolve (and delta/misalignment caches) for that translation.
+The viewer's scheme control performs a **per-request selection**, not a preferred-scheme change. Changing the preferred (default) scheme is a CRUD-only action on `/manage/versifications` (`PUT .../preferred`, server §7.6) and is out of the viewer flow.
+
+1. User selects one of the column translation's associated schemes in that column's scheme control (or "Preferred (default)" to clear the selection).
+2. Scheme option labels: baseline is `GET /api/translations/{id}/versifications` joined to `GET /api/versifications` by `scheme_id` to obtain `name` / `canonical` / `based_on_name`, with the preferred association marked. If the server later enriches `AssociationOut` ([§9.2](#92-required-api-reconciliation) optional), use the enriched fields and skip the join.
+3. The UI stores the selected `scheme_id` in that column's URL param (`lvers` / `rvers`) — **no PUT**. The selection is sent as the `*_versification` override on every subsequent resolve / deltas / misalignments / navigation request for that side; clearing it omits the param so the server uses the preferred scheme.
+4. Session invalidates resolve (and delta/misalignment/navigation caches) for that column.
 5. Re-resolve the current driving ref; redraw overlay.
 6. Column text order remains `seq` order; only connectors and highlights change.
 
-If both columns display the same translation, both necessarily reflect the newly active scheme.
+Because the selection is per column and per request, the two columns select independently; the preferred scheme is untouched, so refreshing without the param reverts to the default.
 
-Removing an association uses the confirm-remove-association modal and `DELETE /api/translations/{id}/versifications/{scheme_id}`. If the removed association was active, the next resolve returns `409` until another scheme is activated; the UI shows an actionable “No active versification — select one” state on that translation.
+Removing an association is a CRUD action (confirm-remove-association modal, `DELETE /api/translations/{id}/versifications/{scheme_id}`). The **preferred** association cannot be removed (server returns `409`); the manage UI disables its remove control and directs the user to first make another association preferred. If a column's selected (non-preferred) scheme is removed elsewhere, the UI clears that column's `*vers` param and falls back to preferred.
 
 ### 6.6 Jump menu
 
-**Blocked** until server reconciliation item [§9.2](#92-required-api-reconciliation) #1 lands. Until then, ship arbitrary BCV selectors only; do not attempt to parse range-form `source_ref` for jumps.
+**Unblocked:** the server provides discrete `navigation_ref` / structured `navigation` on jump entries (server §7.9). The UI never parses range-form `source_ref`; it navigates using `navigation` (preferred) or `navigation_ref`, and renders `source_ref` / `base_ref` only as display labels.
 
-Once unblocked, each column provides:
+Each column provides:
 
 1. **Mapped deltas** — `GET /api/resolve/deltas`. Display `source_ref` / `base_ref` as labels. Navigate using `navigation` (preferred) or `navigation_ref`.
 2. **Misalignment categories** — `GET /api/resolve/misalignments` with categories `psalm_title`, `chapter_boundary`, `chapter_count`, `lxx_psalm`, `synodal`, `nt_omission`, `other` (human labels owned by the UI). Same navigation rule.
@@ -310,10 +312,11 @@ Selecting a jump entry sets that column's structured BCV from the structured `na
 | `left`, `right` | Translation UUIDs |
 | `lb`, `lc`, `lv`, `lp` | Left book, chapter, verse, part (`lp` empty if none) |
 | `rb`, `rc`, `rv`, `rp` | Right book, chapter, verse, part |
+| `lvers`, `rvers` | Per-column selected versification scheme UUID (the `*_versification` override); empty/absent means use that translation's preferred scheme |
 | `drive` | `left` \| `right` — which column last drove navigation (resolve direction) |
 | `map` | `1` \| `0` — overlay connectors on/off for the current alignment |
 
-Defaults when data exists but params are missing: first two translations (or one + unset second), first book/chapter/verse from navigation/spans, `drive=left`, `map=1`.
+Defaults when data exists but params are missing: first two translations (or one + unset second), first book/chapter/verse from navigation/spans, `lvers`/`rvers` empty (preferred scheme), `drive=left`, `map=1`.
 
 Follower **scroll offset** is derived from resolve, not stored in the URL. After a cross-chapter resolve, the follower's book/chapter/verse **are** written to the URL ([§6.4](#64-viewer-workflow)).
 
@@ -321,9 +324,10 @@ Follower **scroll offset** is derived from resolve, not stored in the URL. After
 
 | State | Location |
 | --- | --- |
-| Cached spans per `(translationId, book, chapter)` | Session |
-| Cached navigation and associations per translation | Session |
-| Latest `ResolveResult` for the current alignment | Session |
+| Cached spans per `(translationId, book, chapter)` | Session — versification-independent (spans render by `seq`, server §6.1.2) |
+| Cached associations per translation | Session |
+| Cached navigation per `(translationId, selectedSchemeId ?? "preferred")` | Session — navigation varies by selected versification, so the key includes it |
+| Latest `ResolveResult` for the current alignment, keyed by `(from, to, ref, part, fromVers, toVers)` | Session — the selected `*_versification` overrides are part of the key, so switching a column's selection does not reuse a stale result |
 | Loading flags and `ApiError` banners | Session |
 | Scroll-lock (suppress resolve loops during programmatic scroll) | Session |
 | Modal open + draft fields | Local to manage / empty-state hosts |
@@ -334,21 +338,25 @@ Follower **scroll offset** is derived from resolve, not stored in the URL. After
 - DrawPlan = visual-language table × measured anchor rects × `relation`.
 - Empty viewer = `translations.total === 0`.
 - One-translation viewer = `total === 1` or only one of `left`/`right` set ([§6.3](#63-empty-and-one-translation-states)).
-- Can switch scheme = associations length > 0 for that translation.
-- Resolve enabled = both translation ids set and each has an active scheme.
+- Can select scheme = associations length > 0 for that translation.
+- Selected scheme per column = `lvers`/`rvers` when set (and still associated), else the translation's preferred scheme (resolved server-side).
+- Resolve enabled = both translation ids set and each has at least one associated scheme (a per-column selection is optional; the server falls back to preferred).
 
-### 7.4 Building single-verse refs
+### 7.4 Building resolve args
 
-The client builds resolve `ref` strings only from structured column fields it already holds:
+The client builds the resolve `ref` and `part` only from structured column fields it already holds. The **part is never concatenated into the `ref`** — it is sent as a separate `part` query param (server §3.2, §7.8):
 
 ```ts
-function toSingleRef(book: string, chapter: number, verse: number, part: string | null): string {
-  const base = `${book} ${chapter}:${verse}`;
-  return part ? `${base}${part}` : base;
+// Returns the single-verse `ref` (no part) and the part separately, matching the
+// GET /api/resolve `ref` + optional `part` params (§7.6).
+function toResolveArgs(
+  book: string, chapter: number, verse: number, part: string | null,
+): { ref: string; part: string | null } {
+  return { ref: `${book} ${chapter}:${verse}`, part };
 }
 ```
 
-Examples: `PSA 3:0`, `GEN 1:1`, `SIR 36:13a`. Never parse a range such as `PSA 3:0-8` on the client.
+Examples: `{ ref: "PSA 3:0", part: null }`, `{ ref: "GEN 1:1", part: null }`, `{ ref: "SIR 36:13", part: "a" }`. Never embed a part in the ref, and never parse a range such as `PSA 3:0-8` on the client.
 
 ### 7.5 Verse 0 labeling
 
@@ -359,14 +367,16 @@ Examples: `PSA 3:0`, `GEN 1:1`, `SIR 36:13a`. Never parse a range such as `PSA 3
 
 ### 7.6 Resolve request mapping
 
-`GET /api/resolve` requires `from_translation`, `to_translation`, and a single-verse `ref` (server §7.8). Derive them from URL state as follows:
+`GET /api/resolve` requires `from_translation`, `to_translation`, a single-verse `ref`, and an optional separate `part` (server §7.8), plus the optional per-column `from_versification` / `to_versification` overrides. Derive them from URL state as follows:
 
-| Condition | `from_translation` | `to_translation` | `ref` |
-| --- | --- | --- | --- |
-| `drive=left` | `left` | `right` | `toSingleRef` of left BCV (`lb/lc/lv/lp`) |
-| `drive=right` | `right` | `left` | `toSingleRef` of right BCV (`rb/rc/rv/rp`) |
+| Condition | `from_translation` | `to_translation` | `ref` + `part` | `from_versification` | `to_versification` |
+| --- | --- | --- | --- | --- | --- |
+| `drive=left` | `left` | `right` | `toResolveArgs` of left BCV (`lb/lc/lv/lp`) | `lvers` if set | `rvers` if set |
+| `drive=right` | `right` | `left` | `toResolveArgs` of right BCV (`rb/rc/rv/rp`) | `rvers` if set | `lvers` if set |
 
-Do not call resolve when either translation id is missing, or when either side lacks an active scheme (expect `409` if called anyway). The driving column owns `source_spans`; the follower owns `target_spans`.
+Send a `*_versification` param only when the corresponding column has a selection; omit it to let the server use that translation's preferred scheme. The same `*_versification` (or single `versification`) params are attached to the column's deltas, misalignments, and navigation requests so every relevant call reflects the current selection.
+
+Do not call resolve when either translation id is missing, or when either side has no associated scheme (expect `409 no_preferred_scheme` if called anyway). The driving column owns `source_spans`; the follower owns `target_spans`. A `complex` result returns the full source/target hull with `edges`; the driving column owns all `source_spans`, the follower all `target_spans`, and connectors follow `edges` (§8).
 
 ---
 
@@ -391,6 +401,7 @@ Provisional dark VS Code–like tokens (exact values may iterate after first usa
 | `--rel-merge` | `merge` | `#569cd6` |
 | `--rel-partial` | `partial` | `#9cdcfe` |
 | `--rel-exclude` | `exclude` | `#f44747` |
+| `--rel-complex` | `complex` (hull fallback when an edge has no color) | `#d7ba7d` |
 | `--void` | Void terminator | `#6a6a6a` |
 
 ### 8.2 Relation visual language (v1 baseline)
@@ -406,6 +417,7 @@ This table is the implementable baseline. Topology rules (branch, converge, to-v
 | `merge` | `--rel-merge`; target emphasis, thinner sources | solid 2px | **converge** N→1 | `merge` |
 | `partial` | `--rel-partial`; outline the part box only | dashed 1.5px | direct (or parent cardinality) | `part {id}` |
 | `exclude` | `--rel-exclude`; source only | dashed 1.5px | **connector-to-void** | `absent` |
+| `complex` | per-edge relation color (fallback `--rel-complex`); outline every hull span on both sides | per-edge pattern | **graph**: one connector per `ResolveResult.edges` entry (M↔N) | `complex` at hub; each edge may carry its own relation label |
 
 **Toggle (`map`):** when `0`, clear connector/outline SVG for the alignment. Current-verse **text** highlight may remain via CSS. When `1`, draw the current `ResolveResult` only — never fan out chapter deltas into the overlay.
 
@@ -456,6 +468,7 @@ flowchart TD
    - **direct:** drive span → follower span (straight or shallow cubic).
    - **split (branch):** one drive hub → N follower targets.
    - **merge (converge):** N drive sources → one follower hub.
+   - **complex (graph):** draw one connector per `ResolveResult.edges` entry, linking `source_spans[edge.source_index]` (drive) to `target_spans[edge.target_index]` (follower); color and label each connector by `edge.relation` (fallback `--rel-complex`). Outline every participating hull span on both sides.
    - **to-void:** dashed line from the drive span toward the inter-column gutter, ending at a void terminator (open circle or bar using `--void`). No fake target outline.
 8. Labels: short badge near midpoint or hub per §8.2.
 9. Coalesce triggers into one `requestAnimationFrame`. Attach scroll listeners on both column scrollports and a `ResizeObserver` on the workspace. Cancel on unmount.
@@ -482,7 +495,7 @@ The UI consumes the contract in server [§7](frvt-3-server-db-api-design-1.md#7-
 frvt/web/src/api/
   client.ts       # apiGet / apiSend / apiUpload; credentials: "same-origin"
   errors.ts       # ApiError { status, detail, code, errors? }
-  types.ts        # mirrors server §7.2 (+ navigation_ref once reconciled)
+  types.ts        # mirrors server §7.2 (ResolvedSpan coords, ResolveEdge/edges, NavRef, navigation)
   translations.ts
   spans.ts
   versifications.ts
@@ -499,8 +512,8 @@ frvt/web/src/api/
   - `400` → toast / inline “invalid request”
   - `401` → banner / reload
   - `404` → toast
-  - `409` → actionable message (for example no active scheme)
-  - `413` / `422` → show `errors[]` inside the active modal
+  - `409` → actionable message (for example no preferred scheme, or an override not associated with the translation)
+  - `413` / `422` → show `errors[]` inside the open modal
   - `500` / unknown → generic error banner with `detail` when present
   - `503` → “database unavailable”
 - Uploads use `FormData` via `apiUpload`.
@@ -509,17 +522,21 @@ frvt/web/src/api/
 
 ### 9.2 Required API reconciliation
 
-| # | Ask | Why |
-| --- | --- | --- |
-| **1 (required)** | Add to `DeltaEntry` and `MisalignmentEntry`: `navigation_ref: str` and `navigation: { book: str, chapter: int, verse: int, part: str \| null }`. **Derivation:** `navigation_ref` / `navigation` are the first single verse of `source_ref` in the from-scheme (the range's lower bound; e.g. `PSA 3:0-8` → `PSA 3:0`, part `null`). Single-verse `source_ref` values (including excludes) pass through unchanged. The result must be legal as `ref` for `GET /api/resolve`. | Jump menus must not parse range-form `source_ref`. Capability 4 is blocked until this lands. |
-| **2 (confirm)** | Resolve denormalization as already specified in server §§7.2 / 7.8 / 8.1. | Overlay anchors. |
-| **3 (confirm)** | Single active scheme; `PUT .../active` deactivates the previous. | Scheme switch UX. |
-| **4 (confirm)** | BCV grammar including verse `0` and optional `part`. | Selectors and labels. |
-| **5 (reword)** | Server §2.3 capability row 8 currently ties the overlay toggle to `/api/resolve/deltas`. UI toggle uses the current `ResolveResult` only; other-verse mappings surface via the jump-menu deltas, not a chapter-wide overlay. | Product decision, not cosmetic. |
-| **6 (required)** | Extend `ResolvedSpan` with `book: str`, `chapter: int`, `verse: int` (in addition to existing `ref`, `seq`, `part`) so the UI can load a cross-chapter follower without tokenizing `ref`. | Cross-chapter shift/renumber follower load ([§6.4](#64-viewer-workflow)). |
-| **7 (confirm)** | FastAPI `StaticFiles(html=True)` mounts `frvt/web/dist/` (Vite build output), not `frvt/web/`. | Avoid serving source instead of the bundle. |
+All of the required/reword items below are **resolved** in the reconciled server spec; this table now records the landed contract the UI codes against.
 
-Optional niceties (not blockers): enrich `AssociationOut` with `scheme_name` / `canonical` / `based_on` to avoid the versification-list join for the scheme switcher ([§6.5](#65-switching-versifications)); include verse number lists on `NavBook` if arbitrary jump must work before spans load.
+| # | Ask | Status |
+| --- | --- | --- |
+| **1** | `DeltaEntry` / `MisalignmentEntry` carry `navigation_ref: str` and `navigation: NavRef { book, chapter, verse, part }` (range lower-bound derivation; single-verse `source_ref` passes through; legal as a resolve `ref`). `source_ref` / `base_ref` stay range-form display-only labels. | **Resolved** (server §7.2, §7.9). Capability 4 unblocked. |
+| **2** | Resolve denormalization to individual spans, including `merge` siblings and the `complex` hull with `edges`. | Confirmed (server §7.2 / §7.8 / §8.1). |
+| **3** | Single **preferred** scheme (CRUD-managed via `PUT .../preferred`, previous cleared; preferred not deletable) plus an optional per-request `*_versification` override on coordinate endpoints that defaults to preferred and never mutates it. | Confirmed (server §6.1.4, §7.6, §7.8). |
+| **4** | BCV grammar with verse `0`; the sub-verse **part is a separate `part` param**, never embedded in `ref`. | **Resolved** (server §3.2, §7.8). `toResolveArgs` sends `ref` + `part` ([§7.4](#74-building-resolve-args)). |
+| **5** | Server §2.3 capability row 8 reworded: overlay toggle uses the current `ResolveResult` only; other-verse mappings surface via the jump menu. | **Resolved** (server §2.3 row 8). |
+| **6** | `ResolvedSpan` carries `book`, `chapter`, `verse` (with `ref`, `seq`, `part`) so the UI loads a cross-chapter follower without tokenizing `ref`. | **Resolved** (server §7.2). |
+| **7** | FastAPI `StaticFiles(html=True)` mounts `frvt/web/dist/` (Vite build output), not `frvt/web/`. | Confirmed (server §5.5, §9). |
+
+Additional landed items the UI relies on: the `complex` relation type (many-to-many hull + `edges`, server §6.2 / §7.2) — the overlay must render it ([§8.2](#82-relation-visual-language-v1-baseline)); bootstrapped canonical anchors are excluded from `GET /api/translations`, so the empty state stays upload-first (server §5.7, [§6.3](#63-empty-and-one-translation-states)).
+
+Optional niceties (not blockers): enrich `AssociationOut` with `scheme_name` / `canonical` / `based_on_name` to avoid the versification-list join for the scheme switcher ([§6.5](#65-switching-versifications)); include verse number lists on `NavBook` if arbitrary jump must work before spans load.
 
 ### 9.3 Endpoint usage by screen
 
@@ -529,7 +546,8 @@ Optional niceties (not blockers): enrich `AssociationOut` with `scheme_name` / `
 | Viewer columns | `GET /api/translations`, `.../spans`, `.../navigation`, `.../versifications`, `GET /api/versifications` (scheme labels) |
 | Resolve + overlay | `GET /api/resolve` |
 | Jump menus | `GET /api/resolve/deltas`, `GET /api/resolve/misalignments` (after §9.2 #1) |
-| Scheme activate / remove association | `PUT .../active`, `DELETE .../versifications/{scheme_id}` |
+| Viewer per-column versification selection | `*_versification` override on resolve / deltas / misalignments / navigation (no write) |
+| Set preferred scheme / remove association (CRUD) | `PUT .../versifications/{scheme_id}/preferred`, `DELETE .../versifications/{scheme_id}` (preferred not deletable) |
 | Manage translations | Server §7.3 + ingest + associations |
 | Manage versifications | Server §§7.5–7.7 |
 
@@ -552,7 +570,7 @@ frvt/web/
     api/                         # §9.1
     lib/
       formatRef.ts               # Title (0) display; no range parser
-      bcv.ts                     # toSingleRef from structured fields only
+      bcv.ts                     # toResolveArgs (ref + separate part) from structured fields only
     routes/
       ViewerPage.tsx
       TranslationsManagePage.tsx
@@ -604,12 +622,12 @@ Cover contract behavior, not boilerplate:
 
 - `formatRef` / verse-0 label: `Title (0)` display with machine `0`.
 - Jump handling: uses structured `navigation` / `navigation_ref`; never invokes a range parser.
-- `drawPlan` / `visualLanguage`: fixtures for each `relation` value — direct, split branch counts, merge converge counts, exclude → void stub with zero target outlines, partial part outline; plus `drive=right` edge direction.
+- `drawPlan` / `visualLanguage`: fixtures for each `relation` value — direct, split branch counts, merge converge counts, exclude → void stub with zero target outlines, partial part outline, and `complex` (one connector per `edges` entry, per-edge relation coloring, all hull spans outlined); plus `drive=right` edge direction.
 - Toggle off → empty SVG scene.
 - `ApiError` maps the §5.4 envelope including `400` and `500`.
 - Empty translations → empty-state CTA; one translation → resolve disabled (integration).
-- Activate scheme → invalidate and re-resolve (integration / MSW).
-- Resolve mapping: `drive=left` vs `drive=right` swaps from/to ([§7.6](#76-resolve-request-mapping)).
+- Select a column versification → sets `*vers`, sends `*_versification` override on subsequent calls, invalidates that column's caches, and re-resolves; clearing it falls back to preferred (integration / MSW).
+- Resolve mapping: `drive=left` vs `drive=right` swaps from/to; `toResolveArgs` sends the part as a separate `part` (never embedded in `ref`) ([§7.6](#76-resolve-request-mapping)).
 - Cross-chapter resolve → follower chapter fetch before scroll (integration).
 
 Do not snapshot entire pages for pixel layout. Do not test thin fetch wrappers that only forward arguments.
@@ -632,19 +650,21 @@ Keep files within project size guidance. Shared concerns live once: `api/client`
 
 | Server §11 item | UI answer |
 | --- | --- |
-| Single active scheme | Accepted. One globally active scheme per translation. Activation from either column invalidates affected mapping data. Same translation in both columns shares that scheme. |
-| BCV grammar | Use the server grammar, including verse `0` and optional parts. `/api/resolve` receives only a single concrete span. Range jump entries require server `navigation_ref` (and preferably structured `navigation`). The frontend does not parse BCV ranges. |
+| Single preferred scheme | Accepted. One preferred (default) scheme per translation, CRUD-managed and not deletable. The viewer additionally makes a per-column, per-request versification selection (the `*_versification` override) that defaults to preferred and never mutates it; the two columns select independently. Changing a column's selection invalidates that column's affected mapping data. |
+| BCV grammar | Use the server grammar, including verse `0`. The sub-verse part is sent as a separate `part` param, never embedded in the `ref`. `/api/resolve` receives one concrete verse `ref` plus optional `part`. Range jump entries use server `navigation_ref` / structured `navigation`. The frontend does not parse BCV ranges. |
 | Resolve denormalization | Require individual source and target spans for DOM anchoring. Splits are one-to-many; merges include all source siblings; exclusions return an empty target list; partials carry `part`. `seq` is the stable rendered anchor. |
 
 ### 12.2 UI → server asks
 
-Authoritative detail lives in [§9.2](#92-required-api-reconciliation). Summary:
+Authoritative detail lives in [§9.2](#92-required-api-reconciliation). All required/reword asks are **resolved** in the reconciled server spec. Summary:
 
-1. **`navigation_ref` + structured `navigation`** on jump entries, with lower-bound derivation for ranges (required; blocks capability 4).
-2. **Reword server §2.3 row 8** — overlay toggle is current `ResolveResult` only; other-verse mappings surface via jump-menu deltas, not a chapter-wide overlay.
-3. **`ResolvedSpan` book/chapter/verse** fields (required for cross-chapter follower load without client BCV tokenization).
-4. **Confirm static mount is `frvt/web/dist/`**.
-5. Optional: enrich `AssociationOut`; optional: verse lists on `NavBook`.
+1. **`navigation_ref` + structured `navigation`** on jump entries, range lower-bound derivation — resolved (server §7.2, §7.9); capability 4 unblocked.
+2. **Server §2.3 row 8 reworded** — overlay toggle is current `ResolveResult` only — resolved.
+3. **`ResolvedSpan` book/chapter/verse** — resolved (server §7.2).
+4. **Separate `part` param** (not embedded in `ref`) — resolved (server §3.2, §7.8).
+5. **`complex` relation** (many-to-many hull + `edges`) — the overlay renders it ([§8](#8-visual-language-and-overlay-pipeline)).
+6. **Static mount is `frvt/web/dist/`** — confirmed (server §5.5).
+7. Optional: enrich `AssociationOut`; optional: verse lists on `NavBook`.
 
 ### 12.3 Explicitly deferred (iterate after first usable build)
 
@@ -664,7 +684,8 @@ Authoritative detail lives in [§9.2](#92-required-api-reconciliation). Summary:
 - **`org`:** the original-language (Hebrew/Greek) numbering, the default canonical base.
 - **Span:** an addressable unit of scripture text (`verse_span`), possibly a Psalm title (`verse 0`) or a sub-verse part.
 - **Partial verse:** a mapping that covers only part of a verse, represented by a `part` component.
-- **Relation type (`relation_type`):** the shared vocabulary of mapping classifications (`one_to_one`, `shift`, `renumber`, `split`, `merge`, `exclude`, `partial`). The DTO field that carries a value from this vocabulary is `relation`.
+- **Relation type (`relation_type`):** the shared vocabulary of mapping classifications (`one_to_one`, `shift`, `renumber`, `split`, `merge`, `exclude`, `partial`, and the resolve-time-only `complex`). The DTO field that carries a value from this vocabulary is `relation`.
+- **Complex hull:** a many-to-many resolved alignment; `ResolveResult` returns all participating source and target spans plus `edges` (index pairs, each with its own relation) that the overlay draws as a graph.
 - **Drive column / follower column:** the column named by URL `drive` vs the other; resolve `from_translation`/`source_spans` belong to drive, `to_translation`/`target_spans` to follower.
 - **Current alignment:** the `ResolveResult` for the driving column's current single-verse ref; the only mapping the overlay draws.
 - **Connector-to-void:** exclude presentation: dashed connector from the drive span to a gutter void terminator with no target span.

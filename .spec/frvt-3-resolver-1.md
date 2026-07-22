@@ -29,7 +29,7 @@ Detail level aims at: a moderate-skill implementer (or LLM) can invent concrete 
 | Module layout | Suggested packages (§2); planners may split further |
 | Ordering | Dependencies only (§12); no delivery phases here |
 
-Residual TBDs that need not block core resolve/derive work: cross-book range inputs; exotic part suffixes beyond schema (`ESG 8:12t`); full multi-`ResolutionDTO` packaging for heterogeneous ranges (interim: single DTO, dominant relation).
+Residual TBDs that need not block core resolve/derive work: cross-book range inputs; exotic part suffixes beyond schema (`ESG 8:12t`). Heterogeneous ranges and many-to-many compositions are resolved as one `complex` hull with `edges` (§6.8, A24), not a "dominant relation".
 
 ---
 
@@ -39,9 +39,9 @@ Given a BCV `source_ref` (single verse or same-chapter range) and two schemes, r
 
 ```mermaid
 flowchart LR
-  src["Source active scheme"]
+  src["Source selected scheme"]
   anc["Shared ancestor translation"]
-  tgt["Target active scheme"]
+  tgt["Target selected scheme"]
   src -->|"apply mapping_record hops upward"| anc
   anc -->|"invert mapping_record hops downward"| tgt
 ```
@@ -53,10 +53,10 @@ Uncovered verses on a hop are identity `one_to_one` (same book, chapter, verse, 
 | Used by resolve | Not used by resolve |
 | --- | --- |
 | `mapping_record` (BCV / bcvRange coords + relation) | `VERSE_SPAN.content` |
-| Scheme `based_on_id` / chain + active scheme of each base translation | Semantic equivalence of verse text or parts |
-| Optional `ingredient.maxVerses` / `partialVerses` for bounds or part lists | UI layout |
+| Scheme `based_on_id` / chain + preferred scheme of each base translation | Semantic equivalence of verse text or parts |
+| Optional `ingredient.maxVerses` for bounds; `mapping_record.part` for partial parts | UI layout |
 
-`based_on_id` points at a **translation** because that row is the stable numbering-space node in the chain (look up its active scheme for the next hop; FK prevents deleting an anchor still in use). Mapping rows are already complete as coordinate transforms; the base translation’s text is irrelevant to the algorithm. Text is required only so the API/UI can **display** the caller’s source and target translations after refs are resolved.
+`based_on_id` points at a **translation** because that row is the stable numbering-space node in the chain (look up its preferred scheme for the next hop; FK prevents deleting an anchor still in use). Mapping rows are already complete as coordinate transforms; the base translation’s text is irrelevant to the algorithm. Text is required only so the API/UI can **display** the caller’s source and target translations after refs are resolved.
 
 **Scheme sharing:** A `VERSIFICATION_SCHEME` outlives any single association. Deleting a translation drops its `translation_versification` rows and spans; the scheme and its `mapping_record`s remain for other translations. Deleting a translation that is still referenced as `based_on_id` is rejected—chain integrity, not text dependency.
 
@@ -105,31 +105,49 @@ class SchemeRef:
 
 @dataclass(frozen=True)
 class ResolvedSpanDTO:
-    ref: str                 # single-verse "BOOK C:V" only
+    ref: str                 # single-verse "BOOK C:V" only; the part is carried separately
     part: str | None
+
+@dataclass(frozen=True)
+class ResolutionEdgeDTO:
+    # A single connector in a composite ("complex") result. Indices point into the
+    # ResolutionDTO's source_spans / target_spans tuples; `relation` is the
+    # per-connector relation the UI colors and labels (§3.3).
+    source_index: int
+    target_index: int
+    relation: str
 
 @dataclass(frozen=True)
 class ResolutionDTO:
     source_spans: tuple[ResolvedSpanDTO, ...]
     target_spans: tuple[ResolvedSpanDTO, ...]
-    relation: str
+    relation: str                               # relation_type; "complex" for many-to-many hulls
+    edges: tuple[ResolutionEdgeDTO, ...] = ()    # populated only when relation == "complex"
 
 def resolve(
     session: Session,
     source_ref: str,
-    source_scheme: SchemeRef,
-    target_scheme: SchemeRef,
+    *,
+    source_scheme: SchemeRef | None = None,
+    target_scheme: SchemeRef | None = None,
+    source_translation: UUID | None = None,
+    target_translation: UUID | None = None,
+    part: str | None = None,
 ) -> ResolutionDTO: ...
 ```
 
 | Input / output | Rule |
 | --- | --- |
-| `source_ref` | bcv or same-chapter bcvRange; ranges must not raise |
-| Emitted `ref` | Always single-verse BCV; never `V-V` |
-| `part` | `None` for whole verse; else part id string |
-| Raises | `ReferenceError` invalid grammar / cross-chapter range; `LookupError` missing scheme, missing intermediate active scheme, no shared ancestor |
+| `source_ref` | bcv or same-chapter bcvRange; **no part in the string**; ranges must not raise |
+| `part` (input) | Optional part id passed separately; never concatenated into `source_ref` (A23) |
+| `source_scheme` / `target_scheme` | Optional per side. When given, that concrete scheme is used. When omitted, the resolver loads the corresponding translation's **preferred** scheme (`preferred_scheme_ref`); a side must supply *either* a scheme *or* a translation id |
+| `source_translation` / `target_translation` | Translation ids used only to look up a preferred scheme when the matching `*_scheme` is omitted (per-request selection / preferred default, A26) |
+| Emitted `ref` | Always single-verse BCV; never `V-V`; never carries a part suffix |
+| `part` (output) | `None` for whole verse; else part id string, carried on `ResolvedSpanDTO.part` |
+| `edges` | Empty for atomic relations; for `complex`, one entry per connector (§6.6) |
+| Raises | `ReferenceError` invalid grammar / cross-chapter range; `LookupError` missing scheme, a side with neither scheme nor a translation that has a preferred scheme, missing intermediate preferred scheme, no shared ancestor. The API pre-checks translation existence and the selected scheme (server §7.8) before calling, so those never surface here as `LookupError` |
 
-*Interim:* `SchemeRef` need not include the owning translation id. Chain walking starts at the given scheme; the first hop’s “own” numbering is that scheme’s source side. The next translation is `based_on_id`; its **active** scheme is loaded via `translation_versification` for further hops.
+*Interim:* When a `*_scheme` is supplied the resolver uses it directly and needs no translation id for that side; the API supplies the selected scheme (per-request `*_versification` override, else preferred) so the fallback lookup stays dormant for API calls. When a `*_scheme` is omitted (direct/library callers), the resolver resolves the translation's preferred scheme. Chain walking starts at the resulting scheme; the first hop’s “own” numbering is that scheme’s source side. The next translation is `based_on_id`; its **preferred** scheme is loaded via `translation_versification` for further hops.
 
 ### 3.2 Ingest (API §8.2) — owned here
 
@@ -139,23 +157,26 @@ def ingest_versification(file_bytes: bytes, filename: str) -> tuple[ParsedScheme
 def derive_mapping_records(scheme: ParsedScheme) -> tuple[MappingRecordDTO, ...]: ...
 ```
 
-DTOs match API §8.2. Non-empty `issues` ⇒ API rejects with `422`. Functions do not open DB sessions or commit.
+DTOs match API §8.2. Each `IngestIssue` carries a `kind` (`missing` | `invalid`): a `missing` issue (a required file absent from the input) ⇒ API `400`; an `invalid` issue (content or schema validation failure) ⇒ API `422` (server §8.2). Any non-empty `issues` still means reject and persist nothing (all-or-nothing). Functions do not open DB sessions or commit.
 
 ### 3.3 Relation vocabulary
 
-`one_to_one` | `shift` | `renumber` | `split` | `merge` | `exclude` | `partial`
+`one_to_one` | `shift` | `renumber` | `split` | `merge` | `exclude` | `partial` | `complex`
+
+The first seven are **atomic** and may be stored on a `mapping_record`. `complex` is **resolve-time only** (never stored): it is the top-level relation of a many-to-many composed hull, whose per-connector relations travel on `ResolutionDTO.edges` (§6.6, A24).
 
 **Inverses (descent):** `split`↔`merge`; others self-inverse; `exclude` terminates (empty targets).
 
 **Cardinality of `ResolutionDTO`:**
 
-| Relation | source_spans | target_spans |
-| --- | --- | --- |
-| `one_to_one` / `shift` / `renumber` | 1 | 1 |
-| `split` | 1 | N |
-| `merge` | N (query verse + siblings) | 1 |
-| `exclude` | ≥1 | 0 |
-| `partial` | parts set on spans | parts set on spans |
+| Relation | source_spans | target_spans | edges |
+| --- | --- | --- | --- |
+| `one_to_one` / `shift` / `renumber` | 1 | 1 | empty |
+| `split` | 1 | N | empty |
+| `merge` | N (query verse + siblings) | 1 | empty |
+| `exclude` | ≥1 | 0 | empty |
+| `partial` | parts set on spans | parts set on spans | empty |
+| `complex` | M | N | one per connector, each with its own relation |
 
 ---
 
@@ -168,7 +189,7 @@ DTOs match API §8.2. Non-empty `issues` ⇒ API rejects with `422`. Functions d
 | bcv | `^([A-Z1-6]{3}) ([0-9]+):([0-9]+)$` | `GEN 31:55`, `PSA 3:0` |
 | bcvRange | `^([A-Z1-6]{3}) ([0-9]+):([0-9]+)(?:-([0-9]+))?$` | `PSA 3:0-8` |
 
-Verse `0` is valid (Psalm title). Cross-chapter ranges are **invalid** for resolve input (*Interim*).
+Verse `0` is valid (Psalm title). Cross-chapter ranges are **invalid** for resolve input (*Interim*). The grammar deliberately has **no part component**: parts travel separately (A23), so a caller resolves `SIR 36:13a` by passing `source_ref="SIR 36:13"` with `part="a"`, not a part-suffixed string. `parse_ref("SIR 36:13a")` raises `ReferenceError`.
 
 ### 4.2 Internal structs
 
@@ -206,8 +227,9 @@ class RefRange:
 | --- | --- |
 | Scheme row | `versification_scheme` by `scheme_id` |
 | Mapping rows | All `mapping_record` for `scheme_id` (or filtered by book later) |
-| Active scheme of translation T | `translation_versification` where `translation_id=T` and `active=true` → `scheme_id` |
-| maxVerses / partialVerses (optional) | From `ingredient` for bounds or part expansion |
+| Preferred scheme of translation T | `translation_versification` where `translation_id=T` and `preferred=true` → `scheme_id`. Used for chain hops and as the fallback when a caller omits a side's scheme; a per-request `*_versification` override is resolved by the API before `resolve()`. |
+| maxVerses (optional) | From `ingredient` for navigation bounds |
+| Partial parts | From the `mapping_record.part` column on `partial` rows (no ingredient re-read, A23) |
 | Base translation row | Only to confirm `based_on_id` exists when diagnosing; **not** its spans |
 
 Do **not** load `VERSE_SPAN` / `content` inside `resolve` (A20). Seq/content attachment is an API-port concern after resolution.
@@ -221,20 +243,29 @@ Do **not** load `VERSE_SPAN` / `content` inside `resolve` (A20). Seq/content att
 ### 6.1 Orchestration (`resolve`)
 
 ```text
-1. members = expand(parse_ref(source_ref))
+0. Select each side's scheme (per-request selection / preferred default, A26):
+     source_scheme = source_scheme or preferred_scheme_ref(source_translation)
+     target_scheme = target_scheme or preferred_scheme_ref(target_translation)
+   if either side still has no scheme: raise LookupError
+   (For API calls this is a no-op: the API already passes the selected scheme.)
+1. members = expand(parse_ref(source_ref))   # part arrives separately, applied to members
 2. src_chain = build_chain(session, source_scheme)   # list[Hop]
 3. tgt_chain = build_chain(session, target_scheme)
 4. ancestor = nearest_shared_translation(src_chain, tgt_chain)
    if none: raise LookupError
 5. src_hops_to_anc = hops on src_chain until numbering lands on ancestor
 6. tgt_hops_from_anc = hops on tgt_chain from ancestor down to target (reverse order for apply)
-7. For planning emission:
-   - Pick primary verse = members[0] when single-verse UI; for range, see §6.6
-   - result_state = apply_upward(primary, src_hops_to_anc)
-   - if exclude: return ResolutionDTO(source_spans=..., target_spans=(), relation="exclude")
+7. Attempt an atomic resolution first:
+   - result_state = apply_upward(members, src_hops_to_anc)   # tracks pivot verses per source
+   - if a member resolves to exclude with no counterpart: handle exclude
+     (ResolutionDTO source_spans=..., target_spans=(), relation="exclude")
    - result_state = apply_downward(result_state, tgt_hops_from_anc)
-8. Expand merge/split siblings into source_spans / target_spans (§6.5)
-9. Return ResolutionDTO
+8. Collect merge/split siblings into source_spans / target_spans (§6.4).
+9. If the source<->pivot<->target linkage is many-to-many (more than one source AND
+   more than one target after sibling closure), build the composite hull and edges via
+   build_hull (§6.8); relation = "complex".
+10. Otherwise emit the atomic ResolutionDTO (relation per §6.5, empty edges).
+    Return the ResolutionDTO.
 ```
 
 ### 6.2 Build chain
@@ -253,7 +284,7 @@ build_chain(scheme: SchemeRef) -> list[Hop]:
     hops.append(Hop(current.scheme_id, current.based_on_id, rows))
     if current.based_on_id is None:
       break  # root numbering reached after this hop's application
-    next_scheme = active_scheme_ref(current.based_on_id)
+    next_scheme = preferred_scheme_ref(current.based_on_id)
     if next_scheme is None:
       # Root base translation with no further scheme: stop.
       # Numbering after last hop is that translation's canonical numbering.
@@ -311,12 +342,14 @@ compose(a, b):
   return higher_priority(a, b)
 ```
 
+`compose` classifies a **single 1↔1 path** (one source verse to one target verse). When the source-climb and target-descent instead link a set of source verses to a set of target verses through shared pivot verses (many-to-many), the atomic composition above does not apply; §6.8 builds a `complex` hull with explicit per-connector relations, and `compose` is used only to label each individual connector edge.
+
 ### 6.6 Range-valued `source_ref` (*Interim* A8–A9)
 
 1. Expand members.
 2. Resolve each member through the same chains (reuse hop loads).
-3. If all members share the same final `relation` and form one contiguous mapping group, emit **one** `ResolutionDTO` whose `source_spans` / `target_spans` are the unions (sorted by book, chapter, verse), relation = that relation.
-4. If relations conflict, emit one DTO using priority from §6.5 over member relations, spans = union — **do not raise**.
+3. If all members share the same final atomic `relation` and form one contiguous mapping group, emit **one** `ResolutionDTO` whose `source_spans` / `target_spans` are the unions (sorted by book, chapter, verse), relation = that relation, empty `edges`.
+4. If the members' linkage is many-to-many or their relations conflict, emit one `complex` hull over all members via `build_hull` (§6.8) — **do not raise**. This supersedes any earlier "dominant relation" interim.
 
 ### 6.7 Worked numeric examples
 
@@ -331,6 +364,68 @@ Assume eng scheme `mappedVerses` contains `"PSA 3:0-8": "PSA 3:1-9"` classified 
 
 Use [research/CopenhagenFormat/eng.json](../research/CopenhagenFormat/eng.json) for fixtures.
 
+### 6.8 Composite (`complex`) hulls (A24)
+
+When the source-climb and target-descent link **more than one** source verse to **more than one** target verse through shared pivot (ancestor) verses, do not collapse to a single atomic relation. Instead return the complete connected component.
+
+The hull is the **complete connected component** — a bidirectional transitive closure over the bipartite graph `source verses <-> pivot (ancestor) verses <-> target verses`. Walking only source→pivot→target is insufficient: a pivot reached from the queried verse may also be reached by *sibling* source verses (e.g. a merge on the source side), and those siblings and their further targets belong in the same component.
+
+```text
+# Projection helpers reuse §6.3/§6.4 (cover + range projection), applied in both
+# directions of a chain:
+#   up(s)   = pivot verses a source verse maps to    (src_hops_to_anc, upward)
+#   src(p)  = source verses that map to pivot p       (src_hops_to_anc, inverted)
+#   down(p) = target verses a pivot maps to           (tgt_hops_from_anc, downward)
+#   piv(t)  = pivots a target maps to                 (tgt_hops_from_anc, inverted)
+
+build_hull(source_members, src_hops_to_anc, tgt_hops_from_anc):
+  sources, pivots, targets = set(), set(), set()
+  seen = set()
+  worklist = [("source", s) for s in source_members]   # seed with the queried verse(s)
+  while worklist:
+    kind, node = worklist.pop()
+    if (kind, node) in seen: continue
+    seen.add((kind, node))
+    if kind == "source":
+      sources.add(node)
+      for p in up(node):        worklist.append(("pivot", p))
+    elif kind == "pivot":
+      pivots.add(node)
+      for s in src(node):       worklist.append(("source", s))   # pulls in sibling sources
+      for t in down(node):      worklist.append(("target", t))
+    else:  # target
+      # an excluded branch yields no target verse; simply contributes nothing here
+      targets.add(node)
+      for p in piv(node):       worklist.append(("pivot", p))
+
+  source_spans = sort_unique(sources)          # (book, chapter, verse, part)
+  target_spans = sort_unique(targets)
+  edges = []
+  for p in pivots:
+    for s in src(p):
+      for t in down(p):
+        edges.append(ResolutionEdgeDTO(
+            index_of(s, source_spans), index_of(t, target_spans),
+            compose(up_relation(s, p), down_relation(p, t))))   # per-connector label
+
+  log(pivots, per-hop chains) if RESOLVE_TRACE_PIVOTS     # diagnostics only; NOT returned
+
+  if len(source_spans) <= 1 and len(target_spans) <= 1:
+    return atomic ResolutionDTO(source_spans, target_spans, atomic_relation, edges=())
+  return ResolutionDTO(source_spans, target_spans, "complex", dedup(edges))
+```
+
+Rules and edge cases:
+
+- **Not complex when 1↔1.** A closed component with at most one source and one target is not `complex`; emit its atomic relation with empty `edges`.
+- **Atomic split/merge stay atomic.** A plain `split` (1→N) or `merge` (N→1) whose closure adds no further verses keeps its atomic relation and cardinality with empty `edges`.
+- **Edge indices.** `edges` reference positions in `source_spans` / `target_spans`; `dedup` ensures each (source, target) connector appears once, carrying its own `relation`.
+- **Exclude inside a hull.** An `exclude` branch contributes no target verse. If, after closure, the component has zero target spans, degenerate the whole result to `exclude` (empty `target_spans`, empty `edges`).
+- **Partial inside a hull.** Parts are preserved on the participating spans (`ResolvedSpanDTO.part`); an edge touching a partial span still carries its per-connector relation.
+- **Termination.** The `seen` set bounds the closure; `build_chain` already rejects scheme cycles (§6.2) and each hop's verse sets are finite, so the worklist drains.
+
+Worked example: an `A` verse splits to two `org` verses (`split` A→org); each of those two `org` verses is one of a pair that `B` merges (`merge` B→org). Closure pulls in the B sibling verses and any A siblings sharing those pivots. The hull returns every linked A source verse and B target verse, `edges` labelling each connector (`split` / `merge` / composed), and top-level `relation = complex`.
+
 ---
 
 ## 7. Deriving `MAPPING_RECORD` rows
@@ -339,6 +434,8 @@ Pure function. Input: validated ingredient dict on `ParsedScheme`. Output: order
 
 ### 7.1 Algorithm
 
+All `DTO(...)` are `MappingRecordDTO(source_ref, base_ref, part, relation, ordinal)` (§3.2 / server §8.2); `part` is `None` except for `partial` rows.
+
 ```text
 ordinal = 0
 rows = []
@@ -346,30 +443,27 @@ rows = []
 # 1) mappedVerses: object key -> value
 for key, value in ingredient.get("mappedVerses", {}).items():
     rel = classify_mapped(key, value)   # §7.2
-    rows.append(DTO(key, value, rel, ordinal)); ordinal += 1
+    rows.append(DTO(source_ref=key, base_ref=value, part=None, relation=rel, ordinal=ordinal)); ordinal += 1
 
 # 2) excludedVerses: array of bcv
 for ref in ingredient.get("excludedVerses", []):
-    rows.append(DTO(ref, None, "exclude", ordinal)); ordinal += 1
+    rows.append(DTO(source_ref=ref, base_ref=None, part=None, relation="exclude", ordinal=ordinal)); ordinal += 1
 
 # 3) mergedVerses: array of bcvRange
 for ref in ingredient.get("mergedVerses", []):
     base = ingredient.get("mappedVerses", {}).get(ref)
     # If exact key missing, *Interim*: find mappedVerses entry whose source_ref equals ref
     # or whose source range equals ref; else base_ref=None (still store merge)
-    rows.append(DTO(ref, base, "merge", ordinal)); ordinal += 1
+    rows.append(DTO(source_ref=ref, base_ref=base, part=None, relation="merge", ordinal=ordinal)); ordinal += 1
 
 # 4) partialVerses: bcv -> [part, ...]
 for ref, parts in ingredient.get("partialVerses", {}).items():
     for part in parts:
-        # *Interim* encoding: source_ref remains plain bcv; part is NOT embedded in the
-        # string. Store DTO with source_ref=ref, base_ref=ref (identity locus), relation=partial.
-        # Resolver matches partial by (ref, part) when verse_span.part is present; if resolve
-        # input has no part, treat as whole-verse unless only partial rows exist for that bcv.
-        rows.append(DTO(ref, ref, "partial", ordinal)); ordinal += 1
-        # Optional: also stash part in a side channel — for POC, API/resolver may re-read
-        # ingredient.partialVerses when relation is partial. *Interim:* re-read ingredient
-        # for part lists when expanding partials.
+        # source_ref stays plain bcv; the part goes in the dedicated `part` column,
+        # never embedded in the ref string (A23). base_ref = ref (identity locus).
+        # The resolver matches a partial row by (source_ref, part) directly from the
+        # column — no need to re-read the ingredient.
+        rows.append(DTO(source_ref=ref, base_ref=ref, part=part, relation="partial", ordinal=ordinal)); ordinal += 1
 
 return tuple(rows)
 ```
@@ -407,14 +501,15 @@ return "shift"
 1. Detect format:
    - .json / content starts with `{` → Copenhagen/Burrito ingredient
    - .vrs / lines look like VRS → convert (§8.3)
+   - validation failures here → issue(kind="invalid", ...)
 2. Validate required keys: maxVerses present; types roughly match schema
-3. based_on = ingredient.get("basedOn")  # may be None
+3. based_on = ingredient.get("basedOn") or "org"   # uploads default to org (A22)
 4. name = optional override else filename stem else based_on or "custom"
-5. canonical = False for uploads (*Interim*; seed data may set True out of band)
+5. canonical = False for uploads always; canonical roots come only from bootstrap (A21)
 6. Return ParsedScheme(name, based_on, canonical, ingredient), issues
 ```
 
-API resolves `based_on` → `translation` by **case-insensitive** name match (*Interim* A17); missing ⇒ ingest failure at persist time (API may also pre-check).
+API resolves `based_on` → `translation` by **case-insensitive** name match (*Interim* A17); the defaulted/named base is guaranteed present via bootstrap (A21), so a lookup miss ⇒ ingest failure at persist time (API may also pre-check).
 
 ### 8.2 `ingest_project(archive_bytes)`
 
@@ -430,13 +525,14 @@ release/styles.xml, *.ldml   # ignore
 ```text
 1. Unzip to temp or ZipFile
 2. Find first directory matching release/USX_* containing *.usx
-   - If none: issue field="archive", message="No USX_* tree"
-3. Find release/**/*.vrs (prefer versification.vrs)
-   - If none: issue (API currently expects vrs for project ingest)
+   - If none: issue(kind="missing", field="archive", message="No USX_* tree")
+3. Find release/**/*.vrs (prefer versification.vrs). The versification file is
+   REQUIRED for project ingest (A15).
+   - If none: issue(kind="missing", field="versification", message="No .vrs in project")
 4. For each .usx (sorted by name): parse → append ParsedSpans (§8.4)
-5. Convert vrs → ingredient (§8.3); validate
-6. ParsedScheme from vrs; basedOn from ingredient or *Interim* default "org" if absent
-7. Return ProjectIngestResult(spans, scheme, issues)
+5. Convert vrs → ingredient (§8.3); validate (validation failures → issue(kind="invalid", ...))
+6. ParsedScheme from vrs; basedOn from ingredient, defaulting to "org" when absent (A22)
+7. Return ProjectIngestResult(spans, scheme, issues)   # any non-empty issues ⇒ reject, persist nothing
 ```
 
 USFM-only trees: convert via `usfm_convert` then the same USX path (A13); see §12 for ordering relative to USX ingest.
@@ -449,7 +545,7 @@ VRS samples use:
 - Mapping lines: `GEN 31:55 = GEN 32:1` → `mappedVerses["GEN 31:55"] = "GEN 32:1"`.
 - Comment lines starting `#` ignored.
 - Partial / excluded sections if present: map into `partialVerses` / `excludedVerses`; if absent, `[]` / `{}`.
-- `basedOn`: *Interim* `"org"` when not specified in VRS.
+- `basedOn`: default `"org"` when not specified in VRS (A22).
 - `mergedVerses`: *Interim* `[]` unless VRS encodes merges in a recognized form; do not invent.
 
 Unsupported VRS constructs → `IngestIssue` and fail closed (non-empty issues).
@@ -481,7 +577,7 @@ Empty content spans are allowed. Books with no verses → no spans (not a hard f
 - Persist translation, spans, scheme.ingredient
 - Look up `based_on` translation → set `based_on_id` / `based_on_name`
 - Call `derive_mapping_records` → insert rows
-- Create `translation_versification` active=true for Path A
+- Create `translation_versification` `preferred=true` for Path A (the ingested scheme becomes the translation's preferred scheme by default)
 
 ---
 
@@ -489,13 +585,14 @@ Empty content spans are allowed. Books with no verses → no spans (not a hard f
 
 | Stage | Condition | Effect |
 | --- | --- | --- |
-| parse_ref | Bad grammar / cross-chapter range | `ReferenceError` |
+| parse_ref | Bad grammar / cross-chapter range / part embedded in ref string | `ReferenceError` (→ API `400`) |
 | resolve | Range input well-formed | Proceed |
 | resolve | No covering row | Identity hop |
-| resolve | No shared ancestor / cycle / missing active scheme | `LookupError` |
-| ingest | No USX tree / no vrs when required | `IngestIssue` |
-| ingest | VRS/JSON invalid | `IngestIssue` |
-| persist (API) | `basedOn` name not found | `422` / validation |
+| resolve | No shared ancestor / cycle / missing intermediate preferred scheme / a side with neither scheme nor a translation that has a preferred | `LookupError` (→ API `422`, server §7.8) |
+| resolve | Missing translation / invalid versification override / no preferred scheme on an input | Pre-checked by API before `resolve()`: `404` / `409` (never reaches resolver) |
+| ingest | No USX tree / no vrs (required) | `IngestIssue(kind="missing")` (→ API `400`) |
+| ingest | VRS/JSON invalid / schema validation fails | `IngestIssue(kind="invalid")` (→ API `422`) |
+| persist (API) | `basedOn` (or defaulted `org`) name not found | `422` / validation |
 
 ---
 
@@ -515,6 +612,9 @@ Use ingredients from [research/CopenhagenFormat/eng.json](../research/Copenhagen
 | T8 | VRS convert ([research/ParatextFormat/eng.vrs](../research/ParatextFormat/eng.vrs)) | maxVerses GEN ch1 == 31; mapped GEN 31:55 present |
 | T9 | USX parse (DBL/Paratext `release/USX_*/*.usx` layout) | seq monotonic; at least one book with non-empty verse 1 content |
 | T10 | Missing ancestor | `LookupError` |
+| T11 | Composite hull (e.g. `split` up ∘ `merge` down) | `relation == "complex"`; `source_spans` / `target_spans` cover the full connected component; `edges` present, each with its own per-connector relation |
+| T12 | Partial input with separate part | `resolve("SIR 36:13", part="a")` returns a `partial` result carrying `part="a"`; `parse_ref("SIR 36:13a")` raises `ReferenceError` |
+| T13 | Derive `partialVerses` | `source_ref` stays plain bcv; the part lands in the `part` column (not the ref) |
 
 Do not assert HTTP status codes here.
 
@@ -524,11 +624,11 @@ Do not assert HTTP status codes here.
 
 | Topic | Blocks core resolve/derive? | Interim |
 | --- | --- | --- |
-| Richer composition table | No | §6.5 |
-| Exotic part refs (`ESG 8:12t`) | No | Reject or treat suffix as part if pattern extended later |
-| Heterogeneous range → many DTOs | No | §6.6 single DTO |
+| Richer composition table | No | §6.5 (per-edge relations in `complex` hulls, §6.8) |
+| Exotic part refs (`ESG 8:12t`) | No | Resolved shape: parts are a separate `part` field/column (A23), stored verbatim; whether multi-char part letters are first-class remains iteration |
+| Heterogeneous range / many-to-many → many DTOs | No | Resolved: one DTO carrying a `complex` hull with `edges` (§6.8, A24) |
 | USFM conversion library choice | No (only USFM-only projects) | usfm-grammar or equivalent |
-| Jump-menu categorization | N/A | API §7.9; out of resolver scope |
+| Jump-menu categorization | N/A | Resolved: ETL/API derivation, out of resolver scope (server §7.9) |
 | Whether a `based_on` translation must carry full verse text, or may be a numbering-space stub | No | A20; mapping does not need text either way |
 
 ---
@@ -590,7 +690,7 @@ flowchart TD
 | --- | --- | --- |
 | `resolve` integration tests with real session | ORM models + migrations for `versification_scheme`, `mapping_record`, `translation_versification`, `translation` | Port can use fakes until then |
 | Persist after `ingest_*` | API transaction + `based_on` name→`translation` lookup (A17) | Ingest itself stays DB-free |
-| `GET /api/resolve` | Active-scheme selection + seq attachment | API §7.8 / resolver port |
+| `GET /api/resolve` | Selected-scheme selection (per-request `*_versification` override, else preferred) + seq attachment | API §7.8 / resolver port |
 | Seeded eng/org fixtures | Canonical translations + schemes loaded (often via ingest or bootstrap) | Tests T1–T7 |
 | UI overlays | Working resolve adapter | UI depends on API; not on ingest internals |
 
@@ -610,4 +710,6 @@ Soft constraints (useful when merging plans, not hard blockers):
 - **Hop:** One scheme’s mapping set applied toward its `based_on` translation’s numbering.
 - **Identity:** Implicit `one_to_one` when no covering record exists.
 - **Ingredient:** Copenhagen/Burrito JSON; system of record for deltas.
-- **Numbering-space translation:** A `translation` row named by ingredient `basedOn` and referenced by `based_on_id`; used to walk chains and load the next active scheme. Its verse text is not an input to resolve (A20).
+- **Numbering-space translation:** A `translation` row named by ingredient `basedOn` and referenced by `based_on_id`; used to walk chains and load the next preferred scheme. Its verse text is not an input to resolve (A20).
+- **Preferred scheme:** A translation's default versification (`translation_versification.preferred=true`); set to the ingested scheme at load, changeable via CRUD, and not deletable. Used for chain hops and as the fallback when a caller omits a side's scheme.
+- **Selected scheme:** The scheme a given request actually uses — a per-request versification override when supplied, else the preferred scheme. The API resolves it before calling `resolve()`.

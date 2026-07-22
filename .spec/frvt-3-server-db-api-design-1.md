@@ -54,8 +54,9 @@ Every POC capability that touches the server, database, or API traces to an endp
 | 5 | Outlines around mapped verses and partial spans | `GET /api/resolve` (spans carry `part`) | `verse_span.part`, `mapping_record` (`partial`) | UI |
 | 6 | Connector lines between mapped spans | `GET /api/resolve` (`source_spans`/`target_spans` with `seq`) | `verse_span.seq` | UI |
 | 7 | Always-on highlight of current verse and its lines | `GET /api/resolve` | `mapping_record` | UI |
-| 8 | Toggle for other-verse mappings | `GET /api/resolve/deltas` | `mapping_record` | UI |
-| 9 | On-the-fly switching of an associated versification | `PUT /api/translations/{id}/versifications/{scheme_id}/active` | `translation_versification.active` | UI |
+| 8 | Toggle for the current alignment's mapping overlay | `GET /api/resolve` (current result only) | `mapping_record` | UI |
+| 9 | Change the preferred versification of a translation (CRUD) | `PUT /api/translations/{id}/versifications/{scheme_id}/preferred` | `translation_versification.preferred` | UI |
+| 9b | Per-request versification selection (side-by-side), without changing the preferred | optional `*_versification` query params on resolve / deltas / misalignments / navigation | `translation_versification` (associated schemes) | UI |
 | 10 | Ingest translation plus `custom.vrs` from a zipped project | `POST /api/ingest/project` | `translation`, `verse_span`, `versification_scheme`, `mapping_record` | n/a |
 | 11 | Direct upload of VRS and Copenhagen/Burrito files | `POST /api/versifications/upload` | `versification_scheme`, `mapping_record` | n/a |
 | 12 | Association of an uploaded versification with a translation | `POST /api/translations/{id}/versifications` | `translation_versification` | n/a |
@@ -81,8 +82,9 @@ These are decisions this document makes at boundaries owned by other specificati
 - **In-process resolver.** The resolver runs in-process as an imported Python module, not as a separate service. The POC architecture describes "a mapping resolver that the API calls," which this reads as an in-process call.
 - **Synchronous ingest.** The ETL/ingest routines run in-process, synchronously, within the request handling the upload. The POC targets a small number of translations, so synchronous ingest is acceptable.
 - **USX ingest target.** The ingest target format is USX, as the POC recommends. USFM projects are converted to USX before ingest by the ETL layer.
-- **Single active scheme.** A translation has at most one active versification scheme at a time; several may be associated. This follows the POC resolution model.
-- **BCV reference grammar.** Reference strings use the Copenhagen BCV grammar: `BOOK C:V` and ranges `BOOK C:V-V`, with `BOOK` a three-character USFM book id (pattern `^[A-Z1-6]{3}$`), verse `0` reserved for a Psalm-title span, and an optional sub-verse part identifier (a letter such as `a`, or `-`) for partial verses. This matches the schema's `bcv` and `bcvRange` patterns.
+- **Single preferred scheme.** A translation has at most one *preferred* versification scheme (its default) at a time; several may be associated. The scheme ingested with the translation is preferred by default. This follows the POC resolution model.
+- **Per-request versification selection.** Coordinate endpoints and the resolver accept an optional versification id per side. When supplied it must be a scheme already associated with that translation; when omitted the endpoint falls back to the translation's preferred scheme. A per-request selection never mutates the preferred scheme (that is a CRUD-only operation, Section 7.6).
+- **BCV reference grammar.** Reference strings use the Copenhagen BCV grammar: `BOOK C:V` and ranges `BOOK C:V-V`, with `BOOK` a three-character USFM book id (pattern `^[A-Z1-6]{3}$`) and verse `0` reserved for a Psalm-title span. A sub-verse **part** (a letter such as `a`, or `-`) is **not** embedded in the ref string; it travels as a separate field/parameter (the resolve `part` query param in Section 7.8, `verse_span.part`, and `mapping_record.part`). This matches the schema's `bcv` and `bcvRange` patterns, which contain no part component.
 - **Ingredient as system of record.** The ingredient JSON is the system of record for a scheme. `mapping_record` rows are derived from it and can be rebuilt at any time.
 
 ---
@@ -183,6 +185,7 @@ Read from environment (loaded from `.env` at startup). All have defaults suitabl
 | `BASIC_AUTH_PASSWORD` | `Admin123!` | API/UI password. |
 | `MAX_UPLOAD_BYTES` | `52428800` | Upload size cap (50 MB) for ingest endpoints. |
 | `LOG_LEVEL` | `DEBUG` | Root logger level for the `frvt` logger tree. |
+| `RESOLVE_TRACE_PIVOTS` | `false` | When true, log resolver pivot spans and per-hop chains at `TRACE` for composite (`complex`) resolutions ([Section 8.1](#81-resolver-contract)). |
 
 Configuration is centralized in a single settings object (a Pydantic `BaseSettings` model) so callers read typed values rather than calling `os.getenv` throughout.
 
@@ -212,7 +215,7 @@ All error responses share one JSON envelope so the UI can handle them uniformly:
 | `400` | Malformed request (bad reference grammar, bad query parameter, unparseable file). |
 | `401` | Missing or invalid credentials. |
 | `404` | A referenced translation, scheme, or association does not exist. |
-| `409` | A conflicting write (for example, activating a scheme not associated with the translation, or deleting a scheme still referenced by an active association). |
+| `409` | A conflicting write or state (for example: making preferred a scheme not associated with the translation; deleting the preferred association; a translation with no preferred scheme and no versification override supplied; or deleting a scheme still referenced by an association). |
 | `413` | Upload exceeds `MAX_UPLOAD_BYTES`. |
 | `422` | A file or ingredient fails schema or content validation (invalid ingredient, USX that does not parse into spans). FastAPI also emits `422` for request-model validation. |
 | `500` | Unexpected server error. |
@@ -227,6 +230,19 @@ Mount the UI directory at `/` with `StaticFiles(html=True)`. The mount comes aft
 ### 5.6 Logging
 
 Use a shared logging module under a `frvt` logger root: a custom `TRACE` level (numeric `5`, below `DEBUG`) added to `logging.Logger`, a single stream handler configured once, and `get_logger(__name__)` used at import time. Per the project logging rules, these APIs check the level before building the message, so callers pass format args rather than pre-building strings. Logging expectations for generated code are in [Section 10.2](#102-logging).
+
+Resolver **pivot diagnostics** are controllable: the intermediate pivot spans and per-hop chains that a `complex` resolution passes through (Section 8.1, requirements A24) are not returned to the client but are logged at `TRACE` when a `RESOLVE_TRACE_PIVOTS` setting (Section 5.2) is enabled, so composite alignments can be diagnosed without changing the response contract.
+
+### 5.7 Bootstrap and canonical seeding
+
+On first startup (or via an idempotent Alembic data migration), the server seeds the canonical numbering-space translations and their canonical schemes so scheme ingest can resolve `basedOn` names and the resolver can walk `based_on_id` chains on a clean install. This is the owner of canonical-anchor creation (requirements A21).
+
+- **Canonical translations:** `org` (root), `eng`, `lxx`, `rso`, `rsc`, `vul`. Each is created as a numbering-space **anchor** (`translation.is_anchor = true`, Section 6.1.1) and may carry minimal or no verse spans — they are numbering anchors, not display content (resolver §1.1; requirements A20–A21).
+- **Canonical schemes:** one `versification_scheme` per canonical ingredient (from [research/CopenhagenFormat/](../research/CopenhagenFormat/)), with `canonical = true` and `based_on_name` / `based_on_id` set from the ingredient (`org` is the root with null base).
+- **Anchor associations:** each canonical translation is associated with its matching canonical scheme via `translation_versification`, marked **preferred** (Section 6.1.4), so `preferred_scheme_ref` succeeds when the resolver hops to an anchor during chain walking (resolver §5, §6.2).
+- **Anchor exclusion:** anchors are excluded from user-facing translation listings (`GET /api/translations`, Section 7.3) and from the UI empty-state count, so a clean install still shows the upload-first empty state (UI §6.3) while `basedOn` lookups succeed.
+- **Upload base default:** uploaded/ingested schemes (standalone or in a project) are assumed to be based on a canonical versification, defaulting `basedOn` to `org` when absent (requirements A22). Canonical roots are never created by upload.
+- Seeding is **idempotent** (keyed by case-insensitive name): re-running it does not duplicate anchors or schemes.
 
 ---
 
@@ -247,6 +263,7 @@ erDiagram
     string name
     string language
     string source_format
+    bool is_anchor
     timestamptz created_at
     timestamptz updated_at
   }
@@ -274,13 +291,14 @@ erDiagram
     uuid id PK
     uuid translation_id FK
     uuid scheme_id FK
-    bool active
+    bool preferred
   }
   MAPPING_RECORD {
     uuid id PK
     uuid scheme_id FK
     string source_ref
     string base_ref
+    string part
     string relation
     int ordinal
   }
@@ -297,7 +315,8 @@ A single Bible translation loaded into the tool.
 | `id` | `uuid` PK | Server-generated. |
 | `name` | `text` not null | Display name, unique per case-insensitive value. |
 | `language` | `text` not null | Free-text language label. |
-| `source_format` | `text` not null | Original upload format, one of `usx`, `usfm`. Recorded for provenance; content is always stored as spans. |
+| `source_format` | `text` not null | Original upload format, one of `usx`, `usfm`. Recorded for provenance; content is always stored as spans. On project ingest it is inferred from the zip (USX present -> `usx`; USFM-only converted -> `usfm`; if both are present, `usx`), Section 7.7.1. |
+| `is_anchor` | `bool` not null default false | True for bootstrapped canonical numbering-space anchors (`org`, `eng`, `lxx`, ...), Section 5.7. Anchors are excluded from `GET /api/translations` and the UI empty-state count; they exist so scheme `based_on_id` chains resolve. |
 | `created_at` | `timestamptz` not null default now | |
 | `updated_at` | `timestamptz` not null default now | Updated on write. |
 
@@ -311,7 +330,7 @@ One addressable span of scripture text within a translation. A span can be a who
 | --- | --- | --- |
 | `id` | `uuid` PK | |
 | `translation_id` | `uuid` FK not null | References `translation.id`, `ON DELETE CASCADE`. |
-| `seq` | `int` not null | Document order assigned by the parser during ingest. A column always renders by `seq`, so reading order is stable regardless of the active versification. Each part of a split verse gets its own consecutive `seq`. |
+| `seq` | `int` not null | Document order assigned by the parser during ingest. A column always renders by `seq`, so reading order is stable regardless of the selected versification. Each part of a split verse gets its own consecutive `seq`. |
 | `book` | `char(3)` not null | USFM book id, pattern `^[A-Z1-6]{3}$`. |
 | `chapter` | `int` not null | |
 | `verse` | `int` not null | `0` denotes a Psalm-title span. |
@@ -333,29 +352,30 @@ A versification stored as a Copenhagen/Burrito ingredient, plus the metadata the
 | `id` | `uuid` PK | |
 | `name` | `text` not null | Display name (for example `eng`, `org`, `french org custom`). |
 | `based_on_name` | `text` null | Display name of the base numbering-space translation, from the ingredient's `basedOn` (for example `org`). Null for a root such as `org`. |
-| `based_on_id` | `uuid` FK null | References `translation.id` (`ON DELETE RESTRICT`). Resolved at ingest by looking up a translation whose name matches `basedOn`. Anchors the scheme’s place in the shared-ancestor chain (next hop’s active scheme). Does **not** imply that resolve reads that translation’s verse spans. Null for a root. |
+| `based_on_id` | `uuid` FK null | References `translation.id` (`ON DELETE RESTRICT`). Resolved at ingest by looking up a translation whose name matches `basedOn`. Anchors the scheme’s place in the shared-ancestor chain (next hop’s preferred scheme). Does **not** imply that resolve reads that translation’s verse spans. Null for a root. |
 | `canonical` | `bool` not null default false | True for the shipped canonical schemes (`org`, `eng`, `lxx`, `rso`, `rsc`, `vul`), false for uploaded custom schemes. |
 | `ingredient` | `jsonb` not null | The full Copenhagen/Burrito ingredient, the system of record for this scheme. |
 | `created_at` | `timestamptz` not null default now | |
 | `updated_at` | `timestamptz` not null default now | |
 
-At ingest, the ingredient's `basedOn` name is looked up against existing `translation` rows; both `based_on_name` and `based_on_id` are set. Resolver chain walking uses `based_on_id` (translation UUIDs) as numbering-space nodes; `based_on_name` is for display and provenance. Verse text on the base translation is not required for mapping.
+At ingest, the ingredient's `basedOn` name is looked up against existing `translation` rows; both `based_on_name` and `based_on_id` are set. For uploaded/ingested schemes a missing `basedOn` defaults to `org` (requirements A22); the named base is guaranteed present because canonical anchors are bootstrapped (Section 5.7). Canonical roots (null `based_on`) are created only by bootstrap, never by upload. Resolver chain walking uses `based_on_id` (translation UUIDs) as numbering-space nodes; `based_on_name` is for display and provenance. Verse text on the base translation is not required for mapping.
 
 #### 6.1.4 `translation_versification`
 
-The association join. A translation can be associated with several schemes and can switch the active one on the fly.
+The association join. A translation can be associated with several schemes and can switch the **preferred** one (its default) on the fly.
 
 | Column | Type | Notes |
 | --- | --- | --- |
 | `id` | `uuid` PK | |
 | `translation_id` | `uuid` FK not null | `ON DELETE CASCADE`. |
 | `scheme_id` | `uuid` FK not null | `ON DELETE RESTRICT`, so a scheme in use cannot be deleted out from under a translation. |
-| `active` | `bool` not null default false | At most one active row per translation. |
+| `preferred` | `bool` not null default false | At most one preferred row per translation. The scheme ingested with the translation is preferred by default; changeable via the CRUD API (Section 7.6). |
 
 Constraints:
 
 - Unique `(translation_id, scheme_id)`.
-- A partial unique index on `translation_id` where `active` is true, enforcing at most one active scheme per translation (the single-active-scheme assumption, Section 3.2).
+- A partial unique index on `translation_id` where `preferred` is true, enforcing at most one preferred scheme per translation (the single-preferred-scheme assumption, Section 3.2).
+- The preferred association cannot be deleted; a delete of the preferred row is rejected (`409`) until another association is made preferred (Section 7.6).
 
 #### 6.1.5 `mapping_record`
 
@@ -365,9 +385,10 @@ The flattened, queryable form of a scheme's ingredient relationships, derived at
 | --- | --- | --- |
 | `id` | `uuid` PK | |
 | `scheme_id` | `uuid` FK not null | `ON DELETE CASCADE`. |
-| `source_ref` | `text` not null | A reference or range in this scheme, BCV grammar. |
+| `source_ref` | `text` not null | A reference or range in this scheme, BCV grammar. Parts are never embedded here; see `part`. |
 | `base_ref` | `text` null | The corresponding reference or range in the base scheme. Null for an exclusion (no counterpart). |
-| `relation` | `text` not null | A `relation_type` value (below). |
+| `part` | `text` null | Sub-verse part id for `partial` rows (a letter such as `a`, or `-`); null for all other relations. Kept in its own column rather than embedded in `source_ref` (Section 6.3). |
+| `relation` | `text` not null | A `relation_type` value (below). One of the seven atomic values; `complex` is resolve-time only and never stored. |
 | `ordinal` | `int` not null | Stable ordering for deterministic output and jump-menu listing. |
 
 Indexes: `(scheme_id, source_ref)` and `(scheme_id, relation)`.
@@ -385,6 +406,9 @@ Indexes: `(scheme_id, source_ref)` and `(scheme_id, relation)`.
 | `merge` | Several spans in the source correspond to one in the base. |
 | `exclude` | The span is absent in the counterpart; it resolves to no span. |
 | `partial` | The mapping covers only part of a verse. |
+| `complex` | A resolve-time-only value: a many-to-many composed alignment (a connected hull of source and target spans). Never stored on a `mapping_record`; it appears only in a `ResolveResult`, whose `edges` carry the per-connector relation ([Section 7.2](#72-pydantic-models), requirements A24). |
+
+The first seven values are **atomic** and are the only ones that may be stored on a `mapping_record`. `complex` is emitted by the resolver when composition across the pivot produces a many-to-many component.
 
 ### 6.3 Storing mappings, and how the ingredient maps to rows
 
@@ -397,7 +421,7 @@ The `ingredient` jsonb is kept verbatim so the interchange format round-trips wi
 | `mappedVerses` | `"GEN 31:55": "GEN 32:1"`, `"PSA 3:0-8": "PSA 3:1-9"`, `"NEH 7:69-73": "NEH 7:68-72"` (in [eng.json](../research/CopenhagenFormat/eng.json)) | One row per entry: `source_ref` = key, `base_ref` = value, `relation` classified as `shift` or `renumber` by comparing book/chapter/verse deltas. |
 | `excludedVerses` | `["MAT 17:21", ...]` in NT-omission schemes; `[]` in [eng.json](../research/CopenhagenFormat/eng.json) | One row per verse: `source_ref` set, `base_ref` null, `relation` = `exclude`. |
 | `mergedVerses` | `["JOS 19:47-48", "1PE 4:1-2", ...]` (in [validated.json](../research/CopenhagenFormat/validated.json)) | One row per range with `relation` = `merge`; `base_ref` resolved from the corresponding `mappedVerses` entry where present. |
-| `partialVerses` | `"SIR 36:13": ["a"]`, `"ESG 3:13": ["-","a","b",...]` (in [validated.json](../research/CopenhagenFormat/validated.json)) | One row per part with `relation` = `partial`; the `part` component is encoded in `source_ref`. |
+| `partialVerses` | `"SIR 36:13": ["a"]`, `"ESG 3:13": ["-","a","b",...]` (in [validated.json](../research/CopenhagenFormat/validated.json)) | One row per part with `relation` = `partial`; `source_ref` stays plain BCV and the part is stored in the dedicated `part` column, never embedded in `source_ref`. |
 
 The concrete classification rules (how `shift` versus `renumber` is decided, how `mergedVerses` join to `mappedVerses`) belong to the resolver/ETL specifications. This document requires only that the derivation is deterministic, is rebuildable from the ingredient, and populates the columns above. See the ingredient-as-system-of-record assumption (Section 3.2) and [Section 8](#8-boundary-interface-contracts).
 
@@ -435,6 +459,7 @@ class RelationType(str, Enum):
     merge = "merge"
     exclude = "exclude"
     partial = "partial"
+    complex = "complex"     # resolve-time only (many-to-many hull); never stored on a mapping_record
 
 # Translations
 class TranslationCreate(BaseModel):
@@ -489,13 +514,23 @@ class AssociationOut(BaseModel):
     id: UUID
     translation_id: UUID
     scheme_id: UUID
-    active: bool
+    preferred: bool          # the translation's default scheme; at most one per translation
 
 # Resolution
 class ResolvedSpan(BaseModel):
-    ref: str                 # single-verse BCV string, never a range
+    ref: str                 # single-verse BCV string, never a range; no part suffix
+    book: str                # structured coords so the UI never tokenizes `ref`
+    chapter: int
+    verse: int
     seq: int | None          # verse_span.seq when a stored span exists
     part: str | None = None
+
+class ResolveEdge(BaseModel):
+    # A single connector for a `complex` result: indices into the source_spans /
+    # target_spans lists plus the per-connector relation the UI colors and labels.
+    source_index: int
+    target_index: int
+    relation: RelationType
 
 class ResolveResult(BaseModel):
     # Both sides are denormalized to individual verse/partial-verse spans,
@@ -506,24 +541,37 @@ class ResolveResult(BaseModel):
     #   merge                         -> N sources, 1 target
     #   exclude                       -> 1 source, 0 targets
     #   partial                       -> spans carry `part`
-    source_spans: list[ResolvedSpan]   # the queried verse, plus merge siblings
+    #   complex                       -> M sources, N targets, with `edges` set
+    source_spans: list[ResolvedSpan]   # the queried verse, plus merge/hull siblings
     target_spans: list[ResolvedSpan]   # empty for `exclude`
     relation: RelationType
+    edges: list[ResolveEdge] = []      # populated only when relation == "complex"
 
 # Navigation
 class NavBook(BaseModel):
     book: str
     chapters: list[int]      # chapter numbers present, from maxVerses/spans
 
+# Structured single-verse navigation target so the UI never parses ranges (7.9).
+class NavRef(BaseModel):
+    book: str
+    chapter: int
+    verse: int
+    part: str | None = None
+
 class DeltaEntry(BaseModel):
-    source_ref: str
-    base_ref: str | None
+    source_ref: str          # display-only label; may be a range string (UI never parses it)
+    base_ref: str | None     # display-only label; may be a range string
     relation: RelationType
+    navigation_ref: str      # discrete single-verse BCV jump target (range lower bound)
+    navigation: NavRef       # structured form of navigation_ref
 
 class MisalignmentEntry(BaseModel):
     category: str            # see 7.9
-    source_ref: str
+    source_ref: str          # display-only label; may be a range string
     relation: RelationType
+    navigation_ref: str      # discrete single-verse BCV jump target (range lower bound)
+    navigation: NavRef       # structured form of navigation_ref
 ```
 
 ### 7.3 Translations CRUD
@@ -544,7 +592,7 @@ class MisalignmentEntry(BaseModel):
 | --- | --- | --- | --- | --- |
 | `GET` | `/api/translations/{id}/spans` | `book` (required), `chapter` (optional), `limit`, `offset` | Return verse spans for a column, ordered by `seq`. | `200` `{items, total}` of `VerseSpanOut`. |
 
-Behavior: `book` filters to one book; adding `chapter` narrows to one chapter. Ordering is always by `seq` so reading order is stable regardless of the active versification (see `verse_span.seq`). Unknown `book` returns an empty list, not an error. Missing translation returns `404`.
+Behavior: `book` filters to one book; adding `chapter` narrows to one chapter. Ordering is always by `seq` so reading order is stable regardless of the selected versification (see `verse_span.seq`). Unknown `book` returns an empty list, not an error. Missing translation returns `404`.
 
 ### 7.5 Versifications CRUD
 
@@ -561,12 +609,12 @@ Creation of a scheme happens through upload ([Section 7.7](#77-file-ingest-and-u
 
 | Method | Path | Purpose | Success |
 | --- | --- | --- | --- |
-| `GET` | `/api/translations/{id}/versifications` | List schemes associated with a translation, marking the active one. | `200` list of `AssociationOut`. |
+| `GET` | `/api/translations/{id}/versifications` | List schemes associated with a translation, marking the preferred one. | `200` list of `AssociationOut`. |
 | `POST` | `/api/translations/{id}/versifications` | Associate an existing scheme with the translation. | `201` `AssociationOut`. |
-| `PUT` | `/api/translations/{id}/versifications/{scheme_id}/active` | Make this association the active one. | `200` `AssociationOut`. |
-| `DELETE` | `/api/translations/{id}/versifications/{scheme_id}` | Remove an association. | `204`. |
+| `PUT` | `/api/translations/{id}/versifications/{scheme_id}/preferred` | Make this association the preferred (default) one. | `200` `AssociationOut`. |
+| `DELETE` | `/api/translations/{id}/versifications/{scheme_id}` | Remove a **non-preferred** association. | `204`, or `409 conflict` if it is the preferred association. |
 
-Rules: `POST` with an already-associated scheme returns `409`. `PUT ... /active` on a scheme not associated with the translation returns `409 conflict`; it also clears `active` on the previously active row within the same transaction, preserving the single-active-scheme invariant. Deleting the active association is allowed and leaves the translation with no active scheme.
+Rules: `POST` with an already-associated scheme returns `409`. `PUT ... /preferred` on a scheme not associated with the translation returns `409 conflict`; it also clears `preferred` on the previously preferred row within the same transaction, preserving the single-preferred-scheme invariant. **The preferred association cannot be deleted:** `DELETE` on the preferred row returns `409 conflict` — the caller must first make another association preferred. Deleting a non-preferred association is always allowed. A translation therefore always retains exactly one preferred scheme once it has any association (its ingested scheme is preferred by default).
 
 ### 7.7 File ingest and upload
 
@@ -590,11 +638,13 @@ flowchart TD
   present -->|yes| parse["Ingest port: parse USX to spans, custom.vrs to ingredient"]
   parse --> valid{"Content and ingredient valid?"}
   valid -->|no| e422["422 validation_failed with per-item errors"]
-  valid -->|yes| persist["Persist translation, spans, scheme, derived records; associate and activate"]
-  persist --> ok["201 with translation and active scheme summary"]
+  valid -->|yes| persist["Persist translation, spans, scheme, derived records; associate and mark preferred"]
+  persist --> ok["201 with translation and preferred scheme summary"]
 ```
 
-Success returns `201` with a body containing the created `TranslationOut` and the created/active `VersificationOut`. On validation failure the transaction rolls back and the response uses the `errors` array to report the offending lines or content.
+Project ingest is **all-or-nothing** and the versification file is **required**: USX content and a `.vrs` must both be present, or nothing is persisted (requirements A15). The ingest port reports problems as `IngestIssue`s carrying a `kind` ([Section 8.2](#82-etl--ingest-contract)): a `missing` issue (a required file absent) maps to `400 bad_request`; an `invalid` issue (content or schema validation failure) maps to `422 validation_failed` with per-item `errors`. `source_format` is inferred from the zip (USX present -> `usx`; USFM-only converted -> `usfm`; if both USX and USFM are present, `usx`) and set server-side; the form has no `source_format` field.
+
+Success returns `201` with a body containing the created `TranslationOut` and the created/preferred `VersificationOut` (the ingested scheme becomes the translation's preferred scheme by default). On failure the transaction rolls back and the response uses the `errors` array to report the offending files, lines, or content.
 
 #### 7.7.2 Upload a versification
 
@@ -608,14 +658,18 @@ Flow, matching the POC "Uploading Versifications" workflow: the ingest port dete
 
 | Method | Path | Query | Purpose |
 | --- | --- | --- | --- |
-| `GET` | `/api/resolve` | `from_translation` (uuid), `to_translation` (uuid), `ref` (bcv or bcvRange string) | Resolve a reference (or range) in the source translation's active scheme to matching spans in the target translation's active scheme. |
+| `GET` | `/api/resolve` | `from_translation` (uuid), `to_translation` (uuid), `ref` (bcv or bcvRange string, no part), `part` (optional part id), `from_versification` (optional uuid), `to_versification` (optional uuid) | Resolve a reference (or range), optionally a specific sub-verse part, from the source translation's **selected** scheme to the target translation's selected scheme. Each side's selected scheme is the supplied `*_versification` override, or the translation's preferred scheme when omitted. |
 
 Behavior:
 
-1. Load the active scheme for each translation (`404` if either translation is missing; `409 conflict` if either has no active scheme).
-2. Validate `ref` against the BCV grammar (`400 bad_request` on failure). Accept a single verse / partial verse **or** a `bcvRange` (`BOOK C:V-V`). Do not reject solely because `ref` is a range.
-3. Call the resolver port ([Section 8.1](#81-resolver-contract)) with the source ref and the two schemes. The resolver expands range inputs and covering range-based `mapping_record`s into individual verses before composing.
-4. Return `200` `ResolveResult`. Both `source_spans` and `target_spans` are denormalized to individual verse/partial-verse spans so each entry maps to one rendered span (see [Section 7.2](#72-pydantic-models)). An `exclude` relation returns an empty `target_spans`, which the UI renders as a gap rather than a false match; a `merge` returns the full set of sibling verses in `source_spans`. Multi-span lists are intentional for single-verse UI navigation when the verse participates in a merge/split, and also for range-valued `ref`.
+1. Pre-checks in order, before calling the resolver, per side (source, then target):
+   - If the translation is missing, return `404 not_found`.
+   - If a `*_versification` override is supplied: return `404 not_found` if that scheme id does not exist at all; return `409 conflict` if it exists but is **not associated** with that translation.
+   - If no override is supplied and the translation has no preferred scheme, return `409 conflict` (`no_preferred_scheme`).
+   Then load each side's selected scheme (override if valid, else preferred). A per-request override never mutates `translation_versification.preferred`.
+2. Validate `ref` against the BCV grammar (`400 bad_request` on failure). Accept a single verse **or** a `bcvRange` (`BOOK C:V-V`); do not reject solely because `ref` is a range. The `ref` never carries a part — a partial verse is expressed with the separate `part` query param (Section 3.2); a part embedded in `ref` is a `400`.
+3. Call the resolver port ([Section 8.1](#81-resolver-contract)) with the source `ref`, the optional `part`, and the two selected schemes. The resolver expands range inputs and covering range-based `mapping_record`s into individual verses before composing. A resolver `LookupError` (no shared ancestor / missing intermediate preferred scheme — cases the pre-checks in step 1 do not cover) maps to `422 validation_failed`, not `409`.
+4. Return `200` `ResolveResult`. Both `source_spans` and `target_spans` are denormalized to individual verse/partial-verse spans so each entry maps to one rendered span (see [Section 7.2](#72-pydantic-models)). An `exclude` relation returns an empty `target_spans`, which the UI renders as a gap rather than a false match; a `merge` returns the full set of sibling verses in `source_spans`. A `complex` relation returns the full many-to-many hull of source and target spans with `edges` linking them (each edge carrying its own relation, requirements A24). Multi-span lists are intentional for single-verse UI navigation when the verse participates in a merge/split/complex hull, and also for range-valued `ref`.
 
 Storage keeps ranges (`mapping_record.source_ref` and `base_ref` mirror the ingredient's range keys), but resolution expands covering records (and range-valued `ref`) into concrete single-verse spans at query time. This keeps storage faithful to the interchange format while giving the viewer per-span results it can anchor connectors to. The jump-menu endpoints in [Section 7.9](#79-navigation-and-jump-menu-data) intentionally keep range form, since those are navigation targets rather than per-span connectors.
 
@@ -629,8 +683,8 @@ sequenceDiagram
   participant R as Resolver port
   participant DB as PostgreSQL
   User->>UI: Navigate column A to a reference
-  UI->>API: GET /api/resolve from A to B
-  API->>DB: Load active schemes for A and B
+  UI->>API: GET /api/resolve from A to B (optional *_versification)
+  API->>DB: Load selected schemes for A and B (override or preferred)
   DB-->>API: Schemes
   API->>R: resolve(ref, scheme_a, scheme_b)
   R->>DB: Read mapping records for the schemes
@@ -646,11 +700,15 @@ These endpoints supply the higher-level navigation controls: places where two ve
 
 | Method | Path | Query | Purpose | Success |
 | --- | --- | --- | --- | --- |
-| `GET` | `/api/translations/{id}/navigation` | none | Books and chapter numbers available for the translation's active scheme, from `maxVerses` and stored spans. | `200` list of `NavBook`. |
-| `GET` | `/api/resolve/deltas` | `from_translation`, `to_translation`, `book` (optional), `limit`, `offset` | The explicit mapping deltas between the two active schemes: every place they differ. | `200` `{items, total}` of `DeltaEntry`. |
-| `GET` | `/api/resolve/misalignments` | `from_translation`, `to_translation`, `category` (optional), `limit`, `offset` | Deltas grouped into common misalignment categories. | `200` `{items, total}` of `MisalignmentEntry`. |
+| `GET` | `/api/translations/{id}/navigation` | `versification` (optional uuid) | Books and chapter numbers available for the translation's selected scheme (override, else preferred), from `maxVerses` and stored spans. | `200` list of `NavBook`. |
+| `GET` | `/api/resolve/deltas` | `from_translation`, `to_translation`, `book` (optional), `limit`, `offset`, `from_versification` (optional uuid), `to_versification` (optional uuid) | The explicit mapping deltas between the two selected schemes: every place they differ. | `200` `{items, total}` of `DeltaEntry`. |
+| `GET` | `/api/resolve/misalignments` | `from_translation`, `to_translation`, `category` (optional), `limit`, `offset`, `from_versification` (optional uuid), `to_versification` (optional uuid) | Deltas grouped into common misalignment categories. | `200` `{items, total}` of `MisalignmentEntry`. |
 
-The `category` vocabulary, drawn from the research's known divergence categories: `psalm_title`, `chapter_boundary`, `chapter_count`, `lxx_psalm`, `synodal`, `nt_omission`, `other`. The deltas come from `mapping_record` rows for the schemes involved. Categorization rules (which delta falls in which category) are shared with the resolver/ETL specs; this document requires only that the endpoint returns entries tagged with a `category` and a `relation`, ordered deterministically by `mapping_record.ordinal`.
+The optional `*_versification` (and `versification`) query params select a scheme per side exactly as `GET /api/resolve` does (Section 7.8): the override must be a scheme associated with that translation (`404` if the scheme id does not exist, `409` if it exists but is not associated), otherwise the endpoint falls back to the translation's preferred scheme (`409 no_preferred_scheme` if none). A per-request selection never changes the preferred scheme.
+
+The `category` vocabulary, drawn from the research's known divergence categories: `psalm_title`, `chapter_boundary`, `chapter_count`, `lxx_psalm`, `synodal`, `nt_omission`, `other`. The deltas come from `mapping_record` rows for the schemes involved. **Categorization is owned by the ETL/API derivation layer, not the resolver** (which stays pure coordinate math): each delta is assigned a `category` from book/chapter/verse-delta heuristics plus a small known-divergence table, maintained here. Entries are ordered deterministically by `mapping_record.ordinal`.
+
+Every `DeltaEntry` / `MisalignmentEntry` also carries a **discrete** single-verse navigation target so the UI never parses ranges: `navigation_ref` (a single-verse BCV string) and its structured form `navigation` (`NavRef`, Section 7.2). Derivation, owned by this API/ETL layer: for a range-form `source_ref` (e.g. `PSA 3:0-8`) `navigation_ref` is the range's lower bound in the from-scheme (`PSA 3:0`, part null); a single-verse `source_ref` (including excludes) passes through unchanged; for a `partial` row, `navigation.part` is the row's `mapping_record.part` (and `navigation_ref` stays the plain BCV, since parts are never in ref strings). `navigation_ref` must be legal as the `ref` query param of `GET /api/resolve`. `source_ref` / `base_ref` remain range-form **display-only labels** the UI renders but never parses.
 
 ### 7.10 Health
 
@@ -680,8 +738,16 @@ class SchemeRef:
 
 @dataclass(frozen=True)
 class ResolvedSpanDTO:
-    ref: str                 # single-verse BCV string, never a range
+    ref: str                 # single-verse BCV string, never a range; no part suffix
     part: str | None
+
+@dataclass(frozen=True)
+class ResolutionEdgeDTO:
+    # Connector for a `complex` result: indices into source_spans / target_spans
+    # plus the per-connector relation the UI colors/labels.
+    source_index: int
+    target_index: int
+    relation: str
 
 @dataclass(frozen=True)
 class ResolutionDTO:
@@ -689,27 +755,38 @@ class ResolutionDTO:
     # length (see ResolveResult in Section 7.2). The resolver expands range
     # inputs and covering range-based mapping_record rows into concrete
     # single-verse spans.
-    source_spans: tuple[ResolvedSpanDTO, ...]   # queried verse(s) plus merge siblings
+    source_spans: tuple[ResolvedSpanDTO, ...]   # queried verse(s) plus merge/hull siblings
     target_spans: tuple[ResolvedSpanDTO, ...]   # empty for exclude
-    relation: str            # a relation_type value
+    relation: str            # a relation_type value; "complex" for many-to-many hulls
+    edges: tuple[ResolutionEdgeDTO, ...] = ()   # populated only when relation == "complex"
 
 def resolve(
     session: Session,
     source_ref: str,
-    source_scheme: SchemeRef,
-    target_scheme: SchemeRef,
+    *,
+    source_scheme: SchemeRef | None = None,
+    target_scheme: SchemeRef | None = None,
+    source_translation: UUID | None = None,
+    target_translation: UUID | None = None,
+    part: str | None = None,
 ) -> ResolutionDTO:
     """
-    Resolve `source_ref` (bcv or bcvRange) from the source scheme to the target
-    scheme by pivoting through a shared ancestor translation (`based_on_id`
-    chains). Expands range inputs and covering mappings into individual spans
-    on both sides and returns them with the relation type. Raises
-    ReferenceError for a syntactically invalid ref (not for a well-formed
-    range) and LookupError when a scheme cannot be loaded.
+    Resolve `source_ref` (bcv or bcvRange), optionally a specific sub-verse `part`,
+    from the source scheme to the target scheme by pivoting through a shared
+    ancestor translation (`based_on_id` chains). Each side's scheme is optional:
+    when a `*_scheme` is omitted the resolver loads that translation's preferred
+    scheme via `*_translation` (a side needs a scheme or a translation, else
+    LookupError). Expands range inputs and covering mappings into individual spans
+    on both sides and returns them with the relation type (and `edges` for a
+    `complex` hull). Raises ReferenceError for a syntactically invalid ref (not for
+    a well-formed range) and LookupError when a scheme / intermediate preferred
+    scheme cannot be loaded or no shared ancestor exists. Intermediate pivot spans
+    are not returned; the resolver logs them at TRACE when RESOLVE_TRACE_PIVOTS is
+    enabled (Section 5.6).
     """
 ```
 
-The API adapter (`resolver port`) maps `ResolutionDTO` to `ResolveResult`, attaches the `verse_span.seq` for each span (source and target) when a stored span exists, and translates the two exceptions to `400` and `409` respectively.
+The API adapter (`resolver port`) owns per-request scheme selection: for each side it uses the `*_versification` override when supplied (validated as an associated scheme, `404`/`409` per Section 7.8) or the translation's preferred scheme, and passes the resulting concrete `SchemeRef` plus the translation id to `resolve`. It maps `ResolutionDTO` to `ResolveResult`: it fills each span's structured `book` / `chapter` / `verse` by parsing the single-verse `ref` the resolver emits (server-side parsing is fine; only the client is barred from tokenizing refs, UI §6.4), attaches `verse_span.seq` when a stored span exists, and passes `edges` through unchanged. It translates `ReferenceError` to `400 bad_request`. Since the API pre-checks translation existence (`404`), override association (`404`/`409`), and preferred scheme (`409`) before calling `resolve` (Section 7.8), any `LookupError` that does surface (no shared ancestor / missing intermediate preferred scheme) maps to `422 validation_failed`.
 
 ### 8.2 ETL / ingest contract
 
@@ -730,12 +807,15 @@ class ParsedSpan:
 @dataclass(frozen=True)
 class ParsedScheme:
     name: str
-    based_on: str | None     # ingredient basedOn name; API looks up translation → based_on_id
-    canonical: bool
+    based_on: str | None     # ingredient basedOn name (defaulted to "org" when absent for
+                             # uploads, requirements A22); API looks up translation → based_on_id
+    canonical: bool          # always False from ingest; canonical roots come only from bootstrap
     ingredient: dict         # validated Copenhagen/Burrito ingredient
 
 @dataclass(frozen=True)
 class IngestIssue:
+    kind: Literal["missing", "invalid"]  # "missing" (required file absent) → API 400;
+                                         # "invalid" (content/schema failure) → API 422
     field: str               # e.g. "custom.vrs" or "GEN.usx"
     message: str
 
@@ -764,9 +844,10 @@ class MappingRecordDTO:
     # Mirrors the mapping_record columns minus id and scheme_id, which the API
     # assigns on insert. Kept in range form here; the resolve endpoint expands
     # ranges into single-verse spans at query time (Sections 6.3, 7.8).
-    source_ref: str          # reference or range, BCV grammar
+    source_ref: str          # reference or range, BCV grammar; no part embedded
     base_ref: str | None     # counterpart in the base scheme; None for an exclusion
-    relation: str            # a relation_type value
+    part: str | None         # sub-verse part for `partial` rows; None otherwise (Section 6.3)
+    relation: str            # an atomic relation_type value (never "complex")
     ordinal: int             # stable ordering for deterministic output
 
 def derive_mapping_records(scheme: ParsedScheme) -> tuple[MappingRecordDTO, ...]:
@@ -776,7 +857,7 @@ def derive_mapping_records(scheme: ParsedScheme) -> tuple[MappingRecordDTO, ...]
     """
 ```
 
-When `issues` is non-empty, the API rolls back and returns `422 validation_failed` with the issues in the `errors` array.
+When `issues` is non-empty, the API rolls back and persists nothing (all-or-nothing). The status depends on the highest-severity `kind`: any `missing` issue yields `400 bad_request`; otherwise `invalid` issues yield `422 validation_failed`. Either way the issues populate the `errors` array.
 
 ### 8.3 UI boundary
 
@@ -845,9 +926,12 @@ Using the shared logger (Section 5.6), which checks the level before formatting:
 
 Per the testing rules, cover happy paths and essential failures for behavior that carries a contract, not implementation detail:
 
-- Resolution adapter: a `one_to_one`, a `shift` (Psalm title, `PSA 3:0-8` to `PSA 3:1-9`), a `split` (one `source_spans`, several `target_spans`), a `merge` (several `source_spans`, one `target_spans`), and an `exclude` (one `source_spans`, empty `target_spans`). Each asserts spans are single-verse, never ranges. Also assert a well-formed bcvRange `ref` succeeds (does not raise) and still returns individual spans.
-- Association invariant: activating a second scheme deactivates the first; activating an unassociated scheme returns `409`.
-- Ingest endpoints: a valid project loads; a project missing `custom.vrs` returns `400`; an invalid ingredient returns `422` with populated `errors`.
+- Resolution adapter: a `one_to_one`, a `shift` (Psalm title, `PSA 3:0-8` to `PSA 3:1-9`), a `split` (one `source_spans`, several `target_spans`), a `merge` (several `source_spans`, one `target_spans`), an `exclude` (one `source_spans`, empty `target_spans`), and a `complex` hull (M `source_spans`, N `target_spans`, populated `edges` each carrying a relation). Each asserts spans are single-verse, never ranges, and carry structured `book`/`chapter`/`verse`. Also assert: a well-formed bcvRange `ref` succeeds and returns individual spans; a partial resolves via the separate `part` param; a resolve with no shared ancestor maps to `422`.
+- Association invariant: making a second scheme preferred clears the previous preferred; making an unassociated scheme preferred returns `409`; deleting the preferred association returns `409` while deleting a non-preferred one succeeds.
+- Versification selection: a resolve with an explicit `*_versification` associated with the translation uses it (not the preferred); an override that does not exist returns `404`; an override that exists but is not associated returns `409`; omitting the override falls back to preferred, and a translation with no preferred returns `409`.
+- Ingest endpoints: a valid project loads; a project missing the required `.vrs` (or USX tree) returns `400` (an `IngestIssue` of kind `missing`); an invalid ingredient returns `422` with populated `errors`.
+- Jump-menu entries: a range-form `source_ref` yields a discrete `navigation_ref` (range lower bound) and structured `navigation` legal as a resolve `ref`; a single-verse `source_ref` passes through unchanged.
+- Bootstrap/anchors: seeded canonical anchors are excluded from `GET /api/translations`; a scheme upload with absent `basedOn` resolves against the bootstrapped `org` anchor.
 - Error contract: `404` for missing ids; `413` over the size cap.
 - Do not test REST handlers that only delegate, Pydantic model construction, ORM column accessors, or other boilerplate. Remove any such tests if they appear.
 
@@ -868,13 +952,30 @@ Consolidated boundary assumptions from Section 3.2, to confirm with the resolver
 - **In-process resolver.** Resolver runs in-process as an imported module (Section 8.1). Confirm it is not a separate service.
 - **Synchronous ingest.** Ingest runs synchronously within the upload request (Section 8.2). Confirm no async job runner is expected for the POC.
 - **USX ingest target.** USX is the canonical ingest target; USFM is converted to USX by ETL (Section 7.7). Confirm ETL owns the conversion.
-- **Single active scheme.** At most one active scheme per translation, enforced by a partial unique index (Section 6.1.4). Confirm the UI expects a single active scheme.
+- **Single preferred scheme.** At most one preferred scheme per translation, enforced by a partial unique index (Section 6.1.4). The ingested scheme is preferred by default and the preferred association cannot be deleted (Section 7.6). Confirm the UI expects a single preferred scheme plus a per-request versification selection that does not mutate it.
 - **BCV reference grammar.** BCV grammar for references, including `verse 0` for Psalm titles and a `part` for partial verses (Section 3.2). Confirm the resolver and UI use the same grammar.
 - **Ingredient as system of record.** The ingredient jsonb is the system of record; `mapping_record` rows are derived and rebuildable (Sections 6.3, 8.2). Confirm the ETL derivation is deterministic and owns the classification rules.
-- Delta and misalignment categorization (Section 7.9): confirm whether the category vocabulary and the rules assigning deltas to categories live in the ETL derivation or the resolver.
+- Delta and misalignment categorization (Section 7.9): **Resolved** — the category vocabulary and the rules assigning deltas to categories live in the ETL/API derivation layer, not the resolver (Section 7.9).
 - Resolve denormalization (Sections 7.2, 7.8, 8.1): confirm the resolver expands range-based mapping records **and** range-valued `ref` into individual single-verse spans on both sides, and returns `merge` siblings in `source_spans`. Do not reject a well-formed bcvRange `ref`. Storage and jump-menu deltas remain range-form.
 - `based_on` representation (Section 6.1.3): confirm ingredient `basedOn` (name) is looked up against `translation.name`, persisted as `based_on_name` + `based_on_id` (FK → `translation`), that chain walking uses the translation UUID as a numbering-space anchor, and that resolve does not depend on that translation’s verse text.
 - Coordinate-only resolve: confirm UI/API attach `seq`/content after resolve; resolver never reads `verse_span.content`.
+
+### 11.1 Reconciled decisions (this revision)
+
+Recorded during the spec reconciliation (see `.spec` reconciliation decision log):
+
+- **Canonical bootstrap & anchors** (Section 5.7, requirements A21): server owns seeding canonical anchors/schemes; `translation.is_anchor` hides them from listings and empty-state.
+- **Ref/part separation** (Section 3.2, 7.8; requirements A23): the resolve `ref` never carries a part; a separate `part` param/column/field carries it.
+- **Project ingest requires `.vrs`, all-or-nothing** (Section 7.7.1; requirements A15) with `IngestIssue.kind` mapping `missing` → `400`, `invalid` → `422` (Section 8.2).
+- **`ResolvedSpan` structured coords** (Section 7.2): `book`/`chapter`/`verse` added; the resolver port fills them by parsing the emitted ref.
+- **Jump-menu discrete navigation** (Section 7.2, 7.9): `navigation_ref` + `navigation` derived server-side; `source_ref`/`base_ref` are display-only labels.
+- **Partial part column** (Section 6.1.5, 6.3): part stored in `mapping_record.part`, not embedded in `source_ref`.
+- **Categorization ownership** (Section 7.9): ETL/API derivation, not resolver.
+- **Upload base default** (Section 6.1.3, requirements A22): uploaded schemes default `basedOn` to `org`; roots only from bootstrap.
+- **Toggle wording** (Section 2.3 row 8): overlay toggle draws the current `ResolveResult` only.
+- **Resolve error precedence** (Section 7.8, 8.1): `404`/`409` pre-checks before `resolve`; residual `LookupError` → `422`.
+- **`complex` relation** (Section 6.2, 7.2, 8.1; requirements A24): many-to-many hulls returned with per-connector `edges`; pivot spans logged (not returned) under `RESOLVE_TRACE_PIVOTS`.
+- **`source_format` inference** (Section 7.7.1): inferred from the zip (both present → `usx`).
 
 ---
 
@@ -887,4 +988,4 @@ Consolidated boundary assumptions from Section 3.2, to confirm with the resolver
 - **Pivot / base:** the numbering-space translation a scheme's deltas are expressed against, named by ingredient `basedOn` and stored as `based_on_name` + `based_on_id` (FK → `translation`). Used for chain walking; not a text dependency for resolve.
 - **Span:** an addressable unit of scripture text (`verse_span`), possibly a Psalm title (`verse 0`) or a sub-verse part.
 - **Partial verse:** a mapping that covers only part of a verse, represented by a `part` component.
-- **Relation type:** the classification of a mapping (`one_to_one`, `shift`, `renumber`, `split`, `merge`, `exclude`, `partial`).
+- **Relation type:** the classification of a mapping (`one_to_one`, `shift`, `renumber`, `split`, `merge`, `exclude`, `partial`; plus the resolve-time-only `complex` for many-to-many hulls).
