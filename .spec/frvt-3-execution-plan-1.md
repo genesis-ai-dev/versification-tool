@@ -11,7 +11,7 @@
   - [frvt-3-resolver-and-etl-spec-1.md](./frvt-3-resolver-and-etl-spec-1.md) — resolver + ingest algorithms, contracts, test plan.
   - [frvt-3-server-and-api-spec-1.md](./frvt-3-server-and-api-spec-1.md) — server, database, HTTP API.
   - [frvt-3-ui-spec-1.md](./frvt-3-ui-spec-1.md) — React frontend.
-  - [frvt-3-spec-reconciliation-decisions-1.md](./frvt-3-spec-reconciliation-decisions-1.md) — cross-document reconciliation (provenance).
+  - [frvt-3-spec-reconciliation-decisions-1.md](./completed/frvt-3-spec-reconciliation-decisions-1.md) — cross-document reconciliation (provenance).
 - Work the phases **in order**. Each phase has an explicit **Acceptance** gate; do not start a later phase until the current one's tests and quality gates pass.
 - Cite spec sections (not this plan) when making policy decisions in code.
 
@@ -213,7 +213,7 @@ Each phase's **Acceptance** is verifiable on its own or with earlier phases. "Do
 
 **Goal:** a working clean-install demonstration of the full POC.
 
-- Wire the startup seed into `api/main.py`; load two sample projects; walk the full capability list (side-by-side display, navigation-driven alignment, jump menus, outlines/connectors, highlight, overlay toggle, versification switching, CRUD, ingest). Verify error envelopes, logging levels, file-size compliance, all quality gates, and consistency with the [reconciliation decisions](./frvt-3-spec-reconciliation-decisions-1.md).
+- Wire the startup seed into `api/main.py`; load two sample projects; walk the full capability list (side-by-side display, navigation-driven alignment, jump menus, outlines/connectors, highlight, overlay toggle, versification switching, CRUD, ingest). Verify error envelopes, logging levels, file-size compliance, all quality gates, and consistency with the [reconciliation decisions](./completed/frvt-3-spec-reconciliation-decisions-1.md).
 - **Demo divergence:** the sample projects are largely English-versification, so identity mappings dominate. To exercise non-identity alignment, associate a sample translation with a **contrasting** canonical scheme (e.g. `org` or `lxx`) via the association API and select it per column, and/or pick two samples whose `versification.vrs` differ. Confirm the overlay renders at least one non-`one_to_one` relation.
 
 **Acceptance:** clean-install run — `docker compose up` → startup seed → upload two projects → side-by-side view with working alignment (including a demonstrated non-identity relation), functioning jump menus, overlay toggle, and per-column versification switching; the full test suite and all quality gates are green.

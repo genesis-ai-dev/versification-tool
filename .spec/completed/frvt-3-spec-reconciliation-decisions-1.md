@@ -6,12 +6,12 @@
 
 Reconciled documents:
 
-- [frvt-3-resolver-requirements-1.md](./requirements/frvt-3-resolver-requirements-1.md)
-- [frvt-3-resolver-and-etl-spec-1.md](./frvt-3-resolver-and-etl-spec-1.md)
-- [frvt-3-server-and-api-spec-1.md](./frvt-3-server-and-api-spec-1.md)
-- [frvt-3-ui-spec-1.md](./frvt-3-ui-spec-1.md)
+- [frvt-3-resolver-requirements-1.md](../requirements/frvt-3-resolver-requirements-1.md)
+- [frvt-3-resolver-and-etl-spec-1.md](../frvt-3-resolver-and-etl-spec-1.md)
+- [frvt-3-server-and-api-spec-1.md](../frvt-3-server-and-api-spec-1.md)
+- [frvt-3-ui-spec-1.md](../frvt-3-ui-spec-1.md)
 
-Supporting (non-authoritative): [research/frvt-versification-viewer-poc-1.md](../research/frvt-versification-viewer-poc-1.md), [research/frvt-versification-standards-and-tooling-1.md](../research/frvt-versification-standards-and-tooling-1.md), and the prototype under [research/prototypes/frontier_web/](../research/prototypes/frontier_web/).
+Supporting (non-authoritative): [research/frvt-versification-viewer-poc-1.md](../../research/frvt-versification-viewer-poc-1.md), [research/frvt-versification-standards-and-tooling-1.md](../../research/frvt-versification-standards-and-tooling-1.md), and the prototype under [research/prototypes/frontier_web/](../../research/prototypes/frontier_web/).
 
 ---
 

@@ -962,7 +962,7 @@ Consolidated boundary assumptions from Section 3.2, to confirm with the resolver
 
 ### 11.1 Reconciled decisions (this revision)
 
-Recorded during the spec reconciliation (see `.spec` reconciliation decision log):
+Recorded during the spec reconciliation (see [`.spec/completed/frvt-3-spec-reconciliation-decisions-1.md`](./completed/frvt-3-spec-reconciliation-decisions-1.md)):
 
 - **Canonical bootstrap & anchors** (Section 5.7, requirements A21): server owns seeding canonical anchors/schemes; `translation.is_anchor` hides them from listings and empty-state.
 - **Ref/part separation** (Section 3.2, 7.8; requirements A23): the resolve `ref` never carries a part; a separate `part` param/column/field carries it.
