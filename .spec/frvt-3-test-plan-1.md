@@ -12,6 +12,8 @@ This plan covers the FRVT-3 versification viewer end to end: HTTP Basic gate, Po
 
 The plan is split into an index (this file) plus per-area case files because the detailed cases exceed the single-file size limit; see [Section 4](#4-test-case-index).
 
+**Priority focus:** Human verification targets **Required** cases on **directly accessible** surfaces (HTTP API, browser UI, manual observation) across auth, API, ingest, resolve, navigation, viewer, overlay, and manage. Cases that call Python/ETL modules, probe DrawPlan builders / `lib/*` / cache-key shapes, or rely on DevTools request inspection are **Optional (CI/CD / Automation candidate)** or rewritten to user-visible outcomes. Resolver golden cases are Required via `GET /api/resolve`; overlay topologies are Required via visible connectors in the viewer.
+
 ## 2. Assumptions & Open Questions
 
 ### Assumptions (flagged for review)
@@ -73,19 +75,28 @@ No open owner-decision-needed questions remain for this revision. The [owner act
 
 ## 4. Test-Case Index
 
-Detailed cases (with Preconditions / Steps / Expected result) live in the per-area files below. Each case ID is unique across the whole plan and is referenced by the [Traceability Matrix](#5-traceability-matrix).
+Detailed cases (with Preconditions / Steps / Expected result and **Priority**) live in the per-area files below. Each case ID is unique across the whole plan and is referenced by the [Traceability Matrix](#5-traceability-matrix).
+
+| Priority | Meaning |
+| --- | --- |
+| `Required` | Directly accessible via HTTP API, UI, or manual observation. Primary human-verification set. |
+| `Optional (CI/CD / Automation candidate)` | Internals / direct module calls / DrawPlan unit / cache-key probes — backlog for automated suites, not Required for delivery sign-off. |
 
 | Area file | Areas covered | Case IDs |
 | --- | --- | --- |
 | [frvt-3-test-plan-auth-and-bootstrap-1.md](./frvt-3-test-plan-auth-and-bootstrap-1.md) | Auth; server bootstrap/health/static | TC-AUTH-001/002/010/011/013; TC-SERVER-001/002/003/004/010/011/013 |
 | [frvt-3-test-plan-api-and-ingest-1.md](./frvt-3-test-plan-api-and-ingest-1.md) | API errors/pagination/CRUD; ingest/ETL | TC-API-001–005, 010–017; TC-INGEST-001–007, 010–018 |
 | [frvt-3-test-plan-resolver-and-navigation-1.md](./frvt-3-test-plan-resolver-and-navigation-1.md) | Resolver & resolve API; navigation/deltas/misalignments | TC-RESOLVE-001–014, 020–028; TC-NAV-001–007, 010–012 |
-| [frvt-3-test-plan-viewer-and-overlay-1.md](./frvt-3-test-plan-viewer-and-overlay-1.md) | Viewer UI session; SVG overlay | TC-UI-001–010, 020–027, 030–037; TC-OVERLAY-001–007, 010–012 |
+| [frvt-3-test-plan-viewer-and-overlay-1.md](./frvt-3-test-plan-viewer-and-overlay-1.md) | Viewer UI session; SVG overlay | TC-UI-001–007, 009–010, 020–027, 030–037; TC-OVERLAY-001–007, 010–012 |
 | [frvt-3-test-plan-manage-and-oos-1.md](./frvt-3-test-plan-manage-and-oos-1.md) | Manage UI; out-of-scope confirmations | TC-MANAGE-001–006, 010–011; TC-OOS-001–003 |
 
-> **Cases trimmed in this revision** (per the testing-standards rule — no boilerplate / implementation-detail tests):
-> - Removed the former `TC-AUTH-012` (asserted use of `secrets.compare_digest`): implementation detail. REQ-005 is now a code-review item (`DeferredNFR`); the observable rejection of wrong credentials remains covered by TC-AUTH-011.
-> - Removed the former `TC-SERVER-012` (asserted the `TRACE=5` level constant is registered): boilerplate config assertion. REQ-020 is now covered behaviorally by TC-SERVER-013, which exercises TRACE-level pivot logging.
+> **Cases trimmed / retargeted (no revision bump):**
+> - Removed the former `TC-AUTH-012` (asserted use of `secrets.compare_digest`): implementation detail. REQ-005 is `DeferredNFR`.
+> - Removed the former `TC-SERVER-012` (`TRACE=5` constant registration): boilerplate. REQ-020 covered by TC-SERVER-013.
+> - Removed `TC-UI-008` (DOM `data-*` attribute inspection). REQ-127 is `DeferredNFR`; functional anchoring remains Covered by Required overlay/UI cases (e.g. TC-OVERLAY-001, TC-UI-007, TC-UI-031).
+> - Resolver golden/error cases rewritten to Required `GET /api/resolve` only; `TC-RESOLVE-012` / `TC-RESOLVE-026` remain Optional automation candidates.
+> - Direct ETL/Python ingest cases (`TC-INGEST-004/005/006/007/014/015/016`) marked Optional (CI/CD / Automation candidate).
+> - UI/overlay retargeted the same way: Required cases observe browser outcomes (no network-panel / cache-key / DrawPlan steps). Overlay topologies (`TC-OVERLAY-002–005`, `011`) and scheme-stale/override flows (`TC-UI-033`, `036`, etc.) are Required visual/e2e; `TC-OVERLAY-007` / `010` and `TC-UI-037` remain Optional automation candidates.
 
 ## 5. Traceability Matrix
 
@@ -194,16 +205,16 @@ Detailed cases (with Preconditions / Steps / Expected result) live in the per-ar
 | REQ-124 | drive left/right controls resolve + overlay attachment | UI §7.6, §8.4 | TC-UI-005 | Covered |
 | REQ-125 | Column scheme select is per-request only | UI §6.5 | TC-UI-006 | Covered |
 | REQ-126 | Follower chapter load, URL update, scroll; exclude no scroll | UI §6.4 | TC-UI-007 | Covered |
-| REQ-127 | DOM data-* anchors | UI §8.3 | TC-UI-008 | Covered |
+| REQ-127 | DOM data-* anchors (implementation detail for overlay) | UI §8.3 | — (functional anchoring via TC-OVERLAY-001, TC-UI-007, TC-UI-031) | DeferredNFR |
 | REQ-128 | Viewer and manage routes | UI §6.1 | TC-UI-009 | Covered |
 | REQ-129 | UI error mapping per §9.1 | UI §9.1 | TC-UI-010, TC-MANAGE-011 | Covered |
 | REQ-130 | One-translation placeholder disables resolve/overlay/jumps | UI §6.3 | TC-UI-020 | Covered |
-| REQ-131 | AbortController cancels in-flight resolve | UI §9.1 | TC-UI-021 | Covered |
+| REQ-131 | In-flight resolve superseded when driving ref changes | UI §9.1 | TC-UI-021 | Covered |
 | REQ-132 | Removed scheme clears *vers override | UI §6.5 | TC-UI-022 | Covered |
 | REQ-133 | No resolve without associated schemes | UI §7.6 | TC-UI-023 | Covered |
 | REQ-134 | Desktop-only two-column layout ~1280px+ | UI §5.3 | TC-UI-024 | Covered |
 | REQ-135 | A11y floor: labels + keyboard to selectors/jump | UI §11.5 | TC-UI-025 | Covered |
-| REQ-136 | UI does not log credentials | UI §11.2 | TC-UI-026 | Covered |
+| REQ-136 | UI does not log credentials | UI §11.2 | TC-UI-026 (Optional automation/security) | Covered |
 | REQ-140 | Map toggle draws current ResolveResult only | UI §3.2, §8.2 | TC-OVERLAY-001, TC-OVERLAY-012 | Covered |
 | REQ-141 | Overlay topologies for atomic relations | UI §8.2–8.5 | TC-OVERLAY-002 | Covered |
 | REQ-142 | Complex: one connector per edges entry | UI §8.4 | TC-OVERLAY-003 | Covered |
@@ -231,10 +242,10 @@ Detailed cases (with Preconditions / Steps / Expected result) live in the per-ar
 | REQ-180 | Per-column BCV selectors; verse options from navigation + loaded spans | UI §2.3 #3, §6.1 | TC-UI-030 | Covered |
 | REQ-181 | Clicking a verse span sets that column's current ref | UI §5.1 | TC-UI-031 | Covered |
 | REQ-182 | URL defaults when data exists but params missing | UI §7.1 | TC-UI-032 | Covered |
-| REQ-183 | Cache keying: spans versification-independent; nav keyed by scheme; resolve keyed incl. fromVers/toVers | UI §7.2 | TC-UI-033 | Covered |
-| REQ-184 | Scroll-lock suppresses resolve loops during programmatic scroll | UI §7.2, §6.4 | TC-UI-034 | Covered |
+| REQ-183 | Scheme switch / navigation does not reuse a stale alignment (cache keying intent) | UI §7.2 | TC-UI-033 | Covered |
+| REQ-184 | Follower auto-scroll after resolve does not loop | UI §7.2, §6.4 | TC-UI-034 | Covered |
 | REQ-185 | Scheme control options (assoc⋈versification, preferred marked) + "Preferred (default)" clear | UI §6.5 | TC-UI-035 | Covered |
-| REQ-186 | Column selection sends `*_versification` on resolve/deltas/misalignments/navigation; no PUT | UI §6.5, §7.6 | TC-UI-036 | Covered |
+| REQ-186 | Column scheme override applies to resolve, jumps, and navigation without changing preferred | UI §6.5, §7.6 | TC-UI-036 | Covered |
 | REQ-187 | Client libs build single-verse refs only; never parse ranges | UI §5.1, §7.4, §11.3 | TC-UI-037, TC-NAV-005 | Covered |
 | REQ-188 | Independent per-column vertical scroll; overlay stays aligned | UI §5.3 | TC-UI-027 | Covered |
 | REQ-189 | Jump menu three sections incl. UI-owned category labels + arbitrary verses | UI §6.6 | TC-NAV-006 | Covered |
@@ -244,7 +255,7 @@ Detailed cases (with Preconditions / Steps / Expected result) live in the per-ar
 | REQ-193 | Preferred scheme changed only via CRUD `PUT .../preferred` | UI §6.5; server §7.6 | TC-MANAGE-006 | Covered |
 
 **Orphan test check:** All TC-* IDs across the area files map to at least one REQ.
-**Gap check:** No in-scope spec capability intentionally left as `Gap` in this draft; Interim items are Covered under A-04 lock. REQ-005 (constant-time compare) is `DeferredNFR` (code review). USFM library choice may yield implementation failure — still Covered by TC-INGEST-017 expected failure-or-success contract (Q-03).
+**Gap check:** No in-scope spec capability intentionally left as `Gap` in this draft; Interim items are Covered under A-04 lock. REQ-005 (constant-time compare) and REQ-127 (DOM `data-*` names) are `DeferredNFR`. ETL/DrawPlan/lib internals may be Covered only by Optional automation candidates; product surfaces have Required API/UI cases. USFM library choice may yield implementation failure — still Covered by TC-INGEST-017 (Q-03).
 
 ## 6. Owner Action Checklist (Ambiguity & Risk Flags)
 
@@ -278,6 +289,8 @@ Each row is an item to confirm or decide during owner review (Step 6). "Recommen
 - [x] UI functionality coverage reconciled against `frvt-3-ui-spec-1.md` (selectors, session/URL, caches, jump menu, overlay, manage modals)
 - [x] Cases reviewed against the testing-standards rule; boilerplate/implementation-detail cases trimmed (see Section 4)
 - [x] Detailed cases written as Preconditions / Steps / Expected result blocks in the per-area files
+- [x] Every test case has Priority (`Required` or `Optional (CI/CD / Automation candidate)`)
+- [x] Required cases use directly accessible surfaces across API **and** UI/overlay/manage; resolver goldens are API-only; DOM attribute case dropped; UI network/cache/DrawPlan steps rewritten or Optional
 - [x] Plan written to `.spec/frvt-3-test-plan-1.md` (index) plus per-area files, sharing revision `-1`
 
 ### Approved (human) — agent never marks these done

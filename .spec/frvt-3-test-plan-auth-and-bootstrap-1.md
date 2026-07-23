@@ -12,7 +12,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-AUTH-001 — Valid Basic credentials allow API access
 
-- **Level:** integration · **Category:** permissions-auth · **Traces:** REQ-001, REQ-002
+- **Level:** integration · **Priority:** Required · **Category:** permissions-auth · **Traces:** REQ-001, REQ-002
 - **Preconditions:**
   - The API server is running with the canonical seed applied and the built UI mounted.
   - You know valid credentials (env `BASIC_AUTH_USERNAME` / `BASIC_AUTH_PASSWORD`; defaults `admin` / `Admin123!`).
@@ -24,7 +24,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-AUTH-002 — UI loads after the browser Basic prompt
 
-- **Level:** e2e · **Category:** permissions-auth · **Traces:** REQ-003, REQ-006
+- **Level:** e2e · **Priority:** Required · **Category:** permissions-auth · **Traces:** REQ-003, REQ-006
 - **Preconditions:**
   - A clean browser session with no cached credentials for the app origin.
   - The server is running and serving the built UI at `/`.
@@ -37,7 +37,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-AUTH-010 — Unauthenticated requests are rejected on every route
 
-- **Level:** integration · **Category:** permissions-auth · **Traces:** REQ-001, REQ-003, REQ-004, REQ-008
+- **Level:** integration · **Priority:** Required · **Category:** permissions-auth · **Traces:** REQ-001, REQ-003, REQ-004, REQ-008
 - **Preconditions:**
   - The server is running.
   - An HTTP client that sends no `Authorization` header.
@@ -51,7 +51,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-AUTH-011 — Wrong password is rejected
 
-- **Level:** integration · **Category:** permissions-auth · **Traces:** REQ-001
+- **Level:** integration · **Priority:** Required · **Category:** permissions-auth · **Traces:** REQ-001
 - **Preconditions:**
   - The server is running with known credentials.
 - **Steps:**
@@ -64,7 +64,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-AUTH-013 — Auth-failure banner after repeated post-challenge failures
 
-- **Level:** e2e · **Category:** permissions-auth · **Traces:** REQ-007
+- **Level:** e2e · **Priority:** Required · **Category:** permissions-auth · **Traces:** REQ-007
 - **Preconditions:**
   - The UI has loaded once (credentials were accepted), then credentials become invalid (e.g., rotated server-side) so subsequent requests fail.
 - **Steps:**
@@ -80,7 +80,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-SERVER-001 — Health reports OK when the database is reachable
 
-- **Level:** integration · **Category:** functional · **Traces:** REQ-010
+- **Level:** integration · **Priority:** Required · **Category:** functional · **Traces:** REQ-010
 - **Preconditions:**
   - The server is running and its PostgreSQL database is reachable.
   - Valid credentials are available.
@@ -91,7 +91,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-SERVER-002 — Canonical seed is created on first start
 
-- **Level:** integration · **Category:** data-integrity · **Traces:** REQ-012, REQ-013, REQ-014, REQ-015
+- **Level:** integration · **Priority:** Required · **Category:** data-integrity · **Traces:** REQ-012, REQ-013, REQ-014, REQ-015
 - **Preconditions:**
   - An empty database (no prior seed).
 - **Steps:**
@@ -104,7 +104,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-SERVER-003 — Anchors are hidden from the translations list
 
-- **Level:** integration · **Category:** functional · **Traces:** REQ-016
+- **Level:** integration · **Priority:** Required · **Category:** functional · **Traces:** REQ-016
 - **Preconditions:**
   - A freshly seeded database with no user-uploaded translations.
 - **Steps:**
@@ -114,7 +114,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-SERVER-004 — Static SPA deep links resolve
 
-- **Level:** e2e · **Category:** functional · **Traces:** REQ-011, REQ-017
+- **Level:** e2e · **Priority:** Required · **Category:** functional · **Traces:** REQ-011, REQ-017
 - **Preconditions:**
   - The built UI is mounted at `/` with `html=True`.
   - Valid credentials are available.
@@ -127,7 +127,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-SERVER-010 — Health reports database unavailable when the DB is down
 
-- **Level:** integration · **Category:** error-handling · **Traces:** REQ-018
+- **Level:** integration · **Priority:** Required · **Category:** error-handling · **Traces:** REQ-018
 - **Preconditions:**
   - The server is running but its database is stopped or unreachable.
 - **Steps:**
@@ -137,7 +137,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-SERVER-011 — Seed is idempotent
 
-- **Level:** integration · **Category:** data-integrity · **Traces:** REQ-019
+- **Level:** integration · **Priority:** Required · **Category:** data-integrity · **Traces:** REQ-019
 - **Preconditions:**
   - A database that has already been seeded once.
 - **Steps:**
@@ -148,7 +148,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-SERVER-013 — Resolve pivot diagnostics stay out of the response body
 
-- **Level:** integration · **Category:** nfr · **Traces:** REQ-020, REQ-021
+- **Level:** integration · **Priority:** Required · **Category:** nfr · **Traces:** REQ-020, REQ-021
 - **Preconditions:**
   - `RESOLVE_TRACE_PIVOTS=true` is set.
   - A fixture that produces a `complex` resolve result is available.

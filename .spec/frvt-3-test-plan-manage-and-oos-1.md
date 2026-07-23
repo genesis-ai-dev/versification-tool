@@ -4,7 +4,7 @@
 **Parent index:** [frvt-3-test-plan-1.md](./frvt-3-test-plan-1.md)
 **Areas:** manage UI (`MANAGE`), out-of-scope confirmations (`OOS`)
 
-Shared setup, fixtures, and the traceability matrix live in the [parent index](./frvt-3-test-plan-1.md).
+Shared setup, fixtures, and the traceability matrix live in the [parent index](./frvt-3-test-plan-1.md). Cases are **Required** browser/manage workflows (directly accessible); they do not require DevTools or private module calls.
 
 ---
 
@@ -12,7 +12,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-MANAGE-001 — Translations manage CRUD workflow
 
-- **Level:** e2e · **Category:** functional · **Traces:** REQ-150
+- **Level:** e2e · **Priority:** Required · **Category:** functional · **Traces:** REQ-150
 - **Preconditions:**
   - Seeded and/or ingested data; the authenticated Manage → Translations page.
 - **Steps:**
@@ -27,7 +27,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-MANAGE-002 — Versifications manage workflow (incl. delete unassociated)
 
-- **Level:** e2e · **Category:** functional · **Traces:** REQ-151, REQ-042
+- **Level:** e2e · **Priority:** Required · **Category:** functional · **Traces:** REQ-151, REQ-042
 - **Preconditions:**
   - Some schemes exist, including at least one unassociated scheme; the Manage → Versifications page.
 - **Steps:**
@@ -40,7 +40,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-MANAGE-003 — Removing the preferred association is blocked
 
-- **Level:** e2e · **Category:** functional · **Traces:** REQ-152
+- **Level:** e2e · **Priority:** Required · **Category:** functional · **Traces:** REQ-152
 - **Preconditions:**
   - A translation with a preferred association.
 - **Steps:**
@@ -50,7 +50,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-MANAGE-004 — Upload and associate are separate steps
 
-- **Level:** e2e · **Category:** functional · **Traces:** REQ-191
+- **Level:** e2e · **Priority:** Required · **Category:** functional · **Traces:** REQ-191
 - **Preconditions:**
   - The Manage → Versifications page.
 - **Steps:**
@@ -62,7 +62,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-MANAGE-005 — Manage actions are local-state modals, not routes
 
-- **Level:** e2e · **Category:** functional · **Traces:** REQ-192
+- **Level:** e2e · **Priority:** Required · **Category:** functional · **Traces:** REQ-192
 - **Preconditions:**
   - The manage pages loaded.
 - **Steps:**
@@ -72,21 +72,21 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
   - Each action is a local-state modal; the URL route does not change when it opens.
   - Remove-association is presented as a confirmation modal.
 
-### TC-MANAGE-006 — Set preferred via CRUD does not affect viewer selection
+### TC-MANAGE-006 — Set preferred in Manage does not reset viewer column selection
 
-- **Level:** e2e · **Category:** functional · **Traces:** REQ-193
+- **Level:** e2e · **Priority:** Required · **Category:** functional · **Traces:** REQ-193
 - **Preconditions:**
-  - A translation with two associated schemes.
+  - A translation with two associated schemes; viewer has a per-column scheme override selected (`*vers` set).
 - **Steps:**
-  1. Set a different scheme preferred via the manage `PUT .../preferred` action.
-  2. Return to the viewer.
+  1. In Manage, set a different scheme as preferred for that translation.
+  2. Return to the viewer without clearing the URL.
 - **Expected result:**
-  - The preferred scheme switches (persisted).
-  - The viewer's per-request column selection is unaffected by this change.
+  - Manage shows the new preferred scheme.
+  - The viewer's column still uses its per-request selection (URL `*vers` / selected override), not forcibly reset to the new preferred.
 
 ### TC-MANAGE-010 — Delete confirmation modal
 
-- **Level:** e2e · **Category:** functional · **Traces:** REQ-153
+- **Level:** e2e · **Priority:** Required · **Category:** functional · **Traces:** REQ-153
 - **Preconditions:**
   - A deletable entity in a manage list.
 - **Steps:**
@@ -97,7 +97,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-MANAGE-011 — Conflict responses produce actionable UX
 
-- **Level:** e2e · **Category:** error-handling · **Traces:** REQ-129
+- **Level:** e2e · **Priority:** Required · **Category:** error-handling · **Traces:** REQ-129
 - **Preconditions:**
   - Conditions that provoke a `409` (e.g. deleting a preferred association or a based_on-restricted entity).
 - **Steps:**
@@ -111,7 +111,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-OOS-001 — No versification sniffer/detector in UI or API
 
-- **Level:** manual/integration · **Category:** out-of-scope-confirmation · **Traces:** REQ-161
+- **Level:** manual/integration · **Priority:** Required · **Category:** out-of-scope-confirmation · **Traces:** REQ-161
 - **Preconditions:**
   - The running app and its route/UI surface.
 - **Steps:**
@@ -121,7 +121,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-OOS-002 — Scripture text is not editable
 
-- **Level:** e2e · **Category:** out-of-scope-confirmation · **Traces:** REQ-162
+- **Level:** e2e · **Priority:** Required · **Category:** out-of-scope-confirmation · **Traces:** REQ-162
 - **Preconditions:**
   - The viewer with rendered verse text.
 - **Steps:**
@@ -131,7 +131,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-OOS-003 — No custom login route
 
-- **Level:** e2e · **Category:** out-of-scope-confirmation · **Traces:** REQ-163, REQ-006
+- **Level:** e2e · **Priority:** Required · **Category:** out-of-scope-confirmation · **Traces:** REQ-163, REQ-006
 - **Preconditions:**
   - The running app.
 - **Steps:**

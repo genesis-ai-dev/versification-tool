@@ -4,7 +4,7 @@
 **Parent index:** [frvt-3-test-plan-1.md](./frvt-3-test-plan-1.md)
 **Areas:** API errors / pagination / CRUD (`API`), ingest / ETL (`INGEST`)
 
-Shared setup, fixtures, and the traceability matrix live in the [parent index](./frvt-3-test-plan-1.md). Fixture paths (sample project zip, Copenhagen JSON, Paratext VRS, malformed zips) are defined there under **Test Data, Fixtures & Environment**.
+Shared setup, fixtures, and the traceability matrix live in the [parent index](./frvt-3-test-plan-1.md). Fixture paths (sample project zip, Copenhagen JSON, Paratext VRS, malformed zips) are defined there under **Test Data, Fixtures & Environment**. Direct ETL/Python parse-convert cases are **Optional (CI/CD / Automation candidate)**; HTTP ingest/API cases are **Required**.
 
 ---
 
@@ -12,7 +12,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-API-001 — Translation create / list / patch / delete lifecycle
 
-- **Level:** integration · **Category:** functional · **Traces:** REQ-030, REQ-031, REQ-032, REQ-033, REQ-034
+- **Level:** integration · **Priority:** Required · **Category:** functional · **Traces:** REQ-030, REQ-031, REQ-032, REQ-033, REQ-034
 - **Preconditions:**
   - Authenticated client; seeded database.
 - **Steps:**
@@ -28,7 +28,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-API-002 — Spans returned by book/chapter ordered by seq
 
-- **Level:** integration · **Category:** functional · **Traces:** REQ-035, REQ-036
+- **Level:** integration · **Priority:** Required · **Category:** functional · **Traces:** REQ-035, REQ-036
 - **Preconditions:**
   - A translation ingested from a project zip with spans persisted.
 - **Steps:**
@@ -40,7 +40,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-API-003 — Versification list / detail / rename contracts
 
-- **Level:** integration · **Category:** functional · **Traces:** REQ-040, REQ-041
+- **Level:** integration · **Priority:** Required · **Category:** functional · **Traces:** REQ-040, REQ-041
 - **Preconditions:**
   - At least one uploaded (non-canonical) scheme exists.
 - **Steps:**
@@ -53,7 +53,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-API-004 — Associate schemes and set preferred atomically
 
-- **Level:** integration · **Category:** data-integrity · **Traces:** REQ-045, REQ-046, REQ-047
+- **Level:** integration · **Priority:** Required · **Category:** data-integrity · **Traces:** REQ-045, REQ-046, REQ-047
 - **Preconditions:**
   - One translation and two schemes (A and B) available to associate.
 - **Steps:**
@@ -67,7 +67,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-API-005 — Pagination defaults, max, and bare nested arrays
 
-- **Level:** integration · **Category:** boundary · **Traces:** REQ-025, REQ-027
+- **Level:** integration · **Priority:** Required · **Category:** boundary · **Traces:** REQ-025, REQ-027
 - **Preconditions:**
   - At least two user translations exist.
 - **Steps:**
@@ -81,7 +81,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-API-010 — Error envelope vocabulary and status mapping
 
-- **Level:** integration · **Category:** error-handling · **Traces:** REQ-022, REQ-023, REQ-024
+- **Level:** integration · **Priority:** Required · **Category:** error-handling · **Traces:** REQ-022, REQ-023, REQ-024
 - **Preconditions:**
   - Authenticated client; ability to provoke each error class.
 - **Steps:**
@@ -93,7 +93,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-API-011 — Duplicate translation name conflicts
 
-- **Level:** integration · **Category:** invalid-input · **Traces:** REQ-031
+- **Level:** integration · **Priority:** Required · **Category:** invalid-input · **Traces:** REQ-031
 - **Preconditions:**
   - A translation named e.g. `Demo` already exists.
 - **Steps:**
@@ -103,7 +103,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-API-012 — Deleting a translation used as based_on is blocked
 
-- **Level:** integration · **Category:** data-integrity · **Traces:** REQ-033
+- **Level:** integration · **Priority:** Required · **Category:** data-integrity · **Traces:** REQ-033
 - **Preconditions:**
   - A translation that is referenced as the `based_on` for some scheme.
 - **Steps:**
@@ -113,7 +113,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-API-013 — Deleting the preferred association is blocked
 
-- **Level:** integration · **Category:** data-integrity · **Traces:** REQ-048
+- **Level:** integration · **Priority:** Required · **Category:** data-integrity · **Traces:** REQ-048
 - **Preconditions:**
   - A translation with a preferred association and at least one non-preferred association.
 - **Steps:**
@@ -125,7 +125,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-API-014 — Deleting an associated scheme is blocked
 
-- **Level:** integration · **Category:** data-integrity · **Traces:** REQ-043
+- **Level:** integration · **Priority:** Required · **Category:** data-integrity · **Traces:** REQ-043
 - **Preconditions:**
   - A scheme that is still associated with at least one translation.
 - **Steps:**
@@ -135,7 +135,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-API-015 — Schemes cannot be created by plain POST
 
-- **Level:** integration · **Category:** out-of-scope-confirmation · **Traces:** REQ-044
+- **Level:** integration · **Priority:** Required · **Category:** out-of-scope-confirmation · **Traces:** REQ-044
 - **Preconditions:**
   - Authenticated client.
 - **Steps:**
@@ -145,7 +145,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-API-016 — Pagination limit above the maximum is rejected
 
-- **Level:** integration · **Category:** boundary · **Traces:** REQ-026
+- **Level:** integration · **Priority:** Required · **Category:** boundary · **Traces:** REQ-026
 - **Preconditions:**
   - Authenticated client.
 - **Steps:**
@@ -156,7 +156,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-API-017 — Unknown translation id on CRUD returns 404
 
-- **Level:** integration · **Category:** error-handling · **Traces:** REQ-032
+- **Level:** integration · **Priority:** Required · **Category:** error-handling · **Traces:** REQ-032
 - **Preconditions:**
   - Authenticated client; a random UUID not present in the database.
 - **Steps:**
@@ -170,7 +170,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-INGEST-001 — Project zip ingest happy path
 
-- **Level:** integration · **Category:** functional · **Traces:** REQ-050, REQ-053, REQ-054
+- **Level:** integration · **Priority:** Required · **Category:** functional · **Traces:** REQ-050, REQ-053, REQ-054
 - **Preconditions:**
   - The sample project zip fixture (contains `release/USX_*` and a `.vrs`).
 - **Steps:**
@@ -183,7 +183,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-INGEST-002 — Standalone VRS upload
 
-- **Level:** integration · **Category:** functional · **Traces:** REQ-055, REQ-056
+- **Level:** integration · **Priority:** Required · **Category:** functional · **Traces:** REQ-055, REQ-056
 - **Preconditions:**
   - A Paratext `eng.vrs` fixture.
 - **Steps:**
@@ -194,7 +194,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-INGEST-003 — Copenhagen JSON upload
 
-- **Level:** integration · **Category:** functional · **Traces:** REQ-055
+- **Level:** integration · **Priority:** Required · **Category:** functional · **Traces:** REQ-055
 - **Preconditions:**
   - The `validated.json` Copenhagen ingredient fixture.
 - **Steps:**
@@ -204,7 +204,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-INGEST-004 — VRS conversion contract (resolver T8)
 
-- **Level:** unit · **Category:** functional · **Traces:** REQ-070
+- **Level:** unit · **Priority:** Optional (CI/CD / Automation candidate) · **Category:** functional · **Traces:** REQ-070
 - **Preconditions:**
   - The `eng.vrs` fixture; direct access to the ETL conversion function.
 - **Steps:**
@@ -215,7 +215,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-INGEST-005 — USX parse contract (resolver T9)
 
-- **Level:** unit/integration · **Category:** functional · **Traces:** REQ-071
+- **Level:** unit/integration · **Priority:** Optional (CI/CD / Automation candidate) · **Category:** functional · **Traces:** REQ-071
 - **Preconditions:**
   - A sample USX tree from the project fixture.
 - **Steps:**
@@ -226,7 +226,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-INGEST-006 — Derive mapping records (resolver T7/T13)
 
-- **Level:** unit · **Category:** functional · **Traces:** REQ-072, REQ-073, REQ-074
+- **Level:** unit · **Priority:** Optional (CI/CD / Automation candidate) · **Category:** functional · **Traces:** REQ-072, REQ-073, REQ-074
 - **Preconditions:**
   - The `eng` ingredient; direct access to `derive_mapping_records`.
 - **Steps:**
@@ -239,7 +239,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-INGEST-007 — ETL ingest/derive functions are pure (no DB writes)
 
-- **Level:** unit · **Category:** functional · **Traces:** REQ-057
+- **Level:** unit · **Priority:** Optional (CI/CD / Automation candidate) · **Category:** functional · **Traces:** REQ-057
 - **Preconditions:**
   - Direct access to the ETL module; no DB session passed.
 - **Steps:**
@@ -249,7 +249,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-INGEST-010 — Project zip missing the USX tree is rejected
 
-- **Level:** integration · **Category:** invalid-input · **Traces:** REQ-051, REQ-058
+- **Level:** integration · **Priority:** Required · **Category:** invalid-input · **Traces:** REQ-051, REQ-058
 - **Preconditions:**
   - A malformed zip with no `release/USX_*` directory.
 - **Steps:**
@@ -261,7 +261,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-INGEST-011 — Project zip missing the .vrs is rejected
 
-- **Level:** integration · **Category:** invalid-input · **Traces:** REQ-051, REQ-058
+- **Level:** integration · **Priority:** Required · **Category:** invalid-input · **Traces:** REQ-051, REQ-058
 - **Preconditions:**
   - A zip containing USX but no `.vrs`.
 - **Steps:**
@@ -273,7 +273,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-INGEST-012 — Invalid ingredient upload is rejected
 
-- **Level:** integration · **Category:** invalid-input · **Traces:** REQ-052, REQ-059
+- **Level:** integration · **Priority:** Required · **Category:** invalid-input · **Traces:** REQ-052, REQ-059
 - **Preconditions:**
   - A JSON ingredient that violates the schema.
 - **Steps:**
@@ -285,7 +285,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-INGEST-013 — Oversize upload is rejected
 
-- **Level:** integration · **Category:** boundary · **Traces:** REQ-060
+- **Level:** integration · **Priority:** Required · **Category:** boundary · **Traces:** REQ-060
 - **Preconditions:**
   - A file larger than `MAX_UPLOAD_BYTES`.
 - **Steps:**
@@ -295,7 +295,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-INGEST-014 — USX comma-separated verses (Interim binding)
 
-- **Level:** unit · **Category:** boundary · **Traces:** REQ-075
+- **Level:** unit · **Priority:** Optional (CI/CD / Automation candidate) · **Category:** boundary · **Traces:** REQ-075
 - **Preconditions:**
   - A USX fragment containing a verse marker like `"6,7"`.
 - **Steps:**
@@ -305,7 +305,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-INGEST-015 — USX notes are dropped
 
-- **Level:** unit · **Category:** functional · **Traces:** REQ-076
+- **Level:** unit · **Priority:** Optional (CI/CD / Automation candidate) · **Category:** functional · **Traces:** REQ-076
 - **Preconditions:**
   - A USX fragment containing a `<note>` element.
 - **Steps:**
@@ -315,7 +315,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-INGEST-016 — Unsupported VRS construct fails closed
 
-- **Level:** unit · **Category:** error-handling · **Traces:** REQ-077
+- **Level:** unit · **Priority:** Optional (CI/CD / Automation candidate) · **Category:** error-handling · **Traces:** REQ-077
 - **Preconditions:**
   - A `.vrs` containing a construct the converter does not support.
 - **Steps:**
@@ -325,7 +325,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-INGEST-017 — USFM-only project path (convert or fail closed)
 
-- **Level:** integration · **Category:** functional · **Traces:** REQ-078
+- **Level:** integration · **Priority:** Required · **Category:** functional · **Traces:** REQ-078
 - **Preconditions:**
   - A USFM-only project (or a stubbed converter, per owner decision Q-03).
 - **Steps:**
@@ -337,7 +337,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ### TC-INGEST-018 — UI blocks during upload and surfaces upload errors inline
 
-- **Level:** e2e · **Category:** nfr · **Traces:** REQ-061, REQ-062
+- **Level:** e2e · **Priority:** Required · **Category:** nfr · **Traces:** REQ-061, REQ-062
 - **Preconditions:**
   - The viewer/manage UI in an empty or manage state; the project upload modal available.
 - **Steps:**
