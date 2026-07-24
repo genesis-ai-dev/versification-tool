@@ -144,8 +144,7 @@ function planDirect(
     ],
     connectors: [
       {
-        from: exitPoint(srcRect, anchors.driveSide),
-        to: entryPoint(tgtRect, followerSide(anchors.driveSide)),
+        ...facingAnchors(srcRect, tgtRect, outlinePad("normal"), outlinePad("normal")),
         color: style.color,
         strokeWidth: style.strokeWidth,
         dashArray: style.dashArray,
@@ -173,7 +172,7 @@ function planBranch(
   }
   const outlines: OutlinePlan[] = [{ rect: srcRect, color, emphasis: "strong" }];
   const connectors: ConnectorPlan[] = [];
-  const from = exitPoint(srcRect, anchors.driveSide);
+  const sourcePad = outlinePad("strong");
   for (const target of result.target_spans) {
     const tgtRect = anchors.follower.get(anchorKey(target));
     if (!tgtRect) {
@@ -181,8 +180,7 @@ function planBranch(
     }
     outlines.push({ rect: tgtRect, color, emphasis: "thin" });
     connectors.push({
-      from,
-      to: entryPoint(tgtRect, followerSide(anchors.driveSide)),
+      ...facingAnchors(srcRect, tgtRect, sourcePad, outlinePad("thin")),
       color,
       strokeWidth: 2,
       label,
@@ -209,7 +207,7 @@ function planConverge(
   }
   const outlines: OutlinePlan[] = [{ rect: tgtRect, color, emphasis: "strong" }];
   const connectors: ConnectorPlan[] = [];
-  const to = entryPoint(tgtRect, followerSide(anchors.driveSide));
+  const targetPad = outlinePad("strong");
   for (const source of result.source_spans) {
     const srcRect = anchors.drive.get(anchorKey(source));
     if (!srcRect) {
@@ -217,8 +215,7 @@ function planConverge(
     }
     outlines.push({ rect: srcRect, color, emphasis: "thin" });
     connectors.push({
-      from: exitPoint(srcRect, anchors.driveSide),
-      to,
+      ...facingAnchors(srcRect, tgtRect, outlinePad("thin"), targetPad),
       color,
       strokeWidth: 2,
       label,
@@ -293,8 +290,7 @@ function connectorForEdge(
   }
   const edgeVisual = visualForRelation(edge.relation);
   return {
-    from: exitPoint(srcRect, anchors.driveSide),
-    to: entryPoint(tgtRect, followerSide(anchors.driveSide)),
+    ...facingAnchors(srcRect, tgtRect, outlinePad("normal"), outlinePad("normal")),
     color: edgeVisual.color || fallbackColor,
     strokeWidth: edgeVisual.strokeWidth,
     dashArray: edgeVisual.dashArray,
@@ -320,10 +316,18 @@ function planExclude(
       continue;
     }
     outlines.push({ rect: srcRect, color, dashArray: "4 4", emphasis: "normal" });
-    const from = exitPoint(srcRect, anchors.driveSide);
+    const pad = outlinePad("normal");
+    const direction = srcRect.x + srcRect.width / 2 <= anchors.gutterX ? 1 : -1;
+    const from = {
+      x:
+        direction > 0
+          ? srcRect.x + srcRect.width + pad
+          : srcRect.x - pad,
+      y: srcRect.y + srcRect.height / 2,
+    };
     connectors.push({
       from,
-      to: { x: anchors.gutterX, y: from.y },
+      to: { x: from.x + direction * 28, y: from.y },
       color,
       strokeWidth: 1.5,
       dashArray: "4 4",
@@ -334,21 +338,63 @@ function planExclude(
   return { outlines, connectors };
 }
 
-/** Exit at mid-right for left column, mid-left for right column. */
-function exitPoint(rect: Rect, side: ColumnSide): { x: number; y: number } {
-  const y = rect.y + rect.height / 2;
-  return side === "left" ? { x: rect.x + rect.width, y } : { x: rect.x, y };
+/** Padding around measured spans when painting outline rects. */
+export function outlinePad(emphasis: OutlinePlan["emphasis"]): number {
+  return emphasis === "strong" ? 3 : emphasis === "thin" ? 1 : 2;
 }
 
-/** Enter at mid-left for left column, mid-right for right column. */
-function entryPoint(rect: Rect, side: ColumnSide): { x: number; y: number } {
-  const y = rect.y + rect.height / 2;
-  return side === "left" ? { x: rect.x, y } : { x: rect.x + rect.width, y };
+/**
+ * Attachment points on facing edges of two measured rects, offset to the
+ * painted outline border. Chooses left/right sides from relative positions.
+ */
+export function facingAnchors(
+  source: Rect,
+  target: Rect,
+  sourcePad = 2,
+  targetPad = 2,
+): { from: { x: number; y: number }; to: { x: number; y: number } } {
+  const targetIsRight =
+    target.x + target.width / 2 >= source.x + source.width / 2;
+  if (targetIsRight) {
+    return {
+      from: {
+        x: source.x + source.width + sourcePad,
+        y: source.y + source.height / 2,
+      },
+      to: {
+        x: target.x - targetPad,
+        y: target.y + target.height / 2,
+      },
+    };
+  }
+  return {
+    from: {
+      x: source.x - sourcePad,
+      y: source.y + source.height / 2,
+    },
+    to: {
+      x: target.x + target.width + targetPad,
+      y: target.y + target.height / 2,
+    },
+  };
 }
 
-/** Physical side of the follower given the drive side. */
-function followerSide(drive: DriveSide): ColumnSide {
-  return drive === "left" ? "right" : "left";
+/** Horizontal cubic path between two attachment points with stable control tangents. */
+export function createCubicMappingPath(
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  options: { curvature?: number; minimumControlOffset?: number } = {},
+): string {
+  const curvature = Math.min(1, Math.max(0, options.curvature ?? 0.45));
+  const minimumControlOffset = Math.max(options.minimumControlOffset ?? 32, 0);
+  const direction = to.x >= from.x ? 1 : -1;
+  const controlOffset = Math.max(
+    Math.abs(to.x - from.x) * curvature,
+    minimumControlOffset,
+  );
+  const firstControlX = from.x + direction * controlOffset;
+  const secondControlX = to.x - direction * controlOffset;
+  return `M ${from.x} ${from.y} C ${firstControlX} ${from.y}, ${secondControlX} ${to.y}, ${to.x} ${to.y}`;
 }
 
 /** Count connectors that would be produced for a result (unit-test helper). */

@@ -7,7 +7,9 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 from frvt.api.routers.navigation import navigation_target
+from frvt.api.usx_book_order import usx_book_sort_key
 from frvt.testops.fixtures.api_setup import (
+    complementary_psalm_context,
     create_translation,
     eng_org_resolve_context,
 )
@@ -52,14 +54,24 @@ def test_navigation_tree_from_max_verses_and_spans(
     books = response.json()
     assert isinstance(books, list)
     assert any(book["book"] == "GEN" and 1 in book["chapters"] for book in books)
+    codes = [book["book"] for book in books]
+    # USX Bible order (not alphabetical): GEN before EXO before PSA before MAT.
+    for earlier, later in (
+        ("GEN", "EXO"),
+        ("EXO", "PSA"),
+        ("PSA", "MAT"),
+        ("MAT", "MRK"),
+    ):
+        assert earlier in codes and later in codes
+        assert codes.index(earlier) < codes.index(later)
 
 
 @pytest.mark.phase5
 @pytest.mark.nav
-def test_deltas_paginated_ordered_by_ordinal(
+def test_deltas_paginated_ordered_by_source_bcv(
     api_client: TestClient, eng_org: dict[str, str]
 ) -> None:
-    """TC-NAV-002: Deltas are paginated and ordered by ordinal."""
+    """TC-NAV-002: Deltas are paginated and ordered by source starting BCV."""
     response = api_client.get(
         "/api/resolve/deltas",
         headers=_auth(),
@@ -68,7 +80,7 @@ def test_deltas_paginated_ordered_by_ordinal(
             "to_translation": eng_org["org_translation_id"],
             "from_versification": eng_org["eng_id"],
             "to_versification": eng_org["org_id"],
-            "limit": 5,
+            "limit": 100,
         },
     )
     assert response.status_code == 200, response.text
@@ -76,6 +88,30 @@ def test_deltas_paginated_ordered_by_ordinal(
     assert "items" in body and "total" in body
     assert body["items"]
     assert body["total"] >= len(body["items"])
+
+    def bcv_key(item: dict) -> tuple:
+        nav = item["navigation"]
+        book_index, book_code = usx_book_sort_key(nav["book"])
+        return (
+            book_index,
+            book_code,
+            nav["chapter"],
+            nav["verse"],
+            nav.get("part") or "",
+            item["source_ref"],
+            item["relation"],
+        )
+
+    keys = [bcv_key(item) for item in body["items"]]
+    assert keys == sorted(keys)
+    # Range lower-bound navigation (e.g. PSA 3:0-8 → PSA 3:0) drives order.
+    ranged = next(
+        (item for item in body["items"] if "-" in item["source_ref"]),
+        None,
+    )
+    if ranged is not None:
+        assert ranged["navigation_ref"] == ranged["source_ref"].split("-", 1)[0]
+        assert "-" not in ranged["navigation_ref"]
 
 
 @pytest.mark.phase5
@@ -243,3 +279,86 @@ def test_deltas_optional_book_filter(
     items = response.json()["items"]
     assert items
     assert all(item["source_ref"].startswith("PSA ") for item in items)
+
+
+@pytest.fixture
+def complementary_psalm(api_client: TestClient) -> dict[str, str]:
+    """Two org-based psalm schemes that cancel on resolve for most PSA deltas."""
+    return complementary_psalm_context(api_client)
+
+
+@pytest.mark.phase5
+@pytest.mark.nav
+def test_deltas_hide_canceling_complementary_psalm_rows(
+    api_client: TestClient, complementary_psalm: dict[str, str]
+) -> None:
+    """TC-NAV-013: Cancel filter omits complementary psalm deltas with same BCV."""
+    headers = _auth()
+    base_params = {
+        "from_translation": complementary_psalm["translation_id"],
+        "to_translation": complementary_psalm["org_translation_id"],
+        "from_versification": complementary_psalm["style_a_id"],
+        "to_versification": complementary_psalm["style_b_id"],
+        "book": "PSA",
+        "limit": 100,
+    }
+    response = api_client.get(
+        "/api/resolve/deltas",
+        headers=headers,
+        params=base_params,
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    nav_refs = {item["navigation_ref"] for item in body["items"]}
+    assert "PSA 3:1" not in nav_refs
+    assert body["total"] < 8
+
+    non_psa = api_client.get(
+        "/api/resolve/deltas",
+        headers=headers,
+        params={**base_params, "book": "1SA", "limit": 20},
+    )
+    assert non_psa.status_code == 200, non_psa.text
+    non_psa_items = non_psa.json()["items"]
+    assert any(item["navigation_ref"] == "1SA 20:42" for item in non_psa_items)
+
+
+@pytest.mark.phase5
+@pytest.mark.nav
+def test_misalignments_hide_canceling_complementary_psalm_rows(
+    api_client: TestClient, complementary_psalm: dict[str, str]
+) -> None:
+    """TC-NAV-013: Cancel filter omits complementary psalm misalignments."""
+    headers = _auth()
+    base_params = {
+        "from_translation": complementary_psalm["translation_id"],
+        "to_translation": complementary_psalm["org_translation_id"],
+        "from_versification": complementary_psalm["style_a_id"],
+        "to_versification": complementary_psalm["style_b_id"],
+        "limit": 100,
+    }
+    all_items = api_client.get(
+        "/api/resolve/misalignments",
+        headers=headers,
+        params=base_params,
+    )
+    assert all_items.status_code == 200, all_items.text
+    psalm_nav_refs = {
+        item["navigation_ref"]
+        for item in all_items.json()["items"]
+        if item["source_ref"].startswith("PSA ")
+    }
+    assert "PSA 3:1" not in psalm_nav_refs
+
+    filtered = api_client.get(
+        "/api/resolve/misalignments",
+        headers=headers,
+        params={**base_params, "category": "chapter_boundary"},
+    )
+    assert filtered.status_code == 200, filtered.text
+    assert all(
+        item["category"] == "chapter_boundary" for item in filtered.json()["items"]
+    )
+    assert any(
+        item["navigation_ref"] == "GEN 31:55" for item in filtered.json()["items"]
+    )

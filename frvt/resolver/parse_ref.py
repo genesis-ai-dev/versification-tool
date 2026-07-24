@@ -22,7 +22,7 @@ def parse_ref(value: str) -> RefRange:
     embedded in the string, the range is cross-chapter (unsupported), or
     ``verse_end < verse_start``.
     """
-    logger.debug("Parsing reference %s", value)
+    logger.trace("Parsing reference %s", value)
     if not isinstance(value, str):
         raise ReferenceError(f"Reference must be a string, got {type(value)!r}")
 

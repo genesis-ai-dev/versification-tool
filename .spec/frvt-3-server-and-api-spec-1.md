@@ -389,7 +389,7 @@ The flattened, queryable form of a scheme's ingredient relationships, derived at
 | `base_ref` | `text` null | The corresponding reference or range in the base scheme. Null for an exclusion (no counterpart). |
 | `part` | `text` null | Sub-verse part id for `partial` rows (a letter such as `a`, or `-`); null for all other relations. Kept in its own column rather than embedded in `source_ref` (Section 6.3). |
 | `relation` | `text` not null | A `relation_type` value (below). One of the seven atomic values; `complex` is resolve-time only and never stored. |
-| `ordinal` | `int` not null | Stable ordering for deterministic output and jump-menu listing. |
+| `ordinal` | `int` not null | Stable ordering for deterministic derivation output. Jump-menu listing orders by from-side starting BCV instead (Section 7.9). |
 
 Indexes: `(scheme_id, source_ref)` and `(scheme_id, relation)`.
 
@@ -700,15 +700,17 @@ These endpoints supply the higher-level navigation controls: places where two ve
 
 | Method | Path | Query | Purpose | Success |
 | --- | --- | --- | --- | --- |
-| `GET` | `/api/translations/{id}/navigation` | `versification` (optional uuid) | Books and chapter numbers available for the translation's selected scheme (override, else preferred), from `maxVerses` and stored spans. | `200` list of `NavBook`. |
+| `GET` | `/api/translations/{id}/navigation` | `versification` (optional uuid) | Books and chapter numbers available for the translation's selected scheme (override, else preferred), from `maxVerses` and stored spans. Books are ordered in USX/Paratext Bible order (not alphabetically). | `200` list of `NavBook`. |
 | `GET` | `/api/resolve/deltas` | `from_translation`, `to_translation`, `book` (optional), `limit`, `offset`, `from_versification` (optional uuid), `to_versification` (optional uuid) | The explicit mapping deltas between the two selected schemes: every place they differ. | `200` `{items, total}` of `DeltaEntry`. |
 | `GET` | `/api/resolve/misalignments` | `from_translation`, `to_translation`, `category` (optional), `limit`, `offset`, `from_versification` (optional uuid), `to_versification` (optional uuid) | Deltas grouped into common misalignment categories. | `200` `{items, total}` of `MisalignmentEntry`. |
 
 The optional `*_versification` (and `versification`) query params select a scheme per side exactly as `GET /api/resolve` does (Section 7.8): the override must be a scheme associated with that translation (`404` if the scheme id does not exist, `409` if it exists but is not associated), otherwise the endpoint falls back to the translation's preferred scheme (`409 no_preferred_scheme` if none). A per-request selection never changes the preferred scheme.
 
-The `category` vocabulary, drawn from the research's known divergence categories: `psalm_title`, `chapter_boundary`, `chapter_count`, `lxx_psalm`, `synodal`, `nt_omission`, `other`. The deltas come from `mapping_record` rows for the schemes involved. **Categorization is owned by the ETL/API derivation layer, not the resolver** (which stays pure coordinate math): each delta is assigned a `category` from book/chapter/verse-delta heuristics plus a small known-divergence table, maintained here. Entries are ordered deterministically by `mapping_record.ordinal`.
+The `category` vocabulary, drawn from the research's known divergence categories: `psalm_title`, `chapter_boundary`, `chapter_count`, `lxx_psalm`, `synodal`, `nt_omission`, `other`. The deltas come from `mapping_record` rows for the schemes involved. **Categorization is owned by the ETL/API derivation layer, not the resolver** (which stays pure coordinate math): each delta is assigned a `category` from book/chapter/verse-delta heuristics plus a small known-divergence table, maintained here. Entries are ordered by the from-side starting BCV (`navigation` / `navigation_ref`: USX book order, then chapter, verse, and part). Range-form labels such as `PSA 62:1-12` therefore sort by `PSA 62:1`, so nearby Bible areas cluster in the jump menu regardless of mapping type.
 
 Every `DeltaEntry` / `MisalignmentEntry` also carries a **discrete** single-verse navigation target so the UI never parses ranges: `navigation_ref` (a single-verse BCV string) and its structured form `navigation` (`NavRef`, Section 7.2). Derivation, owned by this API/ETL layer: for a range-form `source_ref` (e.g. `PSA 3:0-8`) `navigation_ref` is the range's lower bound in the from-scheme (`PSA 3:0`, part null); a single-verse `source_ref` (including excludes) passes through unchanged; for a `partial` row, `navigation.part` is the row's `mapping_record.part` (and `navigation_ref` stays the plain BCV, since parts are never in ref strings). `navigation_ref` must be legal as the `ref` query param of `GET /api/resolve`. `source_ref` / `base_ref` remain range-form **display-only labels** the UI renders but never parses.
+
+Jump endpoints return mapping differences **after excluding canceling entries**: a delta or misalignment whose `navigation_ref` (+ `part` when present), when resolved from `from_translation` to `to_translation` under the request's `*_versification` overrides, yields exactly one source span and one target span with identical `(book, chapter, verse, part)`. Entries are omitted from `{items, total}`; pagination applies to the filtered list. Resolve failures do not omit entries.
 
 ### 7.10 Health
 

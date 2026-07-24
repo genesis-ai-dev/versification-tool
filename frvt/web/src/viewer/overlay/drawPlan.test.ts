@@ -3,7 +3,9 @@ import type { ResolveResult } from "../../api/types";
 import {
   anchorKey,
   buildDrawPlan,
+  createCubicMappingPath,
   expectedConnectorCount,
+  facingAnchors,
   type AnchorMaps,
   type Rect,
 } from "./drawPlan";
@@ -74,7 +76,11 @@ describe("buildDrawPlan", () => {
     const plan = buildDrawPlan(result, anchors("left", [1], [2]), true);
     expect(plan.connectors).toHaveLength(1);
     expect(plan.outlines).toHaveLength(2);
-    // Drive left exits mid-right; follower right enters mid-left → left→right.
+    const source = rect(0, 0);
+    const target = rect(400, 0);
+    const attachment = facingAnchors(source, target);
+    expect(plan.connectors[0].from).toEqual(attachment.from);
+    expect(plan.connectors[0].to).toEqual(attachment.to);
     expect(plan.connectors[0].from.x).toBeLessThan(plan.connectors[0].to.x);
   });
 
@@ -112,7 +118,8 @@ describe("buildDrawPlan", () => {
     expect(plan.connectors).toHaveLength(1);
     expect(plan.connectors[0].toVoid).toBe(true);
     expect(plan.connectors[0].label).toBe("absent");
-    expect(plan.connectors[0].to.x).toBe(300);
+    expect(plan.connectors[0].from.x).toBe(102);
+    expect(plan.connectors[0].to.x).toBe(130);
   });
 
   it("outlines only the part-bearing node for partial", () => {
@@ -155,8 +162,17 @@ describe("buildDrawPlan", () => {
     };
     const plan = buildDrawPlan(result, anchors("right", [10], [20]), true);
     expect(plan.connectors).toHaveLength(1);
-    // Drive on right exits mid-left; follower on left enters mid-right → right→left.
+    const source = rect(400, 0);
+    const target = rect(0, 0);
+    const attachment = facingAnchors(source, target);
+    expect(plan.connectors[0].from).toEqual(attachment.from);
+    expect(plan.connectors[0].to).toEqual(attachment.to);
     expect(plan.connectors[0].from.x).toBeGreaterThan(plan.connectors[0].to.x);
+  });
+
+  it("uses direction-aware cubic control points for right-to-left paths", () => {
+    const path = createCubicMappingPath({ x: 500, y: 40 }, { x: 120, y: 40 });
+    expect(path).toBe("M 500 40 C 329 40, 291 40, 120 40");
   });
 
   it("TC-OVERLAY-010: prefers seq keys and falls back to ref+part", () => {

@@ -172,6 +172,41 @@ def eng_org_resolve_context(api_client: TestClient) -> dict[str, Any]:
     return context
 
 
+def complementary_psalm_context(api_client: TestClient) -> dict[str, Any]:
+    """Seed two org-based psalm schemes on an eng/org pair for cancel-filter tests.
+
+    Returns keys from ``eng_org_resolve_context`` plus ``style_a_id`` and
+    ``style_b_id`` for the complementary scheme overrides.
+    """
+    logger.debug("Building complementary psalm resolve context")
+    from frvt.testops.fixtures.synthetic_schemes import (
+        psalm_style_a_ingredient,
+        psalm_style_b_ingredient,
+    )
+
+    context = eng_org_resolve_context(api_client)
+    style_a = upload_ingredient_json(
+        api_client,
+        f"psalm-a-{uuid4().hex[:8]}",
+        psalm_style_a_ingredient(),
+    )
+    style_b = upload_ingredient_json(
+        api_client,
+        f"psalm-b-{uuid4().hex[:8]}",
+        psalm_style_b_ingredient(),
+    )
+    associate(api_client, context["translation_id"], style_a["id"])
+    associate(api_client, context["org_translation_id"], style_b["id"])
+    context["style_a_id"] = style_a["id"]
+    context["style_b_id"] = style_b["id"]
+    logger.debug(
+        "Complementary psalm context style_a=%s style_b=%s",
+        style_a["id"],
+        style_b["id"],
+    )
+    return context
+
+
 def read_copenhagen_upload_bytes(name: str) -> bytes:
     """Return Copenhagen fixture bytes for upload tests (e.g. ``validated``)."""
     from frvt.testops.sample_assets import copenhagen_json

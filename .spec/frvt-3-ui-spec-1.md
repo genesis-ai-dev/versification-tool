@@ -57,7 +57,7 @@ Every POC capability the UI owns traces to a screen or component and the API sur
 | --- | --- | --- | --- | --- |
 | 1 | Side-by-side display of two translations | `ViewerPage` / `ScriptureColumn` | `GET /api/translations`, `GET /api/translations/{id}/spans` | Spans rendered by `seq`. |
 | 2 | Navigation in one column drives alignment in the other | `ViewerSession` resolve cycle | `GET /api/resolve` | Drive→from / follower→to ([§7.6](#76-resolve-request-mapping)); follower may load a new chapter before scroll ([§6.4](#64-viewer-workflow)). |
-| 3 | Per-column book/chapter/verse selector | `ColumnChrome` / BCV selectors | `GET /api/translations/{id}/navigation`, spans | Verse options from loaded chapter spans when navigation omits verse lists. |
+| 3 | Per-column book/chapter/verse selector | `ColumnChrome` / BCV selectors | `GET /api/translations/{id}/navigation`, spans | Books rendered in API order (USX Bible order). Verse options from loaded chapter spans when navigation omits verse lists. |
 | 4 | Per-column jump menu | `JumpMenu` | `GET /api/resolve/deltas`, `/misalignments`, `/navigation` | Unblocked: server provides discrete `navigation_ref` / `navigation` ([§9.2](#92-required-api-reconciliation) #1). |
 | 5 | Outlines around mapped verses and partial spans | `MappingOverlay` | `GET /api/resolve` (`part`) | Partial outlines the part node only. |
 | 6 | Connector lines between mapped spans | `OverlayController` | `GET /api/resolve` (`seq`) | Topology by `relation` value; edges follow drive/follower, not left/right ([§8.4](#84-overlay-redraw-pipeline)). |
@@ -300,6 +300,8 @@ Each column provides:
 3. **Arbitrary verses** — book/chapter from `GET .../navigation`; verse from loaded spans (or navigation verse lists if the server adds them later).
 
 Selecting a jump entry sets that column's structured BCV from the structured `navigation` object. The UI must not parse range strings.
+
+Lists reflect server-side cancel filtering and source-starting-BCV order; the UI does not apply a second client-side cancel or sort pass.
 
 ---
 

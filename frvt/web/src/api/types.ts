@@ -122,6 +122,12 @@ export interface Page<T> {
   total: number;
 }
 
+/** Combined jump-menu deltas and misalignments from one filtered server pass. */
+export interface JumpMenuEntries {
+  deltas: Page<DeltaEntry>;
+  misalignments: Page<MisalignmentEntry>;
+}
+
 /** Success body for project ingest (translation plus preferred scheme). */
 export interface ProjectIngestOut {
   translation: TranslationOut;

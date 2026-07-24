@@ -1,6 +1,6 @@
 import { apiGet } from "./client";
 import type { RequestOptions } from "./client";
-import type { DeltaEntry, MisalignmentEntry, Page, ResolveResult } from "./types";
+import type { DeltaEntry, JumpMenuEntries, MisalignmentEntry, Page, ResolveResult } from "./types";
 
 /** Arguments for ``GET /api/resolve`` built from URL-owned viewer state. */
 export interface ResolveArgs {
@@ -63,13 +63,37 @@ export function listMisalignments(
   toTranslation: string,
   category: string | undefined,
   overrides?: SchemePairOverrides,
+  book?: string,
 ): Promise<Page<MisalignmentEntry>> {
   return apiGet<Page<MisalignmentEntry>>("/api/resolve/misalignments", {
     from_translation: fromTranslation,
     to_translation: toTranslation,
     category,
+    book,
     limit: 500,
     from_versification: overrides?.fromVersification ?? undefined,
     to_versification: overrides?.toVersification ?? undefined,
   });
+}
+
+/** Combined deltas and misalignments for the jump menu (single server pass). */
+export function loadJumpMenu(
+  fromTranslation: string,
+  toTranslation: string,
+  book: string | undefined,
+  overrides?: SchemePairOverrides,
+  options?: RequestOptions,
+): Promise<JumpMenuEntries> {
+  return apiGet<JumpMenuEntries>(
+    "/api/resolve/jump-menu",
+    {
+      from_translation: fromTranslation,
+      to_translation: toTranslation,
+      book,
+      limit: 500,
+      from_versification: overrides?.fromVersification ?? undefined,
+      to_versification: overrides?.toVersification ?? undefined,
+    },
+    options,
+  );
 }

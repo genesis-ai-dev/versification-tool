@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ApiError, describeApiError } from "../api/errors";
-import { listDeltas, listMisalignments } from "../api/resolve";
+import { loadJumpMenu } from "../api/resolve";
 import type { DeltaEntry, MisalignmentEntry, NavRef } from "../api/types";
 import { formatBcvLabel } from "../lib/formatRef";
 import { navigationToBcv } from "./jumpNavigation";
@@ -26,6 +26,14 @@ export interface JumpMenuProps {
   disabled?: boolean;
 }
 
+/** True when ``err`` is a fetch/AbortController cancellation. */
+function isAbortError(err: unknown): boolean {
+  return (
+    (err instanceof DOMException && err.name === "AbortError") ||
+    (err instanceof Error && err.name === "AbortError")
+  );
+}
+
 /**
  * Jump menu for mapped deltas, misalignments, and arbitrary verses.
  * Navigates using structured ``navigation`` only — never parses ranges.
@@ -35,7 +43,7 @@ export function JumpMenu({ side, disabled = false }: JumpMenuProps) {
   const [open, setOpen] = useState(false);
   const [deltas, setDeltas] = useState<DeltaEntry[]>([]);
   const [misalignments, setMisalignments] = useState<MisalignmentEntry[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [mappedLoading, setMappedLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fromTo = useMemo(() => {
@@ -46,42 +54,81 @@ export function JumpMenu({ side, disabled = false }: JumpMenuProps) {
     return { from, to, fromVers, toVers };
   }, [session.url, side]);
 
-  const book = side === "left" ? session.url.leftBcv?.book : session.url.rightBcv?.book;
+  const book =
+    (side === "left" ? session.url.leftBcv?.book : session.url.rightBcv?.book) ??
+    session.spansFor(side)[0]?.book;
 
-  async function loadEntries(): Promise<void> {
-    if (!fromTo.from) {
+  const loadKey = useMemo(
+    () =>
+      [
+        fromTo.from ?? "",
+        fromTo.to ?? "",
+        fromTo.fromVers ?? "",
+        fromTo.toVers ?? "",
+        book ?? "",
+      ].join("|"),
+    [fromTo.from, fromTo.to, fromTo.fromVers, fromTo.toVers, book],
+  );
+
+  useEffect(() => {
+    if (!open || !fromTo.from || !fromTo.to) {
       return;
     }
-    if (!fromTo.to) {
-      setDeltas([]);
-      setMisalignments([]);
-      return;
-    }
-    setLoading(true);
+    const controller = new AbortController();
+    setMappedLoading(true);
     setError(null);
-    try {
-      const overrides = {
-        fromVersification: fromTo.fromVers,
-        toVersification: fromTo.toVers,
-      };
-      const [deltaPage, misPage] = await Promise.all([
-        listDeltas(fromTo.from, fromTo.to, book, overrides),
-        listMisalignments(fromTo.from, fromTo.to, undefined, overrides),
-      ]);
-      setDeltas(deltaPage.items);
-      setMisalignments(misPage.items);
-    } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? describeApiError(err)
-          : err instanceof Error
-            ? err.message
-            : "Failed to load jumps",
-      );
-    } finally {
-      setLoading(false);
+    // Coalesce StrictMode remounts / rapid URL churn into one request.
+    const timer = window.setTimeout(() => {
+      void loadJumpMenu(
+        fromTo.from!,
+        fromTo.to!,
+        book,
+        {
+          fromVersification: fromTo.fromVers,
+          toVersification: fromTo.toVers,
+        },
+        { signal: controller.signal },
+      )
+        .then((page) => {
+          if (controller.signal.aborted) {
+            return;
+          }
+          setDeltas(page.deltas.items);
+          setMisalignments(page.misalignments.items);
+        })
+        .catch((err: unknown) => {
+          if (controller.signal.aborted || isAbortError(err)) {
+            return;
+          }
+          setError(
+            err instanceof ApiError
+              ? describeApiError(err)
+              : err instanceof Error
+                ? err.message
+                : "Failed to load jumps",
+          );
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) {
+            setMappedLoading(false);
+          }
+        });
+    }, 75);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [open, loadKey, fromTo.from, fromTo.to, fromTo.fromVers, fromTo.toVers, book]);
+
+  useEffect(() => {
+    if (!open) {
+      setMappedLoading(false);
+      return;
     }
-  }
+    // Avoid a flash of "(0) / None" before the load effect runs.
+    setMappedLoading(true);
+  }, [open]);
 
   function navigateTo(nav: NavRef): void {
     session.setColumnBcv(side, navigationToBcv(nav));
@@ -95,13 +142,7 @@ export function JumpMenu({ side, disabled = false }: JumpMenuProps) {
         className="btn"
         disabled={disabled || !fromTo.from}
         aria-expanded={open}
-        onClick={() => {
-          const next = !open;
-          setOpen(next);
-          if (next) {
-            void loadEntries();
-          }
-        }}
+        onClick={() => setOpen((wasOpen) => !wasOpen)}
       >
         Jump
       </button>
@@ -110,75 +151,86 @@ export function JumpMenu({ side, disabled = false }: JumpMenuProps) {
           {disabled && (
             <p className="muted">Select a counterpart to load mapping jumps.</p>
           )}
-          {loading && <p className="muted">Loading…</p>}
           {error && <p className="error-text">{error}</p>}
-          {!loading && (
-            <>
-              <section>
-                <h4>Mapped deltas</h4>
-                <ul>
-                  {deltas.map((entry) => (
-                    <li
-                      key={`${entry.navigation_ref}-${entry.navigation.part ?? ""}-${entry.relation}`}
+          <section className="jump-menu-section">
+            <h4>
+              Mapped deltas
+              {!mappedLoading && (
+                <span className="jump-menu-count"> ({deltas.length})</span>
+              )}
+            </h4>
+            <ul className="jump-menu-list">
+              {mappedLoading && <li className="muted">Loading…</li>}
+              {!mappedLoading &&
+                deltas.map((entry) => (
+                  <li
+                    key={`${entry.navigation_ref}-${entry.navigation.part ?? ""}-${entry.relation}`}
+                  >
+                    <button
+                      type="button"
+                      className="linkish"
+                      onClick={() => navigateTo(entry.navigation)}
                     >
-                      <button
-                        type="button"
-                        className="linkish"
-                        onClick={() => navigateTo(entry.navigation)}
-                      >
-                        {entry.source_ref}
-                        {entry.base_ref ? ` → ${entry.base_ref}` : ""}
-                      </button>
-                    </li>
-                  ))}
-                  {deltas.length === 0 && <li className="muted">None</li>}
-                </ul>
-              </section>
-              <section>
-                <h4>Misalignments</h4>
-                <ul>
-                  {misalignments.map((entry) => (
-                    <li
-                      key={`${entry.category}-${entry.navigation_ref}-${entry.navigation.part ?? ""}-${entry.relation}`}
+                      {entry.source_ref}
+                      {entry.base_ref ? ` → ${entry.base_ref}` : ""}
+                    </button>
+                  </li>
+                ))}
+              {!mappedLoading && deltas.length === 0 && <li className="muted">None</li>}
+            </ul>
+          </section>
+          <section className="jump-menu-section">
+            <h4>
+              Misalignments
+              {!mappedLoading && (
+                <span className="jump-menu-count"> ({misalignments.length})</span>
+              )}
+            </h4>
+            <ul className="jump-menu-list">
+              {mappedLoading && <li className="muted">Loading…</li>}
+              {!mappedLoading &&
+                misalignments.map((entry) => (
+                  <li
+                    key={`${entry.category}-${entry.navigation_ref}-${entry.navigation.part ?? ""}-${entry.relation}`}
+                  >
+                    <button
+                      type="button"
+                      className="linkish"
+                      onClick={() => navigateTo(entry.navigation)}
                     >
-                      <button
-                        type="button"
-                        className="linkish"
-                        onClick={() => navigateTo(entry.navigation)}
-                      >
-                        {CATEGORY_LABELS[entry.category] ?? entry.category}:{" "}
-                        {entry.source_ref}
-                      </button>
-                    </li>
-                  ))}
-                  {misalignments.length === 0 && <li className="muted">None</li>}
-                </ul>
-              </section>
-              <section>
-                <h4>Current chapter verses</h4>
-                <ul>
-                  {session.spansFor(side).map((span) => (
-                    <li key={span.id}>
-                      <button
-                        type="button"
-                        className="linkish"
-                        onClick={() =>
-                          navigateTo({
-                            book: span.book,
-                            chapter: span.chapter,
-                            verse: span.verse,
-                            part: span.part,
-                          })
-                        }
-                      >
-                        {formatBcvLabel(span.book, span.chapter, span.verse, span.part)}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            </>
-          )}
+                      {CATEGORY_LABELS[entry.category] ?? entry.category}:{" "}
+                      {entry.source_ref}
+                    </button>
+                  </li>
+                ))}
+              {!mappedLoading && misalignments.length === 0 && (
+                <li className="muted">None</li>
+              )}
+            </ul>
+          </section>
+          <section className="jump-menu-section">
+            <h4>Current chapter verses</h4>
+            <ul className="jump-menu-list">
+              {session.spansFor(side).map((span) => (
+                <li key={span.id}>
+                  <button
+                    type="button"
+                    className="linkish"
+                    onClick={() =>
+                      navigateTo({
+                        book: span.book,
+                        chapter: span.chapter,
+                        verse: span.verse,
+                        part: span.part,
+                      })
+                    }
+                  >
+                    {formatBcvLabel(span.book, span.chapter, span.verse, span.part)}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
         </div>
       )}
     </div>

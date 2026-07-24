@@ -239,6 +239,15 @@ class MisalignmentEntry(BaseModel):
     navigation: NavRef
 
 
+class JumpMenuEntries(BaseModel):
+    """Deltas and misalignments for the jump menu in one response."""
+
+    # Explicit mapping deltas between the selected schemes.
+    deltas: Page[DeltaEntry]
+    # Categorized misalignments derived from the same filtered rows.
+    misalignments: Page[MisalignmentEntry]
+
+
 class Page(BaseModel, Generic[PageItem]):
     """Paginated collection envelope ``{items, total}``."""
 

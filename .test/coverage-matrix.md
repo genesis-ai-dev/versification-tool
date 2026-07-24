@@ -73,7 +73,7 @@ Update this file whenever you implement or defer a case. Phase 12 requires no `p
 | TC-RESOLVE-027 | Required | 4 | resolve | frvt/tests/test_api_resolve.py | done | |
 | TC-RESOLVE-028 | Required | 4 | resolve | frvt/tests/test_api_resolve.py | done | |
 | TC-NAV-001 | Required | 5 | nav | frvt/tests/test_api_navigation.py | done | |
-| TC-NAV-002 | Required | 5 | nav | frvt/tests/test_api_navigation.py | done | |
+| TC-NAV-002 | Required | 5 | nav | frvt/tests/test_api_navigation.py | done | ordered by source starting BCV |
 | TC-NAV-003 | Required | 5 | nav | frvt/tests/test_api_navigation.py | done | vocab only |
 | TC-NAV-004 | Required | 5 | nav | frvt/tests/test_api_navigation.py | done | |
 | TC-NAV-005 | Required | 8 | nav | frvt/web/e2e/viewer.spec.ts | done | e2e viewer jump |
@@ -82,6 +82,7 @@ Update this file whenever you implement or defer a case. Phase 12 requires no `p
 | TC-NAV-010 | Required | 5 | nav | frvt/tests/test_api_navigation.py | done | |
 | TC-NAV-011 | Required | 8 | nav | frvt/web/e2e/viewer.spec.ts | done | e2e single-translation |
 | TC-NAV-012 | Required | 5 | nav | frvt/tests/test_api_navigation.py | done | |
+| TC-NAV-013 | Required | 5 | nav | frvt/tests/test_api_navigation.py | done | cancel-filter contract |
 | TC-UI-001 | Required | 8 | ui | frvt/web/e2e/viewer.spec.ts | done | |
 | TC-UI-002 | Required | 8 | ui | frvt/web/e2e/viewer.spec.ts | done | |
 | TC-UI-003 | Required | 8 | ui | frvt/web/e2e/viewer.spec.ts | done | |
@@ -129,4 +130,4 @@ Update this file whenever you implement or defer a case. Phase 12 requires no `p
 | TC-OOS-002 | Required | 10 | oos | frvt/web/e2e/viewer.spec.ts | oos-confirmed | |
 | TC-OOS-003 | Required | 10 | oos | frvt/web/e2e/auth.spec.ts | oos-confirmed | |
 
-**Row count:** 120
+**Row count:** 121

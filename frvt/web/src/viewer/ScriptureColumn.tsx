@@ -41,9 +41,12 @@ export function ScriptureColumn({ side, scrollRef }: ScriptureColumnProps) {
         : session.resolveResult.target_spans;
   const highlightKeys = highlightKeysFor(highlightSpans);
 
+  const columnClass =
+    session.url.drive === side ? "scripture-column is-source" : "scripture-column";
+
   if (!translationId) {
     return (
-      <section className="scripture-column">
+      <section className={columnClass} data-side={side}>
         <ColumnChrome side={side} resolveDisabled />
         <div className="column-placeholder" ref={localRef}>
           Select a second translation
@@ -53,7 +56,7 @@ export function ScriptureColumn({ side, scrollRef }: ScriptureColumnProps) {
   }
 
   return (
-    <section className="scripture-column">
+    <section className={columnClass} data-side={side}>
       <ColumnChrome side={side} resolveDisabled={resolveDisabled} />
       <VerseList
         side={side}

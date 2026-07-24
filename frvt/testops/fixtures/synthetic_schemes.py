@@ -95,3 +95,33 @@ def partial_ingredient(*, based_on: str = "org") -> dict[str, Any]:
         "partialVerses": {"SIR 36:13": ["a"]},
         "mergedVerses": [],
     }
+
+
+def psalm_style_a_ingredient(*, based_on: str = "org") -> dict[str, Any]:
+    """Return an English-style psalm ingredient for complementary cancel tests."""
+    logger.debug("Building psalm style-A ingredient based_on=%s", based_on)
+    return {
+        "basedOn": based_on,
+        "maxVerses": {"PSA": ["150"], "1SA": ["31"], "GEN": ["50"]},
+        "excludedVerses": [],
+        "mappedVerses": {
+            "PSA 3:1-8": "PSA 3:2-9",
+            "1SA 20:42": "1SA 21:1",
+            "GEN 31:55": "GEN 32:1",
+        },
+        "partialVerses": {},
+        "mergedVerses": [],
+    }
+
+
+def psalm_style_b_ingredient(*, based_on: str = "org") -> dict[str, Any]:
+    """Return a psalm-title (verse 0) ingredient for complementary cancel tests."""
+    logger.debug("Building psalm style-B ingredient based_on=%s", based_on)
+    return {
+        "basedOn": based_on,
+        "maxVerses": {"PSA": ["150"]},
+        "excludedVerses": [],
+        "mappedVerses": {"PSA 3:0-8": "PSA 3:1-9"},
+        "partialVerses": {},
+        "mergedVerses": [],
+    }

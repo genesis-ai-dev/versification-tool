@@ -191,7 +191,7 @@ Detailed cases (with Preconditions / Steps / Expected result and **Priority**) l
 | REQ-103 | complex never stored on mapping_record | resolver §3.3; server §6.2 | TC-RESOLVE-027 | Covered |
 | REQ-104 | verse_end < verse_start → ReferenceError | resolver §4.2 | TC-RESOLVE-028 | Covered |
 | REQ-110 | Navigation endpoint from maxVerses + spans | server §7.9 | TC-NAV-001 | Covered |
-| REQ-111 | Deltas paginated ordered by ordinal | server §7.9 | TC-NAV-002 | Covered |
+| REQ-111 | Deltas paginated ordered by source starting BCV | server §7.9 | TC-NAV-002 | Covered |
 | REQ-112 | Misalignments category vocab + filter | server §7.9 | TC-NAV-003 | Covered |
 | REQ-113 | navigation_ref / navigation discrete jump contract | server §7.9 | TC-NAV-004 | Covered |
 | REQ-114 | UI never parses range source_ref for jump | UI §6.6 | TC-NAV-005 | Covered |

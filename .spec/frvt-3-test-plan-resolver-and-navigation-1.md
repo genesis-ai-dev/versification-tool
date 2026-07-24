@@ -270,7 +270,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 - **Expected result:**
   - A `NavBook[]` structure is returned, derived from the scheme's `maxVerses` and the translation's spans.
 
-### TC-NAV-002 — Deltas are paginated and ordered by ordinal
+### TC-NAV-002 — Deltas are paginated and ordered by source starting BCV
 
 - **Level:** integration · **Priority:** Required · **Category:** functional · **Traces:** REQ-111
 - **Preconditions:**
@@ -278,7 +278,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 - **Steps:**
   1. `GET /api/resolve/deltas` for the pair.
 - **Expected result:**
-  - Response is `{items, total}` ordered by `ordinal`.
+  - Response is `{items, total}` ordered by from-side starting BCV (`navigation`: USX book, chapter, verse, part). A range label such as `PSA 62:1-12` orders by `PSA 62:1`.
 
 ### TC-NAV-003 — Misalignment category filter uses the fixed vocabulary
 

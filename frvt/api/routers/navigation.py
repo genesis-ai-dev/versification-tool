@@ -11,10 +11,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from frvt.api.db import get_session
+from frvt.api.jump_cancel import JumpCancelContext, filter_canceling_jump_rows
 from frvt.api.logging_config import get_logger
 from frvt.api.models import MappingRecord, VerseSpan
 from frvt.api.schemas import (
     DeltaEntry,
+    JumpMenuEntries,
     MisalignmentEntry,
     NavBook,
     NavRef,
@@ -27,6 +29,7 @@ from frvt.api.scheme_select import (
     require_translation,
     selected_scheme_ref,
 )
+from frvt.api.usx_book_order import USX_BOOK_ORDER, usx_book_sort_key
 from frvt.ingest.normalize import strip_part_suffix
 from frvt.resolver.compose import invert_relation
 from frvt.resolver.parse_ref import format_bcv, parse_ref
@@ -113,6 +116,50 @@ def navigation_target(source_ref: str, part: str | None = None) -> tuple[str, Na
     )
 
 
+def jump_navigation_ref(row: JumpMapping) -> tuple[str, str | None]:
+    """Return the discrete resolve ref and part for a jump row."""
+    nav_ref, _navigation = navigation_target(row.source_ref, row.part)
+    return nav_ref, row.part
+
+
+def jump_source_bcv_sort_key(
+    row: JumpMapping,
+) -> tuple[int, str, int, int, str, str, str]:
+    """Sort jump rows by the from-side starting BCV (range lower bound).
+
+    Uses the same coordinate as ``navigation`` / ``navigation_ref`` so range
+    entries such as ``PSA 62:1-12`` order by ``PSA 62:1``. Unknown or
+    unparseable refs sort after known USX books, with ``source_ref`` /
+    ``relation`` as stable tiebreakers.
+    """
+    try:
+        _nav_ref, navigation = navigation_target(row.source_ref, row.part)
+    except (ReferenceError, ValueError, TypeError):
+        logger.debug(
+            "Jump BCV sort falling back for unparseable source_ref=%s",
+            row.source_ref,
+        )
+        return (
+            len(USX_BOOK_ORDER),
+            row.source_ref,
+            0,
+            0,
+            row.part or "",
+            row.source_ref,
+            row.relation,
+        )
+    book_index, book_code = usx_book_sort_key(navigation.book)
+    return (
+        book_index,
+        book_code,
+        navigation.chapter,
+        navigation.verse,
+        navigation.part or "",
+        row.source_ref,
+        row.relation,
+    )
+
+
 def categorize_delta(
     source_ref: str,
     base_ref: str | None,
@@ -156,16 +203,11 @@ def _mapping_entries(
     book: str | None,
 ) -> list[MappingRecord]:
     """Load mapping rows for jump menus, optionally filtered by book prefix."""
-    stmt = (
-        select(MappingRecord)
-        .where(MappingRecord.scheme_id == scheme_id)
-        .order_by(MappingRecord.ordinal)
-    )
-    rows = list(session.scalars(stmt).all())
-    if book is None:
-        return rows
-    prefix = f"{book} "
-    return [row for row in rows if row.source_ref.startswith(prefix)]
+    stmt = select(MappingRecord).where(MappingRecord.scheme_id == scheme_id)
+    if book is not None:
+        stmt = stmt.where(MappingRecord.source_ref.like(f"{book} %"))
+    stmt = stmt.order_by(MappingRecord.ordinal)
+    return list(session.scalars(stmt).all())
 
 
 def _mapping_signature(row: MappingRecord) -> tuple[str, str | None, str | None, str]:
@@ -190,7 +232,7 @@ def _scheme_differences(
     from_rows = [
         row
         for row in (
-            _mapping_entries(session, from_scheme_id, None)
+            _mapping_entries(session, from_scheme_id, book)
             if from_scheme.based_on_id is not None
             else []
         )
@@ -199,7 +241,7 @@ def _scheme_differences(
     to_rows = [
         row
         for row in (
-            _mapping_entries(session, to_scheme_id, None)
+            _mapping_entries(session, to_scheme_id, book)
             if to_scheme.based_on_id is not None
             else []
         )
@@ -231,10 +273,66 @@ def _scheme_differences(
                 scheme_name=to_name,
             )
         )
-    if book is None:
-        return differences
-    prefix = f"{book} "
-    return [row for row in differences if row.source_ref.startswith(prefix)]
+    return differences
+
+
+def _cancel_filtered_jump_mappings(
+    session: Session,
+    from_translation: UUID,
+    to_translation: UUID,
+    book: str | None,
+    from_versification: UUID | None,
+    to_versification: UUID | None,
+) -> list[JumpMapping]:
+    """Return scheme-difference rows after cancel filtering for jump menus."""
+    to_scheme = selected_scheme_ref(session, to_translation, to_versification)
+    from_scheme = selected_scheme_ref(session, from_translation, from_versification)
+    rows = _scheme_differences(
+        session, from_scheme.scheme_id, to_scheme.scheme_id, book
+    )
+    cancel_context = JumpCancelContext(
+        session=session,
+        from_translation=from_translation,
+        to_translation=to_translation,
+        source_scheme=from_scheme,
+        target_scheme=to_scheme,
+    )
+    kept = filter_canceling_jump_rows(
+        rows,
+        cancel_context,
+        jump_navigation_ref,
+    )
+    return sorted(kept, key=jump_source_bcv_sort_key)
+
+
+def _delta_entry(row: JumpMapping) -> DeltaEntry:
+    """Build one delta entry from a filtered jump mapping row."""
+    nav_ref, navigation = navigation_target(row.source_ref, row.part)
+    return DeltaEntry(
+        source_ref=row.source_ref,
+        base_ref=row.base_ref,
+        relation=RelationType(row.relation),
+        navigation_ref=nav_ref,
+        navigation=navigation,
+    )
+
+
+def _misalignment_entry(row: JumpMapping) -> MisalignmentEntry:
+    """Build one misalignment entry from a filtered jump mapping row."""
+    cat = categorize_delta(
+        row.source_ref,
+        row.base_ref,
+        row.relation,
+        scheme_name=row.scheme_name,
+    )
+    nav_ref, navigation = navigation_target(row.source_ref, row.part)
+    return MisalignmentEntry(
+        category=cat,
+        source_ref=row.source_ref,
+        relation=RelationType(row.relation),
+        navigation_ref=nav_ref,
+        navigation=navigation,
+    )
 
 
 @router.get(
@@ -268,7 +366,9 @@ def translation_navigation(
         books.setdefault(book, set()).add(int(chapter))
     return [
         NavBook(book=book, chapters=sorted(chapters))
-        for book, chapters in sorted(books.items())
+        for book, chapters in sorted(
+            books.items(), key=lambda item: usx_book_sort_key(item[0])
+        )
     ]
 
 
@@ -287,25 +387,17 @@ def resolve_deltas(
     logger.debug("Deltas from=%s to=%s book=%s", from_translation, to_translation, book)
     require_translation(session, from_translation)
     require_translation(session, to_translation)
-    to_scheme = selected_scheme_ref(session, to_translation, to_versification)
-    from_scheme = selected_scheme_ref(session, from_translation, from_versification)
-    deltas = _scheme_differences(
-        session, from_scheme.scheme_id, to_scheme.scheme_id, book
+    deltas = _cancel_filtered_jump_mappings(
+        session,
+        from_translation,
+        to_translation,
+        book,
+        from_versification,
+        to_versification,
     )
     page_limit, page_offset = clamp_page(limit, offset)
     page = deltas[page_offset : page_offset + page_limit]
-    items: list[DeltaEntry] = []
-    for row in page:
-        nav_ref, navigation = navigation_target(row.source_ref, row.part)
-        items.append(
-            DeltaEntry(
-                source_ref=row.source_ref,
-                base_ref=row.base_ref,
-                relation=RelationType(row.relation),
-                navigation_ref=nav_ref,
-                navigation=navigation,
-            )
-        )
+    items = [_delta_entry(row) for row in page]
     return Page[DeltaEntry](items=items, total=len(deltas))
 
 
@@ -314,6 +406,7 @@ def resolve_misalignments(
     from_translation: UUID = Query(...),
     to_translation: UUID = Query(...),
     category: str | None = Query(default=None),
+    book: str | None = Query(default=None),
     limit: int | None = Query(default=None),
     offset: int | None = Query(default=None),
     from_versification: UUID | None = Query(default=None),
@@ -322,38 +415,66 @@ def resolve_misalignments(
 ) -> Page[MisalignmentEntry]:
     """List categorized misalignments derived from from-scheme mapping rows."""
     logger.debug(
-        "Misalignments from=%s to=%s category=%s",
+        "Misalignments from=%s to=%s category=%s book=%s",
         from_translation,
         to_translation,
         category,
+        book,
     )
     require_translation(session, from_translation)
     require_translation(session, to_translation)
-    to_scheme = selected_scheme_ref(session, to_translation, to_versification)
-    from_scheme = selected_scheme_ref(session, from_translation, from_versification)
-    rows = _scheme_differences(
-        session, from_scheme.scheme_id, to_scheme.scheme_id, None
+    rows = _cancel_filtered_jump_mappings(
+        session,
+        from_translation,
+        to_translation,
+        book,
+        from_versification,
+        to_versification,
     )
     entries: list[MisalignmentEntry] = []
     for row in rows:
-        cat = categorize_delta(
-            row.source_ref,
-            row.base_ref,
-            row.relation,
-            scheme_name=row.scheme_name,
-        )
-        if category is not None and cat != category:
+        entry = _misalignment_entry(row)
+        if category is not None and entry.category != category:
             continue
-        nav_ref, navigation = navigation_target(row.source_ref, row.part)
-        entries.append(
-            MisalignmentEntry(
-                category=cat,
-                source_ref=row.source_ref,
-                relation=RelationType(row.relation),
-                navigation_ref=nav_ref,
-                navigation=navigation,
-            )
-        )
+        entries.append(entry)
     page_limit, page_offset = clamp_page(limit, offset)
     page = entries[page_offset : page_offset + page_limit]
     return Page[MisalignmentEntry](items=page, total=len(entries))
+
+
+@router.get("/api/resolve/jump-menu", response_model=JumpMenuEntries)
+def resolve_jump_menu(
+    from_translation: UUID = Query(...),
+    to_translation: UUID = Query(...),
+    book: str | None = Query(default=None),
+    limit: int | None = Query(default=None),
+    offset: int | None = Query(default=None),
+    from_versification: UUID | None = Query(default=None),
+    to_versification: UUID | None = Query(default=None),
+    session: Session = Depends(get_session),
+) -> JumpMenuEntries:
+    """Return deltas and misalignments for the jump menu in one filtered pass."""
+    logger.debug(
+        "Jump menu from=%s to=%s book=%s",
+        from_translation,
+        to_translation,
+        book,
+    )
+    require_translation(session, from_translation)
+    require_translation(session, to_translation)
+    rows = _cancel_filtered_jump_mappings(
+        session,
+        from_translation,
+        to_translation,
+        book,
+        from_versification,
+        to_versification,
+    )
+    page_limit, page_offset = clamp_page(limit, offset)
+    page = rows[page_offset : page_offset + page_limit]
+    delta_items = [_delta_entry(row) for row in page]
+    mis_items = [_misalignment_entry(row) for row in page]
+    return JumpMenuEntries(
+        deltas=Page[DeltaEntry](items=delta_items, total=len(rows)),
+        misalignments=Page[MisalignmentEntry](items=mis_items, total=len(rows)),
+    )

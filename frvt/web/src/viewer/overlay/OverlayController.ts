@@ -2,6 +2,7 @@ import type { ResolveResult, ResolvedSpan } from "../../api/types";
 import {
   anchorKey,
   buildDrawPlan,
+  createCubicMappingPath,
   type AnchorMaps,
   type DrawPlan,
   type DriveSide,
@@ -182,6 +183,7 @@ function clearSvg(svg: SVGSVGElement): void {
 function paintPlan(svg: SVGSVGElement, plan: DrawPlan): void {
   clearSvg(svg);
   const ns = "http://www.w3.org/2000/svg";
+  const markerIds = new Map<string, string>();
 
   for (const outline of plan.outlines) {
     const rect = document.createElementNS(ns, "rect");
@@ -205,12 +207,17 @@ function paintPlan(svg: SVGSVGElement, plan: DrawPlan): void {
 
   for (const connector of plan.connectors) {
     const path = document.createElementNS(ns, "path");
-    path.setAttribute("d", cubicPath(connector.from, connector.to));
+    path.setAttribute("d", createCubicMappingPath(connector.from, connector.to));
     path.setAttribute("fill", "none");
     path.setAttribute("stroke", connector.color);
     path.setAttribute("stroke-width", String(connector.strokeWidth));
+    path.setAttribute("stroke-linecap", "round");
+    path.setAttribute("stroke-linejoin", "round");
     if (connector.dashArray) {
       path.setAttribute("stroke-dasharray", connector.dashArray);
+    }
+    if (!connector.toVoid) {
+      path.setAttribute("marker-end", arrowMarkerUrl(svg, markerIds, connector.color));
     }
     svg.appendChild(path);
 
@@ -219,8 +226,8 @@ function paintPlan(svg: SVGSVGElement, plan: DrawPlan): void {
       voidMark.setAttribute("cx", String(connector.to.x));
       voidMark.setAttribute("cy", String(connector.to.y));
       voidMark.setAttribute("r", "5");
-      voidMark.setAttribute("fill", "none");
-      voidMark.setAttribute("stroke", "var(--void)");
+      voidMark.setAttribute("fill", "var(--void-fill)");
+      voidMark.setAttribute("stroke", "var(--exclude)");
       voidMark.setAttribute("stroke-width", "1.5");
       svg.appendChild(voidMark);
     }
@@ -239,8 +246,42 @@ function paintPlan(svg: SVGSVGElement, plan: DrawPlan): void {
   }
 }
 
-/** Shallow cubic between two edge attachment points. */
-function cubicPath(from: { x: number; y: number }, to: { x: number; y: number }): string {
-  const dx = (to.x - from.x) / 2;
-  return `M ${from.x} ${from.y} C ${from.x + dx} ${from.y}, ${to.x - dx} ${to.y}, ${to.x} ${to.y}`;
+/** Reuse one arrow marker definition per connector color. */
+function arrowMarkerUrl(
+  svg: SVGSVGElement,
+  markerIds: Map<string, string>,
+  color: string,
+): string {
+  const existing = markerIds.get(color);
+  if (existing) {
+    return `url(#${existing})`;
+  }
+
+  const ns = "http://www.w3.org/2000/svg";
+  let defs = svg.querySelector("defs");
+  if (!defs) {
+    defs = document.createElementNS(ns, "defs");
+    svg.appendChild(defs);
+  }
+
+  const id = `frvt-arrow-${markerIds.size}`;
+  markerIds.set(color, id);
+
+  const marker = document.createElementNS(ns, "marker");
+  marker.setAttribute("id", id);
+  marker.setAttribute("viewBox", "0 0 10 10");
+  marker.setAttribute("refX", "9");
+  marker.setAttribute("refY", "5");
+  marker.setAttribute("markerWidth", "14");
+  marker.setAttribute("markerHeight", "14");
+  marker.setAttribute("orient", "auto");
+  marker.setAttribute("markerUnits", "userSpaceOnUse");
+
+  const head = document.createElementNS(ns, "path");
+  head.setAttribute("d", "M 0 0 L 10 5 L 0 10 z");
+  head.setAttribute("fill", color);
+  marker.appendChild(head);
+  defs.appendChild(marker);
+
+  return `url(#${id})`;
 }
