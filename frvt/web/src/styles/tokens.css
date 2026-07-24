@@ -1,0 +1,20 @@
+:root {
+  --bg: #1e1e1e;
+  --bg-elevated: #252526;
+  --fg: #cccccc;
+  --fg-muted: #858585;
+  --border: #3c3c3c;
+  --accent: #3794ff;
+  --danger: #f44747;
+  --rel-one: #4ec9b0;
+  --rel-shift: #dcdcaa;
+  --rel-renumber: #ce9178;
+  --rel-split: #c586c0;
+  --rel-merge: #569cd6;
+  --rel-partial: #9cdcfe;
+  --rel-exclude: #f44747;
+  --rel-complex: #d7ba7d;
+  --void: #6a6a6a;
+  --font-ui: "Segoe UI", "Helvetica Neue", sans-serif;
+  --font-mono: "Cascadia Code", "Consolas", monospace;
+}

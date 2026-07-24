@@ -1,0 +1,20 @@
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: frvt
+      POSTGRES_USER: frvt
+      POSTGRES_PASSWORD: frvt
+    ports:
+      - "5433:5432"
+    volumes:
+      - frvt_pgdata:/var/lib/postgresql/data
+      - ./docker/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U frvt -d frvt"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  frvt_pgdata:
