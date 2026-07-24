@@ -21,13 +21,26 @@ MAX_LIMIT = 500
 
 
 def clamp_page(limit: int | None, offset: int | None) -> tuple[int, int]:
-    """Normalize ``limit``/``offset`` to safe bounds for collection endpoints."""
+    """Normalize ``limit``/``offset`` for collection endpoints.
+
+    Raises ``AppError`` when ``limit`` exceeds ``MAX_LIMIT`` (spec: reject, do not
+    silently clamp). Negative offsets are treated as zero.
+    """
+    logger.debug("Normalizing page limit=%s offset=%s", limit, offset)
     resolved_limit = DEFAULT_LIMIT if limit is None else limit
     resolved_offset = 0 if offset is None else offset
     if resolved_limit < 1:
-        resolved_limit = 1
+        raise AppError(
+            422,
+            "Query parameter limit must be at least 1.",
+            code="validation_failed",
+        )
     if resolved_limit > MAX_LIMIT:
-        resolved_limit = MAX_LIMIT
+        raise AppError(
+            422,
+            f"Query parameter limit must be at most {MAX_LIMIT}.",
+            code="validation_failed",
+        )
     if resolved_offset < 0:
         resolved_offset = 0
     return resolved_limit, resolved_offset

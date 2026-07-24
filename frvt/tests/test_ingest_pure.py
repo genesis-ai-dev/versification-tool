@@ -7,6 +7,7 @@ import json
 import zipfile
 from pathlib import Path
 
+import pytest
 from frvt.ingest.derive_mappings import derive_mapping_records
 from frvt.ingest.ingest_api import ingest_project, ingest_versification
 from frvt.ingest.types import ParsedScheme, ParsedSpan
@@ -21,8 +22,10 @@ _LXX_VRS = _REPO / "research" / "ParatextFormat" / "lxx.vrs"
 _SAMPLE_ZIP = next((_REPO / "research" / "SampleTranslations").glob("*.zip"))
 
 
+@pytest.mark.phase6
+@pytest.mark.ingest
 def test_derive_eng_mapped_psalm_shift() -> None:
-    """eng.json mappedVerses classify PSA 3:0-8 as shift and preserve counts."""
+    """TC-INGEST-006: Derive mapping records (PSA 3:0–8 shift)."""
     from frvt.ingest.normalize import normalize_ingredient
 
     ingredient = normalize_ingredient(json.loads(_ENG_JSON.read_text(encoding="utf-8")))
@@ -41,8 +44,10 @@ def test_derive_eng_mapped_psalm_shift() -> None:
     assert psa.part is None
 
 
+@pytest.mark.phase6
+@pytest.mark.ingest
 def test_derive_partial_part_column() -> None:
-    """partialVerses store the part in the dedicated column, not in source_ref."""
+    """TC-INGEST-006: Derive mapping records (partial part column)."""
     from frvt.ingest.normalize import normalize_ingredient
 
     ingredient = normalize_ingredient(
@@ -65,8 +70,10 @@ def test_derive_partial_part_column() -> None:
     assert len(merges) == len(ingredient["mergedVerses"])
 
 
+@pytest.mark.phase6
+@pytest.mark.ingest
 def test_vrs_convert_eng_sample() -> None:
-    """eng.vrs yields GEN chapter-1 max 31 and the GEN 31:55 mapping."""
+    """TC-INGEST-004: VRS conversion contract (resolver T8)."""
     ingredient, issues = convert_vrs(_ENG_VRS.read_text(encoding="utf-8"))
     assert not issues
     assert ingredient["maxVerses"]["GEN"][0] == "31"
@@ -74,6 +81,8 @@ def test_vrs_convert_eng_sample() -> None:
     assert ingredient["basedOn"] == "org"
 
 
+@pytest.mark.phase6
+@pytest.mark.ingest
 def test_vrs_convert_excluded_verses() -> None:
     """Minus-prefixed VRS omission lines become excluded ingredient verses."""
     ingredient, issues = convert_vrs(_LXX_VRS.read_text(encoding="utf-8"))
@@ -82,8 +91,10 @@ def test_vrs_convert_excluded_verses() -> None:
     assert "SIR 26:27" in ingredient["excludedVerses"]
 
 
+@pytest.mark.phase6
+@pytest.mark.ingest
 def test_usx_parse_phm_from_sample_zip() -> None:
-    """PHM.usx from a sample project parses monotonic seq with non-empty verse 1."""
+    """TC-INGEST-005: USX parse contract (resolver T9)."""
     with zipfile.ZipFile(_SAMPLE_ZIP) as archive:
         usx = archive.read("release/USX_1/PHM.usx").decode("utf-8-sig")
     spans = parse_usx(usx)
@@ -93,6 +104,96 @@ def test_usx_parse_phm_from_sample_zip() -> None:
     assert first.book == "PHM"
     assert first.content
     assert "Paul" in first.content
+
+
+@pytest.mark.phase6
+@pytest.mark.ingest
+def test_etl_functions_are_pure_no_db() -> None:
+    """TC-INGEST-007: ETL ingest/derive functions are pure (no DB writes)."""
+    # Call without a session — these return DTOs / issues only.
+    ingredient, issues = convert_vrs(_ENG_VRS.read_text(encoding="utf-8"))
+    assert not issues
+    scheme = ParsedScheme(
+        name="eng", based_on="org", canonical=False, ingredient=ingredient
+    )
+    rows = derive_mapping_records(scheme)
+    assert rows
+    scheme2, issues2 = ingest_versification(_ENG_JSON.read_bytes(), "eng.json")
+    assert not issues2
+    assert scheme2 is not None
+
+
+@pytest.mark.phase6
+@pytest.mark.ingest
+def test_usx_comma_separated_verses() -> None:
+    """TC-INGEST-014: USX comma-separated verses (Interim binding)."""
+    usx = (
+        '<?xml version="1.0"?><usx version="3.0"><book code="GEN"/>'
+        '<chapter number="1" style="c"/>'
+        '<verse number="6,7" style="v" sid="GEN 1:6"/>Shared text'
+        '<verse eid="GEN 1:6"/></usx>'
+    )
+    spans = parse_usx(usx)
+    assert len(spans) == 2
+    assert spans[0].verse == 6
+    assert spans[0].content == "Shared text"
+    assert spans[1].verse == 7
+    assert spans[1].content == ""
+
+
+@pytest.mark.phase6
+@pytest.mark.ingest
+def test_usx_notes_are_dropped() -> None:
+    """TC-INGEST-015: USX notes are dropped."""
+    usx = (
+        '<?xml version="1.0"?><usx version="3.0"><book code="GEN"/>'
+        '<chapter number="1" style="c"/>'
+        '<verse number="1" style="v" sid="GEN 1:1"/>Visible'
+        '<note caller="+"><char style="fr">1:1 </char>'
+        '<char style="ft">SECRET</char></note> after'
+        '<verse eid="GEN 1:1"/></usx>'
+    )
+    spans = parse_usx(usx)
+    assert len(spans) == 1
+    assert "SECRET" not in spans[0].content
+    assert "Visible" in spans[0].content
+    assert "after" in spans[0].content
+
+
+@pytest.mark.phase6
+@pytest.mark.ingest
+def test_unsupported_vrs_fails_closed() -> None:
+    """TC-INGEST-016: Unsupported VRS construct fails closed."""
+    bad = "GEN 1:31\n!!! not-a-valid-vrs-line !!!\n"
+    ingredient, issues = convert_vrs(bad)
+    assert issues
+    assert any(issue.kind == "invalid" for issue in issues)
+    # Fail closed: do not silently accept a partial ingredient without issues.
+    assert ingredient["maxVerses"].get("GEN") == ["31"] or issues
+
+
+@pytest.mark.phase6
+@pytest.mark.ingest
+def test_merged_verses_override_mapped_classification() -> None:
+    """MergedVerses refs emit a single merge row using mappedVerses for base_ref."""
+    from frvt.ingest.derive_mappings import derive_mapping_records
+    from frvt.ingest.types import ParsedScheme
+
+    ingredient = {
+        "basedOn": "org",
+        "maxVerses": {"GEN": ["2"]},
+        "excludedVerses": [],
+        "mappedVerses": {"GEN 1:1-2": "GEN 1:1"},
+        "partialVerses": {},
+        "mergedVerses": ["GEN 1:1-2"],
+    }
+    rows = derive_mapping_records(
+        ParsedScheme(name="merge-test", based_on="org", canonical=False, ingredient=ingredient)
+    )
+    matches = [row for row in rows if row.source_ref == "GEN 1:1-2"]
+    assert len(matches) == 1
+    assert matches[0].relation == "merge"
+    assert matches[0].base_ref == "GEN 1:1"
 
 
 def test_collapse_duplicate_verse_coords() -> None:

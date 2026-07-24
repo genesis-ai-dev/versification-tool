@@ -13,7 +13,7 @@ from frvt.api.models import (
     VersificationScheme,
 )
 from frvt.resolver import parse_ref, resolve
-from frvt.resolver.chains import preferred_scheme_ref
+from frvt.resolver.chains import build_chain, preferred_scheme_ref
 from frvt.resolver.types import SchemeRef
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -26,6 +26,68 @@ def _scheme(session: Session, name: str) -> SchemeRef:
     ref = preferred_scheme_ref(session, translation.id)
     assert ref is not None
     return ref
+
+
+@pytest.mark.phase6
+@pytest.mark.resolve
+def test_resolve_never_loads_verse_text(seeded_session: Session) -> None:
+    """TC-RESOLVE-012: Resolve never loads verse text."""
+    eng = _scheme(seeded_session, "eng")
+    org = _scheme(seeded_session, "org")
+    # Coordinate resolver returns structure-only DTOs (no content field).
+    result = resolve(seeded_session, "JHN 3:16", source_scheme=eng, target_scheme=org)
+    assert result.relation == "one_to_one"
+    for span in (*result.source_spans, *result.target_spans):
+        assert not hasattr(span, "content")
+
+
+@pytest.mark.phase6
+@pytest.mark.resolve
+def test_cycle_in_based_on_chain_detected(seeded_session: Session) -> None:
+    """TC-RESOLVE-026: Cycle in based_on chain is detected."""
+    a = Translation(
+        name=f"cycle-a-{uuid4().hex[:8]}",
+        language="en",
+        source_format="usx",
+        is_anchor=False,
+    )
+    b = Translation(
+        name=f"cycle-b-{uuid4().hex[:8]}",
+        language="en",
+        source_format="usx",
+        is_anchor=False,
+    )
+    seeded_session.add_all([a, b])
+    seeded_session.flush()
+    scheme_a = VersificationScheme(
+        name=f"cycle-scheme-a-{uuid4().hex[:8]}",
+        based_on_name="cycle-b",
+        based_on_id=b.id,
+        canonical=False,
+        ingredient={"maxVerses": {"GEN": ["1"]}},
+    )
+    scheme_b = VersificationScheme(
+        name=f"cycle-scheme-b-{uuid4().hex[:8]}",
+        based_on_name="cycle-a",
+        based_on_id=a.id,
+        canonical=False,
+        ingredient={"maxVerses": {"GEN": ["1"]}},
+    )
+    seeded_session.add_all([scheme_a, scheme_b])
+    seeded_session.flush()
+    seeded_session.add_all(
+        [
+            TranslationVersification(
+                translation_id=a.id, scheme_id=scheme_a.id, preferred=True
+            ),
+            TranslationVersification(
+                translation_id=b.id, scheme_id=scheme_b.id, preferred=True
+            ),
+        ]
+    )
+    seeded_session.flush()
+    with pytest.raises(LookupError, match="Cycle"):
+        build_chain(seeded_session, SchemeRef(scheme_a.id, b.id, "cycle-b"))
 
 
 def test_identity_jhn(seeded_session: Session) -> None:

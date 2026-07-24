@@ -10,7 +10,7 @@ function jumpTarget(entry: { navigation: NavRef; navigation_ref: string }): NavR
 }
 
 describe("jump navigation contract", () => {
-  it("uses structured navigation and never needs to parse source_ref ranges", () => {
+  it("TC-UI-037: uses structured navigation and never needs to parse source_ref ranges", () => {
     const delta: DeltaEntry = {
       source_ref: "PSA 3:0-8",
       base_ref: "PSA 3:1-9",

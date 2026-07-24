@@ -83,12 +83,18 @@ class Translation(Base):
     )
 
     # Ordered verse spans belonging to this translation.
+    # ``passive_deletes`` lets Postgres ON DELETE CASCADE remove rows without
+    # ORM-loading tens of thousands of spans on translation delete.
     spans: Mapped[list[VerseSpan]] = relationship(
-        back_populates="translation", cascade="all, delete-orphan"
+        back_populates="translation",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     # Scheme associations for this translation (including the preferred one).
     versifications: Mapped[list[TranslationVersification]] = relationship(
-        back_populates="translation", cascade="all, delete-orphan"
+        back_populates="translation",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
 

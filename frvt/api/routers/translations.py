@@ -122,6 +122,10 @@ def delete_translation(
     session: Session = Depends(get_session),
 ) -> None:
     """Delete a translation unless it is still referenced as a scheme base."""
+    from sqlalchemy import delete
+
+    from frvt.api.models import TranslationVersification, VerseSpan
+
     logger.debug("Deleting translation id=%s", translation_id)
     row = require_translation(session, translation_id)
     referenced = session.scalar(
@@ -135,5 +139,12 @@ def delete_translation(
             "Translation is still referenced as a versification base.",
             code="conflict",
         )
+    # Bulk-delete children first so large projects do not ORM-load every span.
+    session.execute(delete(VerseSpan).where(VerseSpan.translation_id == translation_id))
+    session.execute(
+        delete(TranslationVersification).where(
+            TranslationVersification.translation_id == translation_id
+        )
+    )
     session.delete(row)
     session.flush()

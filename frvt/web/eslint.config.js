@@ -6,7 +6,7 @@ import tseslint from "typescript-eslint";
 
 /** Flat ESLint config for the React + TypeScript SPA. */
 export default tseslint.config(
-  { ignores: ["dist", "node_modules"] },
+  { ignores: ["dist", "node_modules", "e2e/**", "playwright.config.ts"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

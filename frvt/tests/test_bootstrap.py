@@ -1,7 +1,8 @@
-"""Contract tests for canonical bootstrap seeding."""
+"""Contract tests for canonical bootstrap seeding (phase 1)."""
 
 from __future__ import annotations
 
+import pytest
 from frvt.api.bootstrap import seed_canonical
 from frvt.api.models import (
     MappingRecord,
@@ -14,8 +15,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 
+@pytest.mark.phase1
+@pytest.mark.server
 def test_seed_idempotent_and_complete(db_session: Session) -> None:
-    """Seeding twice creates six anchors, schemes, preferred assocs, and mappings."""
+    """TC-SERVER-002 / TC-SERVER-011: Canonical seed is complete and idempotent."""
     seed_canonical(db_session)
     db_session.flush()
     seed_canonical(db_session)
@@ -53,6 +56,8 @@ def test_seed_idempotent_and_complete(db_session: Session) -> None:
             assert int(mapping_count) > 0
 
 
+@pytest.mark.phase1
+@pytest.mark.server
 def test_seed_restores_canonical_preference(db_session: Session) -> None:
     """A restart restores an anchor's canonical scheme after preference drift."""
     seed_canonical(db_session)

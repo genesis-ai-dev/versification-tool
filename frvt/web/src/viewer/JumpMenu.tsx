@@ -93,7 +93,7 @@ export function JumpMenu({ side, disabled = false }: JumpMenuProps) {
       <button
         type="button"
         className="btn"
-        disabled={!fromTo.from}
+        disabled={disabled || !fromTo.from}
         aria-expanded={open}
         onClick={() => {
           const next = !open;

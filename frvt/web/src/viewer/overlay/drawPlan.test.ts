@@ -159,7 +159,7 @@ describe("buildDrawPlan", () => {
     expect(plan.connectors[0].from.x).toBeGreaterThan(plan.connectors[0].to.x);
   });
 
-  it("prefers seq keys for anchor lookup", () => {
+  it("TC-OVERLAY-010: prefers seq keys and falls back to ref+part", () => {
     expect(anchorKey(span(42))).toBe("seq:42");
     expect(anchorKey({ ...span(1), seq: null })).toBe("ref:GEN 1:1|");
   });

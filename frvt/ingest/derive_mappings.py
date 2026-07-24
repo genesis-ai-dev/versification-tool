@@ -41,8 +41,14 @@ def derive_mapping_records(scheme: ParsedScheme) -> tuple[MappingRecordDTO, ...]
     ordinal = 0
 
     mapped = ingredient.get("mappedVerses") or {}
+    merged_list = ingredient.get("mergedVerses") or []
+    # Keys listed in ``mergedVerses`` are emitted only as ``merge`` rows below;
+    # skipping them here avoids a duplicate renumber/shift row for the same ref.
+    merged_keys = {str(ref) for ref in merged_list} if isinstance(merged_list, list) else set()
     if isinstance(mapped, dict):
         for key, value in mapped.items():
+            if str(key) in merged_keys:
+                continue
             try:
                 relation = classify_mapped(str(key), str(value))
             except ReferenceError:
@@ -80,7 +86,7 @@ def derive_mapping_records(scheme: ParsedScheme) -> tuple[MappingRecordDTO, ...]
             )
             ordinal += 1
 
-    merged = ingredient.get("mergedVerses") or []
+    merged = merged_list
     if isinstance(merged, list):
         for ref in merged:
             ref_s = str(ref)

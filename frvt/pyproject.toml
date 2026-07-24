@@ -32,11 +32,29 @@ pythonpath = [".."]
 filterwarnings = [
   "ignore:Using `httpx` with `starlette.testclient` is deprecated.*:UserWarning",
 ]
+markers = [
+  "phase1: auth and bootstrap HTTP cases",
+  "phase2: API CRUD and error cases",
+  "phase3: ingest HTTP cases",
+  "phase4: resolve API cases",
+  "phase5: navigation HTTP cases",
+  "phase6: optional backend pure/unit cases",
+  "auth: auth-area cases",
+  "server: server/bootstrap cases",
+  "api: API CRUD/error cases",
+  "ingest: ingest cases",
+  "resolve: resolve cases",
+  "nav: navigation cases",
+  "ui: viewer UI cases",
+  "overlay: overlay cases",
+  "manage: manage UI cases",
+  "oos: out-of-scope confirmation cases",
+]
 
 [tool.ruff]
 line-length = 88
 target-version = "py311"
-src = ["api", "resolver", "ingest", "tests"]
+src = ["api", "resolver", "ingest", "tests", "testops"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
@@ -45,6 +63,7 @@ ignore = ["B008"]
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["E501"]
 "migrations/*" = ["E501"]
+"testops/*" = ["E501"]
 
 [tool.mypy]
 python_version = "3.11"

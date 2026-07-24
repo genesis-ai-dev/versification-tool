@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { formatBcvLabel, formatVerseLabel } from "../lib/formatRef";
 import { columnToResolveArgs, toResolveArgs } from "../lib/bcv";
+import { navigationToBcv } from "../viewer/jumpNavigation";
 
 describe("formatVerseLabel", () => {
   it("shows Title (0) for verse 0 while machine value stays 0", () => {
@@ -27,5 +28,23 @@ describe("toResolveArgs", () => {
       ref: "GEN 1:1",
       part: null,
     });
+  });
+
+  it("TC-UI-037: builds single-verse refs only from structured BCV / jump navigation", () => {
+    // Display labels may be ranges (e.g. PSA 3:0-8); jump uses navigation, not a range parser.
+    const rangeLabel = "PSA 3:0-8";
+    expect(rangeLabel.includes("-")).toBe(true);
+
+    const bcv = navigationToBcv({
+      book: "PSA",
+      chapter: 3,
+      verse: 0,
+      part: null,
+    });
+    const args = toResolveArgs(bcv.book, bcv.chapter, bcv.verse, bcv.part);
+    expect(args).toEqual({ ref: "PSA 3:0", part: null });
+    expect(args.ref.includes("-")).toBe(false);
+
+    expect(columnToResolveArgs(bcv).ref).toBe("PSA 3:0");
   });
 });

@@ -146,8 +146,11 @@ function measureColumn(
   return map;
 }
 
-/** Prefer ``data-seq`` lookup; fall back to ``data-ref`` + ``data-part``. */
-function findAnchor(root: HTMLElement, span: ResolvedSpan): HTMLElement | null {
+/**
+ * Locate a verse span element for overlay measurement.
+ * Prefers ``data-seq`` when the span carries one; otherwise matches ``data-ref`` + ``data-part``.
+ */
+export function findAnchor(root: HTMLElement, span: ResolvedSpan): HTMLElement | null {
   if (span.seq !== null && span.seq !== undefined) {
     const bySeq = root.querySelector<HTMLElement>(`[data-seq="${span.seq}"]`);
     if (bySeq) {
