@@ -1,0 +1,77 @@
+#
+# Versification "NIV English"
+#
+# custom.vrs  by Kent Spielmann 01/July/2014
+# custom modifications to eng.vrs (English RSV versification) 
+#
+# This custom.vrs file compensates for differences between eng.vrs and most NIV and NIV-like translations
+#
+#
+#---------------------------------------------------------
+# Section 1: Modifications to chapter length
+#---------------------------------------------------------
+#
+#--------------------------------------------------
+# Old Testament
+#--------------------------------------------------
+#
+# None
+#
+#-----------------------------------------------
+# New Testament
+#--------------------------------------------------
+#
+# 2CO 13 has 14 verses like KJV. Some modern English versions have 13 verses 
+# 2CO 13:13
+# 3JN has 14 verses like KJV. Some modern English versions have 15 verses 
+# 3JN 1:14 # 3 John 15 added 2/11/2019
+# The content of REV 12:18 is included in 13:1 (like KJV - though the reading is different)
+REV 12:17
+#
+#---------------------------------------------------------
+# Section 2: deliberately missing verses in the middle of chapters
+#---------------------------------------------------------
+# 
+# Doubtful verses are usually either moved to footnotes or marked as doubtful in a footnote.
+# In NIV84 these verses are in footnotes
+# 
+#-MAT 17:21
+#-MAT 18:11
+#-MAT 23:14
+#-MRK 7:16 
+#-MRK 9:44 
+#-MRK 9:46 
+#-MRK 11:26 
+#-MRK 15:28
+#-LUK 17:36
+#-LUK 23:17
+#-JHN 5:4  
+#-ACT 8:37
+#-ACT 15:34
+#-ACT 24:7
+#-ACT 28:29
+#-ROM 16:24
+#
+#-----------------------------------------------------
+# Mapping
+#-----------------------------------------------------
+# 
+# Mappings are required when the text in in a verse (on left) is not the same verse/chapter as org.vrs (on right)
+# Mappings allow computer programs to line up equivalent verses of different translations in parallel views
+# Mappings also allow cross references to be properly imported from a model project into a project that has a different versification
+NEH 7:68-73 = NEH 7:67-72
+# (Note: ranges must not span a chapter, e.g. 4:10-5:11 is illegal)
+# OT 
+# ISA 64:1 = ISA 63:19-64;1 not allowed
+ISA 64:1 = ISA 63:19
+#
+# Mapping for 2CO 13 with 14 verses 
+2CO 13:13 = 2CO 13:12
+2CO 13:14 = 2CO 13:13
+#
+# 3JN 1:14 = 3JN 1:14-15 # 3 John 15 added 2/11/2019
+# REV 13:1a = REV 12:18   # PT can't handle split verses
+# REV 13:1b = REV 13:1    # PT can't handle split verses
+# REV 13:1 = REV 12:18-13:1 # this will not work
+REV 13:1 = REV 12:18
+REV 13:1 = REV 13:1

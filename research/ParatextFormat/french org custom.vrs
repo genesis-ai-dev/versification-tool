@@ -1,0 +1,37 @@
+﻿#
+# Versification "BDS original"
+#
+# custom.vrs  by Kent Spielmann 01/July/2014
+# custom modifications to original.vrs (PT default versification) 
+#
+# This custom.vrs file compensates for differences between org.vrs and La Bible Du Semeur (BDS)
+#
+# Modified for La Bible Du Semeur (BDS) by Kent Spielmann 01/July/2014
+#
+#---------------------------------------------------------
+# Section 1: Modifications to chapter length
+#---------------------------------------------------------
+# None
+#
+#---------------------------------------------------------
+# Section 2: deliberately missing verses in the middle of chapters
+#---------------------------------------------------------
+# 
+# Doubtful verses are usually either moved to footnotes or marked as doubtful in a footnote.
+# The following doubtful verses are moved to footnotes 
+#
+-MAT 17:21
+-MAT 18:11
+-MRK 9:44 
+-MRK 9:46 
+-MRK 15:28
+-JHN 5:4  
+-ACT 28:29
+-ROM 16:24
+#
+#-----------------------------------------------------
+# Mapping
+#-----------------------------------------------------
+#
+# (Note: ranges must not span a chapter, e.g. 4:10-5:11 is illegal)
+# None
