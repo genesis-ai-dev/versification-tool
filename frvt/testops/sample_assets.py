@@ -24,7 +24,7 @@ def primary_project_zip() -> Path:
         _REPO_ROOT
         / "research"
         / "SampleTranslations"
-        / "6b7f504f1b6050c1-rev1-release.zip"
+        / "biblica-spanish-1.zip"
     )
     logger.debug("Primary project zip path=%s exists=%s", path, path.is_file())
     return path

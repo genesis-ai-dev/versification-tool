@@ -107,7 +107,7 @@ Primary fixtures (from the test-plan index):
 
 | Asset | Path |
 | --- | --- |
-| Sample project zip | `research/SampleTranslations/6b7f504f1b6050c1-rev1-release.zip` |
+| Sample project zip | `research/SampleTranslations/biblica-spanish-1.zip` |
 | Other sample zips | `research/SampleTranslations/*.zip` |
 | Copenhagen ingredients | `research/CopenhagenFormat/{org,eng,lxx,rso,rsc,vul,validated}.json` |
 | Schema | `research/CopenhagenFormat/versification_schema.json` |

@@ -54,7 +54,7 @@ export function primaryProjectZipPath(): string {
     repoRoot,
     "research",
     "SampleTranslations",
-    "6b7f504f1b6050c1-rev1-release.zip",
+    "biblica-spanish-1.zip",
   );
 }
 
@@ -64,7 +64,7 @@ export function secondaryProjectZipPath(): string {
     repoRoot,
     "research",
     "SampleTranslations",
-    "06125adad2d5898a-rev18-release.zip",
+    "american-standard-1.zip",
   );
 }
 

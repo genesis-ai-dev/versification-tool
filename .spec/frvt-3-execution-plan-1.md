@@ -49,7 +49,7 @@ These bind the generated code to the project rules and the specs' cross-cutting 
 
 Concrete inputs available in the repo. Verify paths at implementation time.
 
-- **Sample projects (Path A ingest, viewer demo):** `research/SampleTranslations/*.zip` — six real Paratext/DBL-style bundles. Verified layout: `metadata.xml` (name/language under `<identification>`), `release/USX_1/*.usx` (USX 3.0 with `<verse ... sid/> ... <verse eid/>` milestones), and `release/versification.vrs` (a `maxVerses` book table plus `=` mapping lines).
+- **Sample projects (Path A ingest, viewer demo):** `research/SampleTranslations/*.zip` — seven real Paratext/DBL-style bundles. Verified layout: `metadata.xml` (name/language under `<identification>`), `release/USX_1/*.usx` (USX 3.0 with `<verse ... sid/> ... <verse eid/>` milestones), and `release/versification.vrs` (a `maxVerses` book table plus `=` mapping lines).
 - **Canonical Copenhagen ingredients (bootstrap):** `research/CopenhagenFormat/{org,eng,lxx,rso,rsc,vul}.json`. Package these as importable resources inside `frvt/` so seeding is independent of the working directory. `eng.json` carries `maxVerses` + `mappedVerses` (e.g. `PSA 3:0-8` → `PSA 3:1-9`, `GEN 31:55` → `GEN 32:1`); `validated.json` additionally exercises `partialVerses`, `mergedVerses`, `excludedVerses`, and `verification`.
 - **Schema + standalone VRS (upload tests):** `research/CopenhagenFormat/versification_schema.json`; `research/ParatextFormat/*.vrs`.
 
