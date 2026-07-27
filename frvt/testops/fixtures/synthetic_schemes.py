@@ -97,6 +97,19 @@ def partial_ingredient(*, based_on: str = "org") -> dict[str, Any]:
     }
 
 
+def gen_partial_ingredient(*, based_on: str = "org") -> dict[str, Any]:
+    """Return a GEN 1:1 partial used with sample translations that contain text."""
+    logger.debug("Building GEN partial ingredient based_on=%s", based_on)
+    return {
+        "basedOn": based_on,
+        "maxVerses": {"GEN": ["31"]},
+        "excludedVerses": [],
+        "mappedVerses": {},
+        "partialVerses": {"GEN 1:1": ["a"]},
+        "mergedVerses": [],
+    }
+
+
 def psalm_style_a_ingredient(*, based_on: str = "org") -> dict[str, Any]:
     """Return an English-style psalm ingredient for complementary cancel tests."""
     logger.debug("Building psalm style-A ingredient based_on=%s", based_on)

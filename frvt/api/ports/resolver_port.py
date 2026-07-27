@@ -19,27 +19,66 @@ from frvt.resolver.types import ResolutionDTO, ResolvedSpanDTO
 logger = get_logger(__name__)
 
 
-def _enrich_span(
+def _lookup_verse_span(
     session: Session,
     translation_id: UUID,
-    dto: ResolvedSpanDTO,
-) -> ResolvedSpan:
-    """Parse structured coords from ``dto.ref`` and attach ``seq`` when present."""
-    ref_range = parse_ref(dto.ref)
-    book = ref_range.book
-    chapter = ref_range.chapter
-    verse = ref_range.verse_start
+    *,
+    book: str,
+    chapter: int,
+    verse: int,
+    part: str | None,
+) -> VerseSpan | None:
+    """Return the stored verse span for the given BCV and optional part."""
     filters = [
         VerseSpan.translation_id == translation_id,
         VerseSpan.book == book,
         VerseSpan.chapter == chapter,
         VerseSpan.verse == verse,
     ]
-    if dto.part is None:
+    if part is None:
         filters.append(VerseSpan.part.is_(None))
     else:
-        filters.append(VerseSpan.part == dto.part)
-    span = session.scalar(select(VerseSpan).where(*filters))
+        filters.append(VerseSpan.part == part)
+    return session.scalar(select(VerseSpan).where(*filters))
+
+
+def _enrich_span(
+    session: Session,
+    translation_id: UUID,
+    dto: ResolvedSpanDTO,
+) -> ResolvedSpan:
+    """Parse structured coords from ``dto.ref`` and attach ``seq`` when present.
+
+    When a part-bearing resolve span has no matching ``verse_span`` row (typical
+    for USX whole-verse rows with ``part`` null), fall back to the whole-verse
+    row so the UI can still anchor overlays and highlights.
+    """
+    ref_range = parse_ref(dto.ref)
+    book = ref_range.book
+    chapter = ref_range.chapter
+    verse = ref_range.verse_start
+    span = _lookup_verse_span(
+        session,
+        translation_id,
+        book=book,
+        chapter=chapter,
+        verse=verse,
+        part=dto.part,
+    )
+    if span is None and dto.part is not None:
+        logger.debug(
+            "Part span missing; falling back to whole verse ref=%s part=%s",
+            dto.ref,
+            dto.part,
+        )
+        span = _lookup_verse_span(
+            session,
+            translation_id,
+            book=book,
+            chapter=chapter,
+            verse=verse,
+            part=None,
+        )
     return ResolvedSpan(
         ref=dto.ref,
         book=book,

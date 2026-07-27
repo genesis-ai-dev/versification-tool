@@ -89,4 +89,23 @@ describe("findAnchor", () => {
     const withSeq: ResolvedSpan = { ...span, seq: 99 };
     expect(findAnchor(root, withSeq)).toBe(el);
   });
+
+  it("falls back to whole-verse node when part-bearing DOM is absent", () => {
+    const root = document.createElement("div");
+    const el = document.createElement("span");
+    el.dataset.ref = "GEN 1:1";
+    el.dataset.part = "";
+    root.append(el);
+    document.body.append(root);
+
+    const span: ResolvedSpan = {
+      ref: "GEN 1:1",
+      book: "GEN",
+      chapter: 1,
+      verse: 1,
+      seq: null,
+      part: "a",
+    };
+    expect(findAnchor(root, span)).toBe(el);
+  });
 });

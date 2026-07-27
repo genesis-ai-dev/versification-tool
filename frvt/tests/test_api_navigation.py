@@ -9,10 +9,13 @@ from fastapi.testclient import TestClient
 from frvt.api.routers.navigation import navigation_target
 from frvt.api.usx_book_order import usx_book_sort_key
 from frvt.testops.fixtures.api_setup import (
+    associate,
     complementary_psalm_context,
     create_translation,
     eng_org_resolve_context,
+    upload_ingredient_json,
 )
+from frvt.testops.fixtures.synthetic_schemes import gen_partial_ingredient
 from frvt.testops.http_client import assert_error_envelope, basic_auth_header
 
 
@@ -279,6 +282,93 @@ def test_deltas_optional_book_filter(
     items = response.json()["items"]
     assert items
     assert all(item["source_ref"].startswith("PSA ") for item in items)
+
+
+@pytest.mark.phase5
+@pytest.mark.nav
+def test_jump_menu_keeps_identity_locus_partial(
+    api_client: TestClient, eng_org: dict[str, str]
+) -> None:
+    """TC-NAV-013: Partial rows stay visible in Jump in both directions."""
+    partial_scheme = upload_ingredient_json(
+        api_client,
+        f"jump-partial-{uuid4().hex[:8]}",
+        gen_partial_ingredient(),
+    )
+    associate(api_client, eng_org["translation_id"], partial_scheme["id"])
+
+    directions = (
+        (
+            "partial-to-org",
+            eng_org["translation_id"],
+            eng_org["org_translation_id"],
+            partial_scheme["id"],
+            eng_org["org_id"],
+        ),
+        (
+            "org-to-partial",
+            eng_org["org_translation_id"],
+            eng_org["translation_id"],
+            eng_org["org_id"],
+            partial_scheme["id"],
+        ),
+    )
+    expected_navigation = {
+        "book": "GEN",
+        "chapter": 1,
+        "verse": 1,
+        "part": "a",
+    }
+
+    for (
+        direction,
+        from_translation,
+        to_translation,
+        from_versification,
+        to_versification,
+    ) in directions:
+        response = api_client.get(
+            "/api/resolve/jump-menu",
+            headers=_auth(),
+            params={
+                "from_translation": from_translation,
+                "to_translation": to_translation,
+                "from_versification": from_versification,
+                "to_versification": to_versification,
+                "book": "GEN",
+                "limit": 20,
+            },
+        )
+        assert response.status_code == 200, f"{direction}: {response.text}"
+        body = response.json()
+
+        delta = next(
+            (
+                item
+                for item in body["deltas"]["items"]
+                if item["relation"] == "partial"
+            ),
+            None,
+        )
+        assert delta is not None, f"{direction}: partial delta missing"
+        assert delta["source_ref"] == "GEN 1:1"
+        assert delta["base_ref"] == "GEN 1:1"
+        assert delta["navigation_ref"] == "GEN 1:1"
+        assert delta["navigation"] == expected_navigation
+
+        misalignment = next(
+            (
+                item
+                for item in body["misalignments"]["items"]
+                if item["relation"] == "partial"
+            ),
+            None,
+        )
+        assert misalignment is not None, f"{direction}: partial misalignment missing"
+        assert misalignment["category"] == "other"
+        assert misalignment["source_ref"] == "GEN 1:1"
+        assert misalignment["navigation_ref"] == "GEN 1:1"
+        assert misalignment["navigation"] == expected_navigation
 
 
 @pytest.fixture

@@ -1,0 +1,12 @@
+{
+  "basedOn": "org",
+  "maxVerses": {
+    "GEN": ["31"]
+  },
+  "mappedVerses": {
+    "GEN 1:10-11": "GEN 1:1"
+  },
+  "excludedVerses": [],
+  "mergedVerses": ["GEN 1:10-11"],
+  "partialVerses": {}
+}

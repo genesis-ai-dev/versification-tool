@@ -21,7 +21,7 @@
 | --- | --- |
 | Surface | Filter **both** `GET /api/resolve/deltas` and `GET /api/resolve/misalignments` |
 | Cancel definition | After resolve at `navigation_ref` (+ `part` when present), **hide** when exactly one source span and one target span share `(book, chapter, verse, part)` — even if `relation` is `shift`/`renumber` |
-| Keep visible | Multi-span, `exclude`, real coordinate shifts, resolve failures |
+| Keep visible | Multi-span, `exclude`, `partial` (identity-locus part annotations), real coordinate shifts, resolve failures |
 | Resolve errors | **Fail open** — only hide when resolve succeeds and proves same BCV |
 | Placement | Server-side shared filter; no new query params |
 | Pagination | Filter before `limit`/`offset`; `total` is post-filter count |

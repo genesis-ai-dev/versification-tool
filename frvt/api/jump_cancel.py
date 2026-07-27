@@ -99,7 +99,13 @@ def spans_share_bcv(source: ResolvedSpanDTO, target: ResolvedSpanDTO) -> bool:
 
 
 def is_canceling_resolution(dto: ResolutionDTO) -> bool:
-    """Return whether a coordinate resolve result cancels for jump-menu purposes."""
+    """Return whether a coordinate resolve result cancels for jump-menu purposes.
+
+    Identity-locus ``partial`` results share book/chapter/verse/part by design
+    (the part annotation is the meaningful delta), so they stay visible.
+    """
+    if dto.relation == "partial":
+        return False
     if len(dto.source_spans) != 1 or len(dto.target_spans) != 1:
         return False
     return spans_share_bcv(dto.source_spans[0], dto.target_spans[0])

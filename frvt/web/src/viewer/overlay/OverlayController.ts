@@ -150,6 +150,7 @@ function measureColumn(
 /**
  * Locate a verse span element for overlay measurement.
  * Prefers ``data-seq`` when the span carries one; otherwise matches ``data-ref`` + ``data-part``.
+ * When a part-bearing span has no part-specific DOM node, falls back to the whole-verse node.
  */
 export function findAnchor(root: HTMLElement, span: ResolvedSpan): HTMLElement | null {
   if (span.seq !== null && span.seq !== undefined) {
@@ -159,9 +160,18 @@ export function findAnchor(root: HTMLElement, span: ResolvedSpan): HTMLElement |
     }
   }
   const part = span.part ?? "";
-  return root.querySelector<HTMLElement>(
+  const byPart = root.querySelector<HTMLElement>(
     `[data-ref="${cssEscape(span.ref)}"][data-part="${cssEscape(part)}"]`,
   );
+  if (byPart) {
+    return byPart;
+  }
+  if (part !== "") {
+    return root.querySelector<HTMLElement>(
+      `[data-ref="${cssEscape(span.ref)}"][data-part=""]`,
+    );
+  }
+  return null;
 }
 
 /** Escape attribute values for querySelector when CSS.escape is available. */

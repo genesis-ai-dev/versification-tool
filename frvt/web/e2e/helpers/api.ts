@@ -356,6 +356,18 @@ export function excludeIngredient(basedOn = "org"): Record<string, unknown> {
   };
 }
 
+/** Copenhagen ingredient that marks GEN 1:1 part a over an org base. */
+export function partialIngredient(basedOn = "org"): Record<string, unknown> {
+  return {
+    basedOn,
+    maxVerses: { GEN: ["31"] },
+    excludedVerses: [],
+    mappedVerses: {},
+    partialVerses: { "GEN 1:1": ["a"] },
+    mergedVerses: [],
+  };
+}
+
 /**
  * Pair of ingredients that resolve GEN 1:1 as a complex hull (shared pivot merge).
  * Left owns GEN 1:1-2 → GEN 1:1; right owns GEN 1:10-11 → GEN 1:1.

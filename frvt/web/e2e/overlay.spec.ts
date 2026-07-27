@@ -3,6 +3,7 @@ import {
   complexIngredientPair,
   ensureAssociated,
   excludeIngredient,
+  partialIngredient,
   seedContrastingPair,
   uploadIngredientJson,
 } from "./helpers/api";
@@ -142,18 +143,77 @@ test.describe("Overlay e2e", () => {
     page,
   }) => {
     const pair = await seedContrastingPair(page.request);
+    const partialScheme = await uploadIngredientJson(
+      page.request,
+      `E2E-Partial-${Date.now().toString(36)}`,
+      partialIngredient(),
+    );
+    await ensureAssociated(page.request, pair.left.id, partialScheme.id);
     await openViewerSession(page, {
       left: pair.left.id,
       right: pair.right.id,
       map: true,
-      lvers: pair.engId,
+      lvers: partialScheme.id,
       rvers: pair.orgId,
+      lb: "GEN",
+      lc: "1",
+      lv: "1",
+      rb: "GEN",
+      rc: "1",
+      rv: "1",
     });
-    await clickFirstVerse(page, "left");
+
+    const clickPartialJump = async (side: "left" | "right") => {
+      await expect(page.getByText("Resolving…")).toHaveCount(0);
+      // ViewerSession holds a 400 ms input lock while smooth-scrolling the follower.
+      await page.waitForTimeout(450);
+      const column = page.locator(`.scripture-column[data-side="${side}"]`);
+      await column.getByRole("button", { name: "Jump", exact: true }).click();
+      const panel = column.locator(".jump-menu-panel");
+      await expect(panel.getByText("Loading…")).toHaveCount(0, {
+        timeout: 45_000,
+      });
+      const mappedSection = panel
+        .locator(".jump-menu-section")
+        .filter({ hasText: "Mapped deltas" });
+      await expect(mappedSection.getByRole("heading")).toContainText("(1)");
+      const partialJump = mappedSection.getByRole("button", {
+        name: "GEN 1:1 → GEN 1:1",
+        exact: true,
+      });
+      await expect(partialJump).toHaveCount(1);
+      await partialJump.click();
+    };
+
+    const assertPartialOverlay = async () => {
+      await waitForConnectors(page);
+      await expect(
+        page.locator('svg.mapping-overlay > rect[stroke-dasharray="6 4"]'),
+      ).toHaveCount(2);
+      await expect(
+        page.locator('svg.mapping-overlay > path[stroke-dasharray="6 4"]'),
+      ).toHaveCount(1);
+      await expect(page.locator("svg.mapping-overlay text.overlay-label")).toHaveText(
+        "part a",
+      );
+      await expect(
+        page.locator('.verse-span[data-side="left"][data-ref="GEN 1:1"].is-highlighted'),
+      ).toHaveCount(1);
+      await expect(
+        page.locator('.verse-span[data-side="right"][data-ref="GEN 1:1"].is-highlighted'),
+      ).toHaveCount(1);
+    };
+
     await waitForConnectors(page);
-    const labels = page.locator("svg.mapping-overlay text.overlay-label");
-    const outlines = page.locator("svg.mapping-overlay rect");
-    expect((await outlines.count()) + (await labels.count())).toBeGreaterThan(0);
+    await clickPartialJump("left");
+    await expect.poll(() => viewerParams(page).get("lp")).toBe("a");
+    await expect.poll(() => viewerParams(page).get("drive")).toBe("left");
+    await assertPartialOverlay();
+
+    await clickPartialJump("right");
+    await expect.poll(() => viewerParams(page).get("rp")).toBe("a");
+    await expect.poll(() => viewerParams(page).get("drive")).toBe("right");
+    await assertPartialOverlay();
   });
 
   test("TC-OVERLAY-006: text highlight independent of map connectors", async ({

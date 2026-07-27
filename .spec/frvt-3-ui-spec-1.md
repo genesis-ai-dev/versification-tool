@@ -301,7 +301,7 @@ Each column provides:
 
 Selecting a jump entry sets that column's structured BCV from the structured `navigation` object. The UI must not parse range strings.
 
-Lists reflect server-side cancel filtering and source-starting-BCV order; the UI does not apply a second client-side cancel or sort pass.
+Lists reflect server-side cancel filtering and source-starting-BCV order; the UI does not apply a second client-side cancel or sort pass. Identity-locus `partial` entries remain after cancel filtering (the part annotation is the meaningful delta).
 
 ---
 
@@ -440,7 +440,7 @@ Each rendered span:
 </div>
 ```
 
-Prefer `data-seq` for overlay lookup when `ResolvedSpan.seq` is present. Fall back to `data-ref` (+ part) when `seq` is null. Partial mappings outline the part-bearing node only.
+Prefer `data-seq` for overlay lookup when `ResolvedSpan.seq` is present. Fall back to `data-ref` (+ part) when `seq` is null. When a part-bearing resolve has no part-specific DOM node (typical for USX whole-verse rows), fall back to the whole-verse node. Partial mappings outline the part-bearing node only when one exists.
 
 ### 8.4 Overlay redraw pipeline
 

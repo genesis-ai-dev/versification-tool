@@ -99,6 +99,18 @@ def test_is_canceling_resolution_merge() -> None:
 
 
 @pytest.mark.nav
+def test_is_canceling_resolution_partial_stays_visible() -> None:
+    """Identity-locus partial annotations must remain in the jump menu."""
+    dto = ResolutionDTO(
+        source_spans=(_span("GEN 1:1", "a"),),
+        target_spans=(_span("GEN 1:1", "a"),),
+        relation="partial",
+        edges=(),
+    )
+    assert is_canceling_resolution(dto) is False
+
+
+@pytest.mark.nav
 def test_is_canceling_jump_entry_fails_open_on_resolve_error() -> None:
     """Resolve failures keep the jump entry visible."""
     context = JumpCancelContext(

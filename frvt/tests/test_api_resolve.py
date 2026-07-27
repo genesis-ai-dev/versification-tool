@@ -12,12 +12,14 @@ from frvt.testops.fixtures.api_setup import (
     associate,
     create_translation,
     eng_org_resolve_context,
+    ingest_primary_project,
     upload_ingredient_json,
 )
 from frvt.testops.fixtures.synthetic_schemes import (
     complex_left_ingredient,
     complex_right_ingredient,
     exclude_ingredient,
+    gen_partial_ingredient,
     merge_ingredient,
     partial_ingredient,
     unequal_range_ingredient,
@@ -275,6 +277,46 @@ def test_partial_part_via_api(api_client: TestClient, eng_org: dict[str, str]) -
     body = response.json()
     assert body["source_spans"][0].get("part") == "a"
     assert body["relation"] in {"partial", "one_to_one"}
+
+
+@pytest.mark.phase4
+@pytest.mark.resolve
+def test_partial_attaches_whole_verse_seq(
+    api_client: TestClient, eng_org: dict[str, str]
+) -> None:
+    """Partial resolve falls back to the whole-verse seq when no part row exists."""
+    scheme = upload_ingredient_json(
+        api_client,
+        f"part-gen-{uuid4().hex[:8]}",
+        gen_partial_ingredient(),
+    )
+    associate(api_client, eng_org["translation_id"], scheme["id"])
+    target_ingest = ingest_primary_project(
+        api_client,
+        name=f"part-target-{uuid4().hex[:8]}",
+    )
+    target_translation_id = target_ingest["translation"]["id"]
+    associate(api_client, target_translation_id, eng_org["org_id"])
+    response = _resolve(
+        api_client,
+        from_translation=eng_org["translation_id"],
+        to_translation=target_translation_id,
+        ref="GEN 1:1",
+        part="a",
+        from_versification=scheme["id"],
+        to_versification=eng_org["org_id"],
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["relation"] == "partial"
+    assert len(body["source_spans"]) == 1
+    assert len(body["target_spans"]) == 1
+    source = body["source_spans"][0]
+    target = body["target_spans"][0]
+    assert source["part"] == "a"
+    assert target["part"] == "a"
+    assert source["seq"] is not None
+    assert target["seq"] is not None
 
 
 @pytest.mark.phase4
