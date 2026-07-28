@@ -19,10 +19,6 @@ from frvt.testops.sample_assets import repo_root
 logger = get_logger(__name__)
 
 DEMO_BOOKS = frozenset({"JHN", "PSA", "GEN", "ACT", "SIR"})
-_PSA_CHAPTER_OPEN = re.compile(
-    r'(<chapter number="(?P<num>\d+)" style="c" sid="PSA (?P=num)"/>)(?!\s*<para[^>]*>\s*<verse number="0")',
-    re.DOTALL,
-)
 _VRS_MAPPING_LINE = re.compile(r"^\s*[A-Z1-6]{3}\s+\d+:\d+\s*=")
 _ASSETS_DIR = Path(__file__).resolve().parent / "assets"
 _METADATA = (
@@ -81,17 +77,23 @@ def ensure_psa_verse0(psa_usx: str, *, chapter: int = 3) -> str:
     if f'PSA {chapter}:0' in psa_usx or f'sid="PSA {chapter}:0"' in psa_usx:
         return psa_usx
 
+    chapter_open = re.compile(
+        rf'(<chapter number="{chapter}" style="c" sid="PSA {chapter}"\s*/>)'
+        rf'(?!\s*<para[^>]*>\s*<verse number="0")',
+        re.DOTALL,
+    )
+
     def _inject(match: re.Match[str]) -> str:
-        if int(match.group("num")) != chapter:
-            return match.group(0)
         return (
             f'{match.group(1)}\n  <para style="d">\n'
             f'    <verse number="0" style="v" sid="PSA {chapter}:0"/>'
             f'Title ({chapter}).<verse eid="PSA {chapter}:0"/>\n  </para>'
         )
 
-    logger.debug("Patching PSA chapter %s with verse 0", chapter)
-    return _PSA_CHAPTER_OPEN.sub(_inject, psa_usx, count=1)
+    patched, count = chapter_open.subn(_inject, psa_usx, count=1)
+    if count:
+        logger.debug("Patching PSA chapter %s with verse 0", chapter)
+    return patched
 
 
 def minimal_sir_usx() -> str:

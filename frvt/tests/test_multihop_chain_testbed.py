@@ -113,7 +113,8 @@ def test_multihop_engdemo_preferred_scheme(
         headers=_auth(),
     )
     assert response.status_code == 200
-    preferred = [row for row in response.json()["items"] if row["preferred"]]
+    rows = response.json()
+    preferred = [row for row in rows if row["preferred"]]
     assert len(preferred) == 1
     assert preferred[0]["scheme_id"] == ctx["engdemo_scheme_id"]
 

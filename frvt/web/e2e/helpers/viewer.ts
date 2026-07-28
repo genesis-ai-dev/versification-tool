@@ -92,6 +92,13 @@ export function viewerParams(page: Page): URLSearchParams {
   return new URL(page.url()).searchParams;
 }
 
+/** Wait until chapter-mode mapping fetch has finished (toolbar loading hint gone). */
+export async function waitForChapterMappings(page: Page): Promise<void> {
+  await expect(page.getByText("Loading chapter mappings…")).toHaveCount(0, {
+    timeout: 45_000,
+  });
+}
+
 /** Wait until the overlay has painted a path or outline rect. */
 export async function waitForConnectors(page: Page): Promise<void> {
   // Paths may be present with zero layout box; attachment is the reliable signal.

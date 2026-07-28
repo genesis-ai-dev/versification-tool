@@ -513,7 +513,7 @@ When coordinates or expectations change, update the **fixture** artifacts togeth
 |---|---|
 | Empty `merge_ingredient()` needs DB `_seed_mapping` | Demo JSON **must** include both `mappedVerses` and `mergedVerses` for the same key (see `complex_left_ingredient`) |
 | USX parser always sets `part=None` | Seed helper **inserts** `VerseSpan(part="a")` for `SIR 36:13` on both translations |
-| `categorize_delta` prefers `chapter_boundary` over `chapter_count` when chapters differ | Same-chapter unequal-range renumber (`GEN 2:3-5 → GEN 2:3-4`) for `chapter_count` |
+| `categorize_delta` prefers `chapter_boundary` over `chapter_count` when chapters differ | Same-chapter unequal-range renumber (`GEN 2:5-7 → GEN 2:4-5`) for `chapter_count`; navigation ref must not cancel under jump filter |
 | Open-ended “resolver probe” too vague | Fixed **verification table** in code + spec; tests assert it |
 | Chapter-trimming USX is fragile | Extract **whole books** for the demo set |
 | Complex needs real text anchors | Demo zips include GEN 1:1–11 (full GEN book) |
@@ -613,7 +613,7 @@ Do **not** hard-code `["21"]`-style placeholders in committed ingredients. Eithe
     "PSA 3:0-8": "PSA 3:1-9",
     "GEN 31:55": "GEN 32:1",
     "GEN 2:1": "GEN 2:2",
-    "GEN 2:3-5": "GEN 2:3-4",
+    "GEN 2:5-7": "GEN 2:4-5",
     "GEN 1:1-2": "GEN 1:1"
   },
   "excludedVerses": ["ACT 24:7"],
@@ -690,8 +690,8 @@ Defined as `VERIFICATION_CASES` in Python; copied into `.spec` and referenced by
 | C-ident | scheme-a | scheme-b | `JHN 3:16` | `one_to_one` | |
 | C-shift | scheme-a | identity-es | `PSA 3:1` | `shift` | |
 | C-renumber | scheme-a | identity-es | `GEN 31:55` | `renumber` | jump `chapter_boundary` |
-| C-shift-renum | scheme-a | scheme-b | `GEN 2:1` | `renumber` | composed |
-| C-chapter-count | scheme-a | identity-es | `GEN 2:3` | `renumber` | jump `chapter_count` |
+| C-shift-renum | scheme-a | scheme-b | `GEN 2:1` | `shift` | composed |
+| C-chapter-count | scheme-a | identity-es | `GEN 2:5` | `renumber` | jump `chapter_count` |
 | C-exclude | scheme-a | scheme-b | `ACT 24:7` | `exclude` | empty targets |
 | C-merge | scheme-a | identity-es | `GEN 1:1` | `merge` | N→1 |
 | C-split | identity-en | scheme-b | `GEN 1:1` | `split` | 1→N |
@@ -710,7 +710,7 @@ Defined as `VERIFICATION_CASES` in Python; copied into `.spec` and referenced by
 | CAT-synodal | visual-demo-synodal | `GEN 31:55` | `synodal` |
 | CAT-nt-omit | visual-demo-nt-omit | `ACT 24:7` | `nt_omission` |
 | CAT-chapter-boundary | scheme-a | `GEN 31:55` | `chapter_boundary` |
-| CAT-chapter-count | scheme-a | `GEN 2:3` | `chapter_count` |
+| CAT-chapter-count | scheme-a | `GEN 2:5` | `chapter_count` |
 | CAT-other | scheme-a | `JHN 3:16` | `other` |
 | CAT-cancel | psalm-a + psalm-b | `PSA 3:1` | entry not in misalignments |
 

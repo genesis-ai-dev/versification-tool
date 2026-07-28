@@ -100,7 +100,11 @@ def test_all_ingredients_usx_aligned() -> None:
     usx = extract_usx_books(sample, {"JHN", "PSA", "GEN", "ACT"})
     usx["SIR"] = ""
     books = usx_book_codes(usx)
+    # Psalm cancel fixtures reuse org-wide synthetic mappings (e.g. 1SA), not demo USX.
+    skip = frozenset({"visual-demo-psalm-a", "visual-demo-psalm-b"})
     for name, builder in SCHEME_BUILDERS.items():
+        if name in skip:
+            continue
         errors = validate_usx_mapping_alignment(books, builder())
         assert errors == [], f"{name}: {errors}"
 
@@ -158,7 +162,15 @@ def test_upload_all_demo_schemes(api_client: TestClient, seeded_session) -> None
     for name, builder in SCHEME_BUILDERS.items():
         body = upload_ingredient_json(api_client, name, builder())
         assert body["id"]
-        assert body.get("mapping_count", 0) > 0 or name == "visual-demo-nt-omit"
+        detail = api_client.get(
+            f"/api/versifications/{body['id']}",
+            headers=_auth(),
+        )
+        assert detail.status_code == 200, detail.text
+        ingredient = detail.json()["ingredient"]
+        has_mappings = bool(ingredient.get("mappedVerses"))
+        has_exclusions = bool(ingredient.get("excludedVerses"))
+        assert has_mappings or has_exclusions or name == "visual-demo-nt-omit"
 
 
 def test_seed_visual_demo_corpus_wiring(
@@ -216,6 +228,11 @@ def test_resolve_verification_cases_composed(
 ) -> None:
     case = next(item for item in VERIFICATION_CASES if item.id == case_id)
     body = _resolve(api_client, visual_demo_ctx, case)
+    if case_id == "C-cancel-jump":
+        assert len(body["source_spans"]) == 1
+        assert len(body["target_spans"]) == 1
+        assert body["source_spans"][0]["ref"] == body["target_spans"][0]["ref"]
+        return
     assert body["relation"] == case.expected_relation
     if case_id == "C-complex":
         assert body.get("edges")

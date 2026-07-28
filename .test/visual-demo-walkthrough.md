@@ -79,7 +79,7 @@ Each row lists where to go, which schemes to select, and what to verify visually
 | **Action** | Click **GEN 31:55** on the **left** |
 | **Expect** | Renumber/chapter-boundary style alignment; **right** follower jumps to **GEN 32:1** (new chapter). Connector crosses chapter boundary. |
 
-### C-shift-renum — composed renumber
+### C-shift-renum — composed shift
 
 | Field | Value |
 |---|---|
@@ -87,7 +87,7 @@ Each row lists where to go, which schemes to select, and what to verify visually
 | **rvers** | `scheme-b` |
 | **Navigate to** | **GEN** · chapter **2** · verse **1** |
 | **Action** | Click **GEN 2:1** on the **left** |
-| **Expect** | Renumber relation (composed shift∘renumber); **right** lands on **GEN 3:1** (scheme-b maps `GEN 2:1 → GEN 3:1`). Follower chapter/verse differs from source. |
+| **Expect** | Shift relation (scheme-a maps `GEN 2:1 → GEN 2:2`); **right** follower lands on **GEN 2:2**. |
 
 ### C-chapter-count — same-chapter unequal range
 
@@ -95,9 +95,9 @@ Each row lists where to go, which schemes to select, and what to verify visually
 |---|---|
 | **lvers** | `scheme-a` |
 | **rvers** | `identity-es` |
-| **Navigate to** | **GEN** · chapter **2** · verse **3** |
-| **Action** | Click **GEN 2:3** on the **left** |
-| **Expect** | Renumber within chapter (chapter-count category in jump menu); **right** shows **GEN 2:3** with mapping from scheme-a range `GEN 2:3-5 → 2:3-4` (target verse still in **GEN 2**). |
+| **Navigate to** | **GEN** · chapter **2** · verse **5** |
+| **Action** | Click **GEN 2:5** on the **left** |
+| **Expect** | Renumber within chapter (chapter-count category in jump menu); **right** shows **GEN 2:4** from scheme-a mapping `GEN 2:5-7 → GEN 2:4-5`. |
 
 ### C-exclude — void terminator
 
@@ -172,7 +172,7 @@ For each case: set schemes as noted, **navigate to the book/chapter/verse**, ope
 | **CAT-synodal** | `visual-demo-synodal` / `identity-es` | **GEN 31:55** | `synodal` | Row for **GEN 31:55** |
 | **CAT-nt-omit** | `visual-demo-nt-omit` / `identity-es` | **ACT 24:7** | `nt_omission` | Row for **ACT 24:7** |
 | **CAT-chapter-boundary** | `scheme-a` / `identity-es` | **GEN 31:55** | `chapter_boundary` | Row for **GEN 31:55** |
-| **CAT-chapter-count** | `scheme-a` / `identity-es` | **GEN 2:3** | `chapter_count` | Row for **GEN 2:3** |
+| **CAT-chapter-count** | `scheme-a` / `identity-es` | **GEN 2:5** | `chapter_count` | Row for **GEN 2:5** |
 | **CAT-other** | `scheme-a` / `identity-es` | **JHN 3:16** | `other` | Row for **JHN 3:16** (or no stronger category) |
 | **CAT-cancel** | `psalm-a` / `psalm-b` | **PSA 3:1** | (any / all) | **No** row for **PSA 3:1** in misalignments |
 

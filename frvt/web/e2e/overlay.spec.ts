@@ -14,6 +14,7 @@ import {
   trySelectBcv,
   viewerParams,
   waitForConnectors,
+  waitForChapterMappings,
 } from "./helpers/viewer";
 
 /**
@@ -188,10 +189,10 @@ test.describe("Overlay e2e", () => {
     const assertPartialOverlay = async () => {
       await waitForConnectors(page);
       await expect(
-        page.locator('svg.mapping-overlay > rect[stroke-dasharray="6 4"]'),
+        page.locator('svg.mapping-overlay rect[stroke-dasharray="6 4"]'),
       ).toHaveCount(2);
       await expect(
-        page.locator('svg.mapping-overlay > path[stroke-dasharray="6 4"]'),
+        page.locator('svg.mapping-overlay path[stroke-dasharray="6 4"]'),
       ).toHaveCount(1);
       await expect(page.locator("svg.mapping-overlay text.overlay-label")).toHaveText(
         "part a",
@@ -277,6 +278,7 @@ test.describe("Overlay e2e", () => {
 
     await page.getByLabel("Mapping").selectOption("All (dimmed)");
     await expect.poll(() => viewerParams(page).get("map")).toBe("all");
+    await waitForChapterMappings(page);
     await waitForConnectors(page);
     const chapterMode = await connectorCount(page);
     expect(chapterMode).toBeGreaterThan(currentOnly);
@@ -293,8 +295,13 @@ test.describe("Overlay e2e", () => {
       mapMode: "chapter",
       lvers: pair.engId,
       rvers: pair.orgId,
+      lb: "GEN",
+      lc: "1",
+      lv: "1",
     });
+    await trySelectBcv(page, "left", "GEN", "1", "1");
     await clickFirstVerse(page, "left");
+    await waitForChapterMappings(page);
     await waitForConnectors(page);
     const chapterPaths = await connectorCount(page);
 

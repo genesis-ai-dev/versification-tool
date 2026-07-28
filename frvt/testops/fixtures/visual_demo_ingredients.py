@@ -49,7 +49,7 @@ def scheme_a_ingredient() -> dict[str, Any]:
             "PSA 3:0-8": "PSA 3:1-9",
             "GEN 31:55": "GEN 32:1",
             "GEN 2:1": "GEN 2:2",
-            "GEN 2:3-5": "GEN 2:3-4",
+            "GEN 2:5-7": "GEN 2:4-5",
             "GEN 1:1-2": "GEN 1:1",
         },
         "excludedVerses": ["ACT 24:7"],
@@ -79,7 +79,11 @@ def scheme_b_ingredient() -> dict[str, Any]:
 def lxx_ingredient() -> dict[str, Any]:
     """Return LXX-named scheme for ``lxx_psalm`` jump category tests."""
     base = scheme_a_ingredient()
-    return {**base, "mappedVerses": {"PSA 3:0-8": "PSA 3:1-9"}}
+    return {
+        **base,
+        "mappedVerses": {"PSA 3:0-8": "PSA 3:1-9"},
+        "mergedVerses": [],
+    }
 
 
 def synodal_ingredient() -> dict[str, Any]:
@@ -131,8 +135,8 @@ VERIFICATION_CASES: tuple[VerificationCase, ...] = (
     VerificationCase("C-ident", "scheme-a", "scheme-b", "JHN 3:16", None, "one_to_one"),
     VerificationCase("C-shift", "scheme-a", "identity-es", "PSA 3:1", None, "shift"),
     VerificationCase("C-renumber", "scheme-a", "identity-es", "GEN 31:55", None, "renumber"),
-    VerificationCase("C-shift-renum", "scheme-a", "scheme-b", "GEN 2:1", None, "renumber"),
-    VerificationCase("C-chapter-count", "scheme-a", "identity-es", "GEN 2:3", None, "renumber"),
+    VerificationCase("C-shift-renum", "scheme-a", "scheme-b", "GEN 2:1", None, "shift"),
+    VerificationCase("C-chapter-count", "scheme-a", "identity-es", "GEN 2:5", None, "renumber"),
     VerificationCase("C-exclude", "scheme-a", "scheme-b", "ACT 24:7", None, "exclude"),
     VerificationCase("C-merge", "scheme-a", "identity-es", "GEN 1:1", None, "merge"),
     VerificationCase("C-split", "identity-en", "scheme-b", "GEN 1:1", None, "split"),
@@ -155,7 +159,7 @@ CATEGORY_CASES: tuple[CategoryCase, ...] = (
     CategoryCase("CAT-synodal", "visual-demo-synodal", "GEN 31:55", "synodal"),
     CategoryCase("CAT-nt-omit", "visual-demo-nt-omit", "ACT 24:7", "nt_omission"),
     CategoryCase("CAT-chapter-boundary", "scheme-a", "GEN 31:55", "chapter_boundary"),
-    CategoryCase("CAT-chapter-count", "scheme-a", "GEN 2:3", "chapter_count"),
+    CategoryCase("CAT-chapter-count", "scheme-a", "GEN 2:5", "chapter_count"),
     CategoryCase("CAT-other", "scheme-a", "JHN 3:16", "other"),
     CategoryCase(
         "CAT-cancel",

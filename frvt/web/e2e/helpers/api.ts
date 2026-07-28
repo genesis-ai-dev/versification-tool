@@ -520,7 +520,7 @@ function schemeAIngredient(): Record<string, unknown> {
       "PSA 3:0-8": "PSA 3:1-9",
       "GEN 31:55": "GEN 32:1",
       "GEN 2:1": "GEN 2:2",
-      "GEN 2:3-5": "GEN 2:3-4",
+      "GEN 2:5-7": "GEN 2:4-5",
       "GEN 1:1-2": "GEN 1:1",
     },
     excludedVerses: ["ACT 24:7"],
