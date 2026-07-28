@@ -4,6 +4,12 @@
 **Audience:** The developer implementing the React frontend; and the developers writing the server, resolver, and ETL specifications that this document is reconciled against.
 **Scope of this document:** The React single-page application under `frvt/web/`: screens, client state, SVG overlay rendering, and API consumption conventions. It does not specify the HTTP API shapes, the mapping resolver, or ETL/ingest internals. Those are owned by separate specifications and appear here only as consumption contracts and reconciliation items.
 
+> **Modification policy.** The normative body of this specification (numbered sections before **Addenda**) is frozen after initial reconciliation and is **never edited**. All post-reconciliation changes are recorded only in **Addenda** at the end of this file.
+>
+> - **Subsections** (`### ADD-*-NNN`) represent logical spec extensions or modifications — one subsection per issue discovery or requirements change. A subsection may list multiple modification rows. The subsection **title** and **Purpose** describe the extension at a **capability or logical level** (what the spec must support); they do not list field names, section ids, or other implementation detail.
+> - **Modification rows** (within a subsection table) are the atomic changes: each row has its own id, cites the section identifier(s) being changed, states an **Action** (`ADD`, `CLARIFY`, `REPLACE`, `REMOVE`), and provides the **effective text**. Detail lives here, not in the Purpose paragraph. Rows with `REPLACE` or `REMOVE` supersede or void the cited main-body text **logically** when computing the effective specification; they do **not** authorize editing the main body.
+> - **Effective specification:** Start from the frozen main body, then apply addendum subsections in order; within each subsection, apply modification rows in listed order. Later rows override earlier ones for the same target. The on-disk main body always remains unchanged.
+
 ---
 
 ## 1. Overview
@@ -694,3 +700,18 @@ Authoritative detail lives in [§9.2](#92-required-api-reconciliation). All requ
 - **DrawPlan:** pure overlay description (outlines, paths, labels) produced from measured anchors and the `relation` value.
 - **`navigation_ref`:** server-provided single-verse (or single-partial) BCV used as a jump target so the UI never parses ranges; accompanied by structured `navigation` when reconciled.
 - **`seq`:** stable document-order index for rendered spans; overlay and scroll anchors prefer it over BCV labels.
+
+---
+
+## Addenda
+
+Post-reconciliation modifications. Apply subsections in order (`ADD-*-001`, then `ADD-*-002`, …). Each subsection is one logical extension; modification rows within it are applied in listed order to compute the **effective** specification. The main body above is never edited.
+
+### ADD-U-001 — Visual alignment and category test coverage
+
+**Purpose:** Clarifications required to generate visual tests of all alignment relation types and jump-menu misalignment categories in the viewer overlay and jump menu.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-U-001a | §11.3 | ADD | Manual overlay QA for relation topologies and jump-menu categories is documented in [`.test/visual-demo-walkthrough.md`](../.test/visual-demo-walkthrough.md) (`C-*`, `CAT-*` case ids) and [`.test/multihop-chain-walkthrough.md`](../.test/multihop-chain-walkthrough.md) (`P-*` parity ids). Automated contract tests for resolve/overlay inputs remain in pytest; walkthroughs are not CI-gated initially. |
+| ADD-U-001b | §6.6 | ADD | Category filter labels map 1:1 to server §7.9 vocabulary: `psalm_title`, `chapter_boundary`, `chapter_count`, `lxx_psalm`, `synodal`, `nt_omission`, `other` (see [`JumpMenu.tsx`](../frvt/web/src/viewer/JumpMenu.tsx)). |

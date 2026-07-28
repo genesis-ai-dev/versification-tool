@@ -489,3 +489,179 @@ export async function ensureAtLeastOneTranslation(
   });
   return ingested.translation;
 }
+
+/** Paths to generated visual-demo project zips (created by Python testops builders). */
+export function visualDemoZipPath(language: "en" | "es"): string {
+  return path.join(
+    repoRoot,
+    "frvt",
+    "testops",
+    "fixtures",
+    "assets",
+    `visual-demo-${language}.zip`,
+  );
+}
+
+function demoMaxVersesSubset(): Record<string, string[]> {
+  return {
+    JHN: Array.from({ length: 21 }, () => "25"),
+    PSA: Array.from({ length: 150 }, (_, i) => String((i % 20) + 5)),
+    GEN: Array.from({ length: 50 }, () => "30"),
+    ACT: Array.from({ length: 28 }, () => "30"),
+    SIR: Array.from({ length: 51 }, () => "20"),
+  };
+}
+
+function schemeAIngredient(): Record<string, unknown> {
+  return {
+    basedOn: "org",
+    maxVerses: demoMaxVersesSubset(),
+    mappedVerses: {
+      "PSA 3:0-8": "PSA 3:1-9",
+      "GEN 31:55": "GEN 32:1",
+      "GEN 2:1": "GEN 2:2",
+      "GEN 2:3-5": "GEN 2:3-4",
+      "GEN 1:1-2": "GEN 1:1",
+    },
+    excludedVerses: ["ACT 24:7"],
+    mergedVerses: ["GEN 1:1-2"],
+    partialVerses: { "SIR 36:13": ["a"] },
+  };
+}
+
+function schemeBIngredient(): Record<string, unknown> {
+  return {
+    basedOn: "org",
+    maxVerses: demoMaxVersesSubset(),
+    mappedVerses: {
+      "PSA 3:1-8": "PSA 3:2-9",
+      "GEN 31:55": "GEN 32:1",
+      "GEN 2:1": "GEN 3:1",
+      "GEN 1:10-11": "GEN 1:1",
+    },
+    excludedVerses: [],
+    mergedVerses: ["GEN 1:10-11"],
+    partialVerses: {},
+  };
+}
+
+/** Visual demo corpus seed return shape (mirrors pytest ``seed_visual_demo_corpus``). */
+export interface VisualDemoSeedOut {
+  enTranslationId: string;
+  esTranslationId: string;
+  schemes: Record<string, string>;
+}
+
+/**
+ * Seed Visual Demo Corpus translations and schemes for e2e overlay walks.
+ * Requires pre-built zips under ``frvt/testops/fixtures/assets/visual-demo-*.zip``
+ * (run Python ``demo_project_zip_path`` once). Does not insert partial DB spans.
+ */
+export async function seedVisualDemoCorpus(
+  request: APIRequestContext,
+): Promise<VisualDemoSeedOut> {
+  const enPath = visualDemoZipPath("en");
+  const esPath = visualDemoZipPath("es");
+  for (const zipPath of [enPath, esPath]) {
+    if (!fs.existsSync(zipPath)) {
+      throw new Error(
+        `API seed failed (visual demo): missing ${zipPath}. ` +
+          "Generate zips via Python testops demo_project_zip_path first.",
+      );
+    }
+  }
+  const enIngest = await ingestProject(request, {
+    name: `E2E-VisualDemo-EN-${Date.now().toString(36)}`,
+    language: "en",
+    zipPath: enPath,
+  });
+  const esIngest = await ingestProject(request, {
+    name: `E2E-VisualDemo-ES-${Date.now().toString(36)}`,
+    language: "es",
+    zipPath: esPath,
+  });
+  const schemes: Record<string, string> = {
+    "identity-en": enIngest.versification.id,
+    "identity-es": esIngest.versification.id,
+  };
+  const uploads: Array<[string, Record<string, unknown>]> = [
+    ["visual-demo-scheme-a", schemeAIngredient()],
+    ["visual-demo-scheme-b", schemeBIngredient()],
+    ["visual-demo-lxx", { ...schemeAIngredient(), mappedVerses: { "PSA 3:0-8": "PSA 3:1-9" } }],
+    [
+      "visual-demo-synodal",
+      {
+        basedOn: "org",
+        maxVerses: demoMaxVersesSubset(),
+        mappedVerses: { "GEN 31:55": "GEN 32:1" },
+        excludedVerses: [],
+        mergedVerses: [],
+        partialVerses: {},
+      },
+    ],
+    [
+      "visual-demo-nt-omit",
+      {
+        basedOn: "org",
+        maxVerses: demoMaxVersesSubset(),
+        mappedVerses: {},
+        excludedVerses: ["ACT 24:7"],
+        mergedVerses: [],
+        partialVerses: {},
+      },
+    ],
+  ];
+  const logicalNames: Record<string, string> = {
+    "visual-demo-scheme-a": "scheme-a",
+    "visual-demo-scheme-b": "scheme-b",
+    "visual-demo-lxx": "visual-demo-lxx",
+    "visual-demo-synodal": "visual-demo-synodal",
+    "visual-demo-nt-omit": "visual-demo-nt-omit",
+  };
+  for (const [uploadName, ingredient] of uploads) {
+    const uploaded = await uploadIngredientJson(request, uploadName, ingredient);
+    const logical = logicalNames[uploadName] ?? uploadName;
+    schemes[logical] = uploaded.id;
+    await ensureAssociated(request, enIngest.translation.id, uploaded.id);
+    await ensureAssociated(request, esIngest.translation.id, uploaded.id);
+  }
+  const psalmA = await uploadIngredientJson(request, "visual-demo-psalm-a", psalmStyleA());
+  const psalmB = await uploadIngredientJson(request, "visual-demo-psalm-b", psalmStyleB());
+  schemes["psalm-a"] = psalmA.id;
+  schemes["psalm-b"] = psalmB.id;
+  await ensureAssociated(request, enIngest.translation.id, psalmA.id);
+  await ensureAssociated(request, enIngest.translation.id, psalmB.id);
+  await ensureAssociated(request, esIngest.translation.id, psalmA.id);
+  await ensureAssociated(request, esIngest.translation.id, psalmB.id);
+  return {
+    enTranslationId: enIngest.translation.id,
+    esTranslationId: esIngest.translation.id,
+    schemes,
+  };
+}
+
+function psalmStyleA(basedOn = "org"): Record<string, unknown> {
+  return {
+    basedOn,
+    maxVerses: { PSA: ["150"], "1SA": ["31"], GEN: ["50"] },
+    excludedVerses: [],
+    mappedVerses: {
+      "PSA 3:1-8": "PSA 3:2-9",
+      "1SA 20:42": "1SA 21:1",
+      "GEN 31:55": "GEN 32:1",
+    },
+    partialVerses: {},
+    mergedVerses: [],
+  };
+}
+
+function psalmStyleB(basedOn = "org"): Record<string, unknown> {
+  return {
+    basedOn,
+    maxVerses: { PSA: ["150"] },
+    excludedVerses: [],
+    mappedVerses: { "PSA 3:0-8": "PSA 3:1-9" },
+    partialVerses: {},
+    mergedVerses: [],
+  };
+}

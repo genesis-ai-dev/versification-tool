@@ -10,6 +10,12 @@
 
 **Scope:** Behavior of the in-process resolver (`resolve`) and of ingest functions that produce `ParsedSpan` / `ParsedScheme` / `MappingRecordDTO` (API §8.2). Out of scope: HTTP, auth, ORM models/migrations, CRUD routers, UI. The API persists what ingest returns and attaches `verse_span.seq` after resolve.
 
+> **Modification policy.** The normative body of this specification (numbered sections before **Addenda**) is frozen after initial reconciliation and is **never edited**. All post-reconciliation changes are recorded only in **Addenda** at the end of this file.
+>
+> - **Subsections** (`### ADD-*-NNN`) represent logical spec extensions or modifications — one subsection per issue discovery or requirements change. A subsection may list multiple modification rows. The subsection **title** and **Purpose** describe the extension at a **capability or logical level** (what the spec must support); they do not list field names, section ids, or other implementation detail.
+> - **Modification rows** (within a subsection table) are the atomic changes: each row has its own id, cites the section identifier(s) being changed, states an **Action** (`ADD`, `CLARIFY`, `REPLACE`, `REMOVE`), and provides the **effective text**. Detail lives here, not in the Purpose paragraph. Rows with `REPLACE` or `REMOVE` supersede or void the cited main-body text **logically** when computing the effective specification; they do **not** authorize editing the main body.
+> - **Effective specification:** Start from the frozen main body, then apply addendum subsections in order; within each subsection, apply modification rows in listed order. Later rows override earlier ones for the same target. The on-disk main body always remains unchanged.
+
 **How to use this document:** Algorithms in §§5–8 and contracts in §3 are normative enough to implement or to derive a delivery plan that is later merged with API/ORM/UI work. This document does **not** prescribe project phases. Section 12 lists **dependencies** that constrain ordering when a combined plan is produced. Where a rule was previously TBD, this document states an **interim binding** (marked *Interim*) that may later move into the requirements assumptions table.
 
 ---
@@ -713,3 +719,20 @@ Soft constraints (useful when merging plans, not hard blockers):
 - **Numbering-space translation:** A `translation` row named by ingredient `basedOn` and referenced by `based_on_id`; used to walk chains and load the next preferred scheme. Its verse text is not an input to resolve (A20).
 - **Preferred scheme:** A translation's default versification (`translation_versification.preferred=true`); set to the ingested scheme at load, changeable via CRUD, and not deletable. Used for chain hops and as the fallback when a caller omits a side's scheme.
 - **Selected scheme:** The scheme a given request actually uses — a per-request versification override when supplied, else the preferred scheme. The API resolves it before calling `resolve()`.
+
+---
+
+## Addenda
+
+Post-reconciliation modifications. Apply subsections in order (`ADD-*-001`, then `ADD-*-002`, …). Each subsection is one logical extension; modification rows within it are applied in listed order to compute the **effective** specification. The main body above is never edited.
+
+### ADD-R-001 — Visual alignment and category test coverage
+
+**Purpose:** Clarifications required to generate visual tests of all alignment relation types and jump-menu misalignment categories, including composed and multi-hop resolution paths.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-R-001a | §8.1 | ADD | Reject ingredients whose `basedOn` fails `^[a-z][a-z0-9]*$` before lookup. |
+| ADD-R-001b | §8.3 | ADD | VRS `# basedOn:` comment values must satisfy the same charset when present. |
+| ADD-R-001c | §6.2 | ADD | When a scheme's `based_on_id` references a non-anchor user translation, the next hop uses that translation's preferred scheme (same as anchors). Verse text on the intermediate translation is not read (A20). |
+| ADD-R-001d | §10 | ADD | Rows T1–T13 remain the resolver/ETL golden set. Extended end-to-end coverage (composed relations, category navigation, multi-hop parity) is in the Visual Demo Corpus and Multi-hop Chain Test Bed fixture modules cited in server ADD-S-001e. |

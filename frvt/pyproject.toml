@@ -47,6 +47,8 @@ markers = [
   "nav: navigation cases",
   "ui: viewer UI cases",
   "overlay: overlay cases",
+  "visual_demo: visual demo corpus fixture cases",
+  "multihop: multi-hop chain test bed cases",
   "manage: manage UI cases",
   "oos: out-of-scope confirmation cases",
 ]

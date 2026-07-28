@@ -5,43 +5,43 @@ canonical_location: .spec/visual-demo-corpus-plan.md
 todos:
   - id: phase-0-spec
     content: "Phase 0 — fixture .spec stubs, FRVT-3 product spec addenda (ADD-S/R/U-001), importable VERIFICATION_CASES/PARITY_CASES (empty OK)"
-    status: pending
+    status: completed
   - id: phase-1-shared-helpers
     content: "Phase 1 — api_setup ingest_project_bytes, set_preferred, insert_partial_verse_span + test_fixture_shared_helpers.py"
-    status: pending
+    status: completed
   - id: phase-2-zip-builders
     content: "Phase 2 — visual_demo_corpus.py + zip structure tests (no DB)"
-    status: pending
+    status: completed
   - id: phase-3-ingredients
     content: "Phase 3 — visual_demo_ingredients.py + Layer A ingredient tests"
-    status: pending
+    status: completed
   - id: phase-4-ingest
     content: "Phase 4 — Layer B ingest/upload tests"
-    status: pending
+    status: completed
   - id: phase-5-seed-a
     content: "Phase 5 — seed_visual_demo_corpus + partial spans + seed wiring test"
-    status: pending
+    status: completed
   - id: phase-6-resolve-atomic
     content: "Phase 6 — resolve tests for atomic VERIFICATION_CASES subset"
-    status: pending
+    status: completed
   - id: phase-7-resolve-full
     content: "Phase 7 — composed + category + cancel tests; full test_visual_demo_corpus green"
-    status: pending
+    status: completed
   - id: phase-8-walkthrough-a
     content: "Phase 8 — .test/visual-demo-walkthrough.md + e2e seed mirror"
-    status: pending
+    status: completed
   - id: phase-9-multihop-pure
     content: "Phase 9 — multihop_chain_fixtures.py + pure/inference tests"
-    status: pending
+    status: completed
   - id: phase-10-multihop-seed
     content: "Phase 10 — seed_multihop_chain_testbed + wiring tests"
-    status: pending
+    status: completed
   - id: phase-11-multihop-parity
     content: "Phase 11 — parity + non-trivial hop tests; full test_multihop_chain_testbed green"
-    status: pending
+    status: completed
   - id: phase-12-walkthrough-b
     content: "Phase 12 — .test/multihop-chain-walkthrough.md"
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -70,7 +70,7 @@ Work **phases in order**. Do not start phase *N+1* until phase *N* **Acceptance*
 | 2–8 | A | `frvt/tests/test_visual_demo_corpus.py` — add tests incrementally; use `@pytest.mark.visual_demo` |
 | 9–13 | B | `frvt/tests/test_multihop_chain_testbed.py` — add tests incrementally; use `@pytest.mark.multihop` |
 
-Docs (fixture `.spec`, FRVT-3 product-spec addenda, `.test` walkthroughs) may trail their phase by one step but must land before the project is considered complete. FRVT-3 product-spec changes are **Phase 0 only** unless a later phase discovers a product-contract gap (new addendum subsection — see [FRVT-3 product spec addenda](#frvt-3-product-spec-addenda)).
+Docs (FRVT-3 product-spec addenda, `.test` walkthroughs) may trail their phase by one step but must land before the project is considered complete. FRVT-3 product-spec changes are **Phase 0 only** unless a later phase discovers a product-contract gap (new addendum subsection — see [FRVT-3 product spec addenda](#frvt-3-product-spec-addenda)).
 
 ```mermaid
 flowchart TD

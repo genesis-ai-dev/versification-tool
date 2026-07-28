@@ -4,6 +4,12 @@
 **Audience:** The developer implementing the server, database, and API; and the developers writing the UI, resolver, and ETL specifications that this document is reconciled against.
 **Scope of this document:** The backend server process, the relational database, and the HTTP API. It does not specify the resolver internals, the ETL/ingest parsing internals, or the UI. Those are owned by separate specifications and appear here only as isolated interface contracts.
 
+> **Modification policy.** The normative body of this specification (numbered sections before **Addenda**) is frozen after initial reconciliation and is **never edited**. All post-reconciliation changes are recorded only in **Addenda** at the end of this file.
+>
+> - **Subsections** (`### ADD-*-NNN`) represent logical spec extensions or modifications — one subsection per issue discovery or requirements change. A subsection may list multiple modification rows. The subsection **title** and **Purpose** describe the extension at a **capability or logical level** (what the spec must support); they do not list field names, section ids, or other implementation detail.
+> - **Modification rows** (within a subsection table) are the atomic changes: each row has its own id, cites the section identifier(s) being changed, states an **Action** (`ADD`, `CLARIFY`, `REPLACE`, `REMOVE`), and provides the **effective text**. Detail lives here, not in the Purpose paragraph. Rows with `REPLACE` or `REMOVE` supersede or void the cited main-body text **logically** when computing the effective specification; they do **not** authorize editing the main body.
+> - **Effective specification:** Start from the frozen main body, then apply addendum subsections in order; within each subsection, apply modification rows in listed order. Later rows override earlier ones for the same target. The on-disk main body always remains unchanged.
+
 ---
 
 ## 1. Overview
@@ -991,3 +997,21 @@ Recorded during the spec reconciliation (see [`.spec/completed/frvt-3-spec-recon
 - **Span:** an addressable unit of scripture text (`verse_span`), possibly a Psalm title (`verse 0`) or a sub-verse part.
 - **Partial verse:** a mapping that covers only part of a verse, represented by a `part` component.
 - **Relation type:** the classification of a mapping (`one_to_one`, `shift`, `renumber`, `split`, `merge`, `exclude`, `partial`; plus the resolve-time-only `complex` for many-to-many hulls).
+
+---
+
+## Addenda
+
+Post-reconciliation modifications. Apply subsections in order (`ADD-*-001`, then `ADD-*-002`, …). Each subsection is one logical extension; modification rows within it are applied in listed order to compute the **effective** specification. The main body above is never edited.
+
+### ADD-S-001 — Visual alignment and category test coverage
+
+**Purpose:** Clarifications required to generate visual tests of all alignment relation types and jump-menu misalignment categories.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-S-001a | §6.1.3 | ADD | Ingredient `basedOn` values must match `^[a-z][a-z0-9]*$` (lowercase letter first, then lowercase letters/digits; **no hyphens or underscores**). Enforced at ingredient validation (`422 validation_failed` on upload/ingest). Applies to the **name used for translation lookup**, not scheme display names. |
+| ADD-S-001b | §6.1.1 | CLARIFY | User-created translation names used as `basedOn` targets should follow the same charset when they will appear in ingredients (e.g. `engdemo`). |
+| ADD-S-001c | §5.7 | ADD | Non-anchor translations created via `POST /api/translations` (`is_anchor=false`) may serve as numbering-space nodes: schemes may declare `"basedOn": "<translation.name>"` for such a translation. Chain walking loads that translation's **preferred** associated scheme for the next hop. The translation may carry minimal or no verse spans (A20). Example intermediate base: `engdemo`. |
+| ADD-S-001d | §7.9 | ADD | Jump-menu categorization heuristics (in addition to the category vocabulary): PSA mapping involving verse 0 or verse renumbering → `lxx_psalm` if scheme name contains `lxx` (case-insensitive), else `psalm_title`; `relation == exclude` and source book in NT set → `nt_omission`; scheme name contains `synodal`, `rso`, or `rsc` → `synodal`; source and base refs differ in chapter → `chapter_boundary`; `relation == renumber` (same chapter) → `chapter_count`; otherwise → `other`. |
+| ADD-S-001e | §10.3 | ADD | Supplementary contract coverage lives in [`frvt/tests/test_visual_demo_corpus.py`](../frvt/tests/test_visual_demo_corpus.py) and [`frvt/tests/test_multihop_chain_testbed.py`](../frvt/tests/test_multihop_chain_testbed.py), with manual QA in [`.test/visual-demo-walkthrough.md`](../.test/visual-demo-walkthrough.md) and [`.test/multihop-chain-walkthrough.md`](../.test/multihop-chain-walkthrough.md). These suites exercise composed relations, all seven misalignment categories, cancel-filter pairs, and multi-hop parity; they do not replace the §10.3 bullets above. |
