@@ -1,0 +1,14 @@
+{
+  "basedOn": "org",
+  "maxVerses": {
+    "PSA": [
+      "150"
+    ]
+  },
+  "excludedVerses": [],
+  "mappedVerses": {
+    "PSA 3:0-8": "PSA 3:1-9"
+  },
+  "partialVerses": {},
+  "mergedVerses": []
+}

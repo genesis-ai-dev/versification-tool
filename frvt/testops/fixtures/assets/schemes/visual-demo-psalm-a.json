@@ -1,0 +1,22 @@
+{
+  "basedOn": "org",
+  "maxVerses": {
+    "PSA": [
+      "150"
+    ],
+    "1SA": [
+      "31"
+    ],
+    "GEN": [
+      "50"
+    ]
+  },
+  "excludedVerses": [],
+  "mappedVerses": {
+    "PSA 3:1-8": "PSA 3:2-9",
+    "1SA 20:42": "1SA 21:1",
+    "GEN 31:55": "GEN 32:1"
+  },
+  "partialVerses": {},
+  "mergedVerses": []
+}
