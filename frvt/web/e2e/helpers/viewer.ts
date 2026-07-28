@@ -28,6 +28,7 @@ export async function openViewerSession(
     right?: string | null;
     drive?: "left" | "right";
     map?: boolean;
+    mapMode?: "off" | "current" | "chapter";
     lvers?: string | null;
     rvers?: string | null;
     lb?: string;
@@ -44,7 +45,14 @@ export async function openViewerSession(
     search.set("right", params.right);
   }
   search.set("drive", params.drive ?? "left");
-  search.set("map", params.map === false ? "0" : "1");
+  if (params.mapMode) {
+    search.set(
+      "map",
+      params.mapMode === "off" ? "0" : params.mapMode === "chapter" ? "all" : "1",
+    );
+  } else {
+    search.set("map", params.map === false ? "0" : "1");
+  }
   if (params.lvers) {
     search.set("lvers", params.lvers);
   }

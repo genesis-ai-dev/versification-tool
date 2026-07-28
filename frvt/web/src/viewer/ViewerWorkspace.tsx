@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import { MappingOverlay } from "./overlay/MappingOverlay";
 import { ScriptureColumn } from "./ScriptureColumn";
 import { useViewerSession } from "./ViewerSession";
@@ -14,6 +14,8 @@ export function ViewerWorkspace() {
   const rightColumnRef = useRef<HTMLElement | null>(null);
   const leftSpanCount = session.spansFor("left").length;
   const rightSpanCount = session.spansFor("right").length;
+  const driveBcv =
+    session.url.drive === "left" ? session.url.leftBcv : session.url.rightBcv;
   const layoutKey = [
     session.url.leftBcv?.book,
     session.url.leftBcv?.chapter,
@@ -21,7 +23,22 @@ export function ViewerWorkspace() {
     session.url.rightBcv?.book,
     session.url.rightBcv?.chapter,
     rightSpanCount,
+    session.url.mapMode,
+    session.chapterResolveItems?.length ?? 0,
   ].join("|");
+
+  const overlayDriveBcv = useMemo(
+    () =>
+      driveBcv
+        ? {
+            book: driveBcv.book,
+            chapter: driveBcv.chapter,
+            verse: driveBcv.verse,
+            part: driveBcv.part,
+          }
+        : null,
+    [driveBcv],
+  );
 
   return (
     <div className="viewer-workspace" ref={workspaceRef}>
@@ -34,8 +51,10 @@ export function ViewerWorkspace() {
         leftColumnRef={leftColumnRef}
         rightColumnRef={rightColumnRef}
         result={session.resolveResult}
-        mapEnabled={session.url.map && session.canResolve}
+        chapterResults={session.chapterResolveItems}
+        mapMode={session.url.mapMode}
         driveSide={session.url.drive}
+        driveBcv={overlayDriveBcv}
         layoutKey={layoutKey}
       />
     </div>

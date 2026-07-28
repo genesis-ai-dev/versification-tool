@@ -1,8 +1,9 @@
 import { useViewerSession } from "./ViewerSession";
+import type { MapMode } from "./viewerUrl";
 
 /**
- * Toolbar showing the active pair context and the mapping overlay toggle.
- * Toggle only affects the current ResolveResult drawing — not chapter deltas.
+ * Toolbar showing the active pair context and the mapping overlay mode select.
+ * Chapter mode loads in-column alignments without the jump menu.
  */
 export function ViewerToolbar() {
   const session = useViewerSession();
@@ -18,16 +19,23 @@ export function ViewerToolbar() {
         <span className="muted">↔</span>
         <span>{rightName}</span>
         {session.resolveLoading && <span className="muted">Resolving…</span>}
+        {session.chapterResolveLoading && (
+          <span className="muted">Loading chapter mappings…</span>
+        )}
         <span className="muted">drive: {session.url.drive}</span>
       </div>
       <label className="map-toggle">
-        <input
-          type="checkbox"
-          checked={session.url.map}
+        Mapping
+        <select
+          aria-label="Mapping"
+          value={session.url.mapMode}
           disabled={!session.canResolve}
-          onChange={(event) => session.setMapEnabled(event.target.checked)}
-        />
-        Show mapping
+          onChange={(event) => session.setMapMode(event.target.value as MapMode)}
+        >
+          <option value="off">Hidden</option>
+          <option value="current">Current</option>
+          <option value="chapter">All (dimmed)</option>
+        </select>
       </label>
     </div>
   );

@@ -14,7 +14,7 @@ from frvt.api.schemas import RelationType, ResolvedSpan, ResolveEdge, ResolveRes
 from frvt.api.scheme_select import require_translation, selected_scheme_ref
 from frvt.resolver import resolve as resolve_coords
 from frvt.resolver.parse_ref import parse_ref
-from frvt.resolver.types import ResolutionDTO, ResolvedSpanDTO
+from frvt.resolver.types import ResolutionDTO, ResolvedSpanDTO, SchemeRef
 
 logger = get_logger(__name__)
 
@@ -115,30 +115,18 @@ def _to_result(
     )
 
 
-def resolve_reference(
+def resolve_single_with_schemes(
     session: Session,
     *,
     from_translation: UUID,
     to_translation: UUID,
     ref: str,
-    part: str | None = None,
-    from_versification: UUID | None = None,
-    to_versification: UUID | None = None,
+    part: str | None,
+    source_scheme: SchemeRef,
+    target_scheme: SchemeRef,
 ) -> ResolveResult:
-    """Run resolve pre-checks, call the coordinate resolver, and enrich spans."""
-    logger.debug(
-        "Resolver port ref=%s from=%s to=%s",
-        ref,
-        from_translation,
-        to_translation,
-    )
-    require_translation(session, from_translation)
-    require_translation(session, to_translation)
-    source_scheme = selected_scheme_ref(session, from_translation, from_versification)
-    target_scheme = selected_scheme_ref(session, to_translation, to_versification)
-
+    """Resolve one reference using pre-selected schemes (chapter batch path)."""
     try:
-        # Validate grammar before calling resolve so part-in-ref fails as 400.
         parse_ref(ref)
     except ReferenceError as exc:
         logger.error("Invalid resolve reference", exc_info=True)
@@ -162,3 +150,36 @@ def resolve_reference(
         raise AppError(422, str(exc), code="validation_failed") from exc
 
     return _to_result(session, from_translation, to_translation, dto)
+
+
+def resolve_reference(
+    session: Session,
+    *,
+    from_translation: UUID,
+    to_translation: UUID,
+    ref: str,
+    part: str | None = None,
+    from_versification: UUID | None = None,
+    to_versification: UUID | None = None,
+) -> ResolveResult:
+    """Run resolve pre-checks, call the coordinate resolver, and enrich spans."""
+    logger.debug(
+        "Resolver port ref=%s from=%s to=%s",
+        ref,
+        from_translation,
+        to_translation,
+    )
+    require_translation(session, from_translation)
+    require_translation(session, to_translation)
+    source_scheme = selected_scheme_ref(session, from_translation, from_versification)
+    target_scheme = selected_scheme_ref(session, to_translation, to_versification)
+
+    return resolve_single_with_schemes(
+        session,
+        from_translation=from_translation,
+        to_translation=to_translation,
+        ref=ref,
+        part=part,
+        source_scheme=source_scheme,
+        target_scheme=target_scheme,
+    )

@@ -14,7 +14,7 @@ import {
 import { useSearchParams } from "react-router-dom";
 import { listAssociations } from "../api/associations";
 import { ApiError, describeApiError } from "../api/errors";
-import { resolveMapping } from "../api/resolve";
+import { resolveMapping, resolveChapter } from "../api/resolve";
 import { listTranslations } from "../api/translations";
 import { listVersifications } from "../api/versifications";
 import type {
@@ -32,6 +32,7 @@ import {
   parseViewerSearch,
   patchViewerUrl,
   serializeViewerSearch,
+  type MapMode,
   type ViewerUrlState,
 } from "./viewerUrl";
 import {
@@ -57,6 +58,10 @@ export interface ViewerSessionValue {
   versifications: VersificationOut[];
   /** Latest resolve result for the current alignment. */
   resolveResult: ResolveResult | null;
+  /** Chapter-mode alignments from ``GET /api/resolve/chapter``; null before first load. */
+  chapterResolveItems: ResolveResult[] | null;
+  /** True while a chapter resolve request is in flight. */
+  chapterResolveLoading: boolean;
   /** True while a resolve request is in flight. */
   resolveLoading: boolean;
   /** Banner-level error message when present. */
@@ -79,8 +84,8 @@ export interface ViewerSessionValue {
   setColumnTranslation(side: DriveSide, translationId: string | null): void;
   /** Set or clear a column's per-request versification selection. */
   setColumnVersification(side: DriveSide, schemeId: string | null): void;
-  /** Toggle overlay connectors for the current alignment. */
-  setMapEnabled(enabled: boolean): void;
+  /** Set the mapping overlay visibility mode (URL ``map`` param). */
+  setMapMode(mode: MapMode): void;
   /** Scrollport refs registered by ScriptureColumn for follower scroll. */
   registerScrollRoot(side: DriveSide, el: HTMLElement | null): void;
   /** Reload translation/versification catalogs after manage/ingest mutations. */
@@ -106,6 +111,10 @@ export function ViewerSessionProvider({ children }: ViewerSessionProviderProps) 
   const [translationTotal, setTranslationTotal] = useState(0);
   const [versifications, setVersifications] = useState<VersificationOut[]>([]);
   const [resolveResult, setResolveResult] = useState<ResolveResult | null>(null);
+  const [chapterResolveItems, setChapterResolveItems] = useState<ResolveResult[] | null>(
+    null,
+  );
+  const [chapterResolveLoading, setChapterResolveLoading] = useState(false);
   const [resolveLoading, setResolveLoading] = useState(false);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [authRequired, setAuthRequired] = useState(false);
@@ -122,6 +131,7 @@ export function ViewerSessionProvider({ children }: ViewerSessionProviderProps) 
   });
   const scrollLock = useRef(false);
   const resolveAbort = useRef<AbortController | null>(null);
+  const chapterAbort = useRef<AbortController | null>(null);
   const unauthorizedCount = useRef(0);
   const pendingFollowerScroll = useRef<{
     side: DriveSide;
@@ -371,6 +381,76 @@ export function ViewerSessionProvider({ children }: ViewerSessionProviderProps) 
     handleApiFailure,
   ]);
 
+  // Chapter resolve for overlay chapter mode (drive→from mapping, stored verse spans).
+  useEffect(() => {
+    if (!canResolve || url.mapMode !== "chapter") {
+      setChapterResolveItems(null);
+      setChapterResolveLoading(false);
+      return;
+    }
+    const driveBcv = url.drive === "left" ? url.leftBcv : url.rightBcv;
+    if (!driveBcv) {
+      setChapterResolveItems(null);
+      return;
+    }
+
+    chapterAbort.current?.abort();
+    const controller = new AbortController();
+    chapterAbort.current = controller;
+    setChapterResolveLoading(true);
+
+    const fromTranslation = url.drive === "left" ? url.left! : url.right!;
+    const toTranslation = url.drive === "left" ? url.right! : url.left!;
+    const fromVers = url.drive === "left" ? url.leftVers : url.rightVers;
+    const toVers = url.drive === "left" ? url.rightVers : url.leftVers;
+
+    void resolveChapter(
+      {
+        fromTranslation,
+        toTranslation,
+        book: driveBcv.book,
+        chapter: driveBcv.chapter,
+        fromVersification: fromVers,
+        toVersification: toVers,
+      },
+      { signal: controller.signal },
+    )
+      .then((page) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+        setChapterResolveItems(page.items);
+        setErrorBanner(null);
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+        setChapterResolveItems(null);
+        handleApiFailure(error);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setChapterResolveLoading(false);
+        }
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [
+    canResolve,
+    url.mapMode,
+    url.drive,
+    url.left,
+    url.right,
+    url.leftBcv,
+    url.rightBcv,
+    url.leftVers,
+    url.rightVers,
+    handleApiFailure,
+  ]);
+
   useEffect(() => {
     const pending = pendingFollowerScroll.current;
     if (!pending) {
@@ -471,9 +551,9 @@ export function ViewerSessionProvider({ children }: ViewerSessionProviderProps) 
     [updateUrl, url.left, url.right, url.leftVers, url.rightVers],
   );
 
-  const setMapEnabled = useCallback(
-    (enabled: boolean) => {
-      updateUrl({ map: enabled });
+  const setMapMode = useCallback(
+    (mode: MapMode) => {
+      updateUrl({ mapMode: mode });
     },
     [updateUrl],
   );
@@ -488,6 +568,8 @@ export function ViewerSessionProvider({ children }: ViewerSessionProviderProps) 
     translationTotal,
     versifications,
     resolveResult,
+    chapterResolveItems,
+    chapterResolveLoading,
     resolveLoading,
     errorBanner,
     authRequired,
@@ -499,7 +581,7 @@ export function ViewerSessionProvider({ children }: ViewerSessionProviderProps) 
     setColumnBcv,
     setColumnTranslation,
     setColumnVersification,
-    setMapEnabled,
+    setMapMode,
     registerScrollRoot,
     refreshCatalogs,
   };

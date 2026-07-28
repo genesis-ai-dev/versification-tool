@@ -736,3 +736,17 @@ Post-reconciliation modifications. Apply subsections in order (`ADD-*-001`, then
 | ADD-R-001b | §8.3 | ADD | VRS `# basedOn:` comment values must satisfy the same charset when present. |
 | ADD-R-001c | §6.2 | ADD | When a scheme's `based_on_id` references a non-anchor user translation, the next hop uses that translation's preferred scheme (same as anchors). Verse text on the intermediate translation is not read (A20). |
 | ADD-R-001d | §10 | ADD | Rows T1–T13 remain the resolver/ETL golden set. Extended end-to-end coverage (composed relations, category navigation, multi-hop parity) is in the Visual Demo Corpus and Multi-hop Chain Test Bed fixture modules cited in server ADD-S-001e. |
+
+### ADD-R-002 — Chapter batch resolve (cross-spec traceability)
+
+**Purpose:** Cross-spec traceability for chapter batch resolve; document that the resolver package is unchanged.
+
+**No modification rows.** The frozen main body and effective specification are unchanged. This addendum records the API↔resolver boundary for implementers and reviewers.
+
+`GET /api/resolve/chapter` (server ADD-S-002) is API-layer orchestration: it selects schemes once, enumerates whole-verse keys from stored `verse_span` rows, and calls the existing single-verse `resolve()` path repeatedly through the resolver port.
+
+The `frvt.resolver` package, `ResolutionDTO` shape, and resolution algorithms (§§5–8) are **unchanged**. Emit-once dedupe, alignment fingerprinting, and verse enumeration are not resolver concerns.
+
+Ingest and `mapping_record` derivation are unchanged.
+
+UI chapter mode (ADD-U-002) consumes the chapter endpoint so users can view alignments among currently displayed verses without the jump menu; that behavior does not require resolver modifications.

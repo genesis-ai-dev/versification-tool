@@ -3,16 +3,32 @@
 **Document:** `frvt-3-mapping-visibility-execution-plan-1`
 **Status:** Ready for implementation
 **Audience:** A coding agent (and reviewers) implementing a three-mode mapping overlay (hidden / current / chapter-wide with current full and others dimmed).
-**Scope:** Spec amendments; new `GET /api/resolve/chapter` API; URL ternary `map=0|1|all`; overlay draw-plan dimming/merge; ViewerSession fetch; toolbar control; tests.
+**Scope:** Spec addenda (UI, server, resolver cross-spec); new `GET /api/resolve/chapter` API; URL ternary `map=0|1|all`; overlay draw-plan dimming/merge; ViewerSession fetch; toolbar control; tests.
 
 ## How to use this document
 
 - Work phases **in order**. Do not start phase *N+1* until phase *N* Acceptance passes.
-- Product specs remain authoritative after Phase 0 amends them: [server](./frvt-3-server-and-api-spec-1.md), [UI](./frvt-3-ui-spec-1.md).
-- Cite product-spec sections (not this plan) when making policy decisions in code.
+- Product specs remain authoritative after Phase 0 records addenda: [server](./frvt-3-server-and-api-spec-1.md), [UI](./frvt-3-ui-spec-1.md), [resolver/ETL](./frvt-3-resolver-and-etl-spec-1.md).
+- **Effective specification** = frozen main body + addenda applied in order (see [Spec modification policy](#spec-modification-policy-all-three-product-specs) below). Cite effective spec targets (main-body section **or** addendum row), not this plan, when making policy decisions in code.
 - **Never commit or push** (Rule 11).
 
 > **Rule 12 (product code).** Phase numbers and plan/workflow identifiers must **never** appear in product application code under `frvt/api`, `frvt/resolver`, `frvt/ingest`, or `frvt/web/src`. Name modules and symbols for what they do, not for the phase that created them.
+
+---
+
+## Spec modification policy (all three product specs)
+
+Each product spec ([UI](./frvt-3-ui-spec-1.md), [server](./frvt-3-server-and-api-spec-1.md), [resolver/ETL](./frvt-3-resolver-and-etl-spec-1.md)) states the same **modification policy**:
+
+- The numbered main body (everything before **Addenda**) is **frozen** and must **never** be edited.
+- Post-reconciliation changes go **only** in **Addenda** at the end of each file.
+- One logical change set → one addendum subsection (`### ADD-*-NNN`) with a **capability-level Purpose** (no field names or section ids in the Purpose paragraph).
+- Atomic changes → **modification rows** in a table: `Mod id`, `Target` (main-body section id), `Action` (`ADD` \| `CLARIFY` \| `REPLACE` \| `REMOVE`), `Effective text`.
+- Apply subsections in numeric order; within a subsection, apply rows in listed order. Later rows override earlier ones for the same target.
+
+Phase 0 must **append** `ADD-U-002`, `ADD-S-002`, and `ADD-R-002` — not rewrite §5.4, §7.8, §8.2, capability tables, or other main-body text in place. **`ADD-R-002` is documentation-only** (Purpose + narrative; no modification rows).
+
+The overlay test plan ([`frvt-3-test-plan-viewer-and-overlay-1.md`](./frvt-3-test-plan-viewer-and-overlay-1.md)) is **not** governed by this addenda policy; Phase 6 may edit test cases directly.
 
 ---
 
@@ -24,7 +40,9 @@
 | Control | Replace the “Show mapping” checkbox with a native `<select>` labeled **Mapping**, options **Hidden** / **Current** / **All (dimmed)**. Disabled when `!canResolve` |
 | URL | Ternary `map=0\|1\|all`. Absent or unrecognized ⇒ `1` (`current`). Replace boolean `ViewerUrlState.map` with `mapMode: MapMode` |
 | API | New **`GET /api/resolve/chapter`**. Do **not** overload single-ref `GET /api/resolve` (range = one hull) or reuse deltas (no `seq`/`edges`) |
-| Chapter scope | Walk every distinct whole-verse in the **drive** translation’s current book+chapter (including identity `one_to_one`), ordered by verse number. Skip part-only rows as separate resolve keys; part annotations surface via the current single resolve when the drive verse has a part |
+| Request direction | Same **`from_translation` / `to_translation` mapping as §7.6 single resolve**: drive column → `from_translation`, follower → `to_translation`; `book` / `chapter` are the **drive** column’s current BCV. Server walks whole verses and emits `source_spans` on the drive side — client must not pass follower BCV as the chapter scope |
+| Chapter scope | Enumerate resolve keys **only** from `verse_span` rows stored for `from_translation` in the drive `(book, chapter)` — distinct whole verses (`part` null), ordered by `verse`. Do **not** infer verses from navigation, `maxVerses`, or scheme metadata. Results therefore reflect alignments for verses **currently displayable** in the drive column (same rows the UI loads), not gaps with no stored span |
+| Chapter mode UX | With **`chapter`** enabled, the user can view alignments among the **currently displayed verses** in the drive column **without using the jump menu**. Jump menu remains available for cross-chapter navigation and discovery |
 | Hull dedupe | **Emit-once while walking.** Resolve each verse with the same path as single resolve, then keep a result only if its **alignment fingerprint** has not been seen. Multi-span merge / split / `complex` hulls therefore appear **once** in `items`, not once per member verse. First kept emission is the lowest drive-chapter verse that hits that hull (walk order) |
 | Fingerprint | Stable key over `relation` + sorted `(ref, part)` for all `source_spans` + sorted `(ref, part)` for all `target_spans` + sorted `edges` as `(source_index, target_index, relation)`. Span order in the live `ResolveResult` stays resolver order; the fingerprint sorts copies for comparison only |
 | Response shape | `{ items: ResolveResult[], total: int }` — `items` are **unique** alignments after emit-once; `total == len(items)`. Per-verse resolve failures: log ERROR, skip, continue. Empty chapter ⇒ `{ items: [], total: 0 }` |
@@ -76,41 +94,73 @@ flowchart LR
 
 ## Phases
 
-### Phase 0 — Spec amendments
+### Phase 0 — Spec addenda (frozen main body unchanged)
 
-Amend product specs so implementation cites contracts, not this plan.
+Append addendum subsections to the three product specs. Do **not** edit numbered sections before **Addenda**. Implementation cites **effective** text (main body as modified by addenda rows), not this plan.
 
-**UI** — [`frvt-3-ui-spec-1.md`](./frvt-3-ui-spec-1.md):
+#### UI — [`frvt-3-ui-spec-1.md`](./frvt-3-ui-spec-1.md) → `### ADD-U-002`
 
-1. Capability table row 8: three-mode Mapping control; `current` uses one `ResolveResult`; `chapter` uses chapter API with dimming.
-2. Goals / overview text that says “current alignment only” — update to allow `chapter` mode.
-3. §5.4 URL table: replace `map` `1|0` with `map` `0|1|all` (absent ⇒ `1`). Document default `current`.
-4. §8.2 toggle paragraph: describe `off` / `current` / `chapter` behavior, dimming opacity `0.25`, text highlight independence, and **unique** chapter alignments (no duplicate hull paint).
-5. Emphasize rule: chapter item whose `source_spans` contain the drive `(book, chapter, verse)` (+ part when set).
-6. Module / toolbar mentions of “map toggle” checkbox → Mapping `<select>`.
+**Purpose (capability level):** Three-mode mapping overlay visibility — hidden, current alignment only, and chapter-wide unique alignments with the drive verse emphasized and others dimmed. In chapter mode, the user sees alignments among currently displayed verses without opening the jump menu.
 
-**Server** — [`frvt-3-server-and-api-spec-1.md`](./frvt-3-server-and-api-spec-1.md):
-
-1. Capability table row 8: overlay modes; cite both `GET /api/resolve` and `GET /api/resolve/chapter`.
-2. New endpoint subsection (near §7.8):
-
-| Method | Path | Query | Response |
+| Mod id | Target | Action | Effective text (summary — expand when writing the spec) |
 | --- | --- | --- | --- |
-| `GET` | `/api/resolve/chapter` | `from_translation`, `to_translation`, `book`, `chapter`, optional `from_versification`, `to_versification` | `200` `{ items: ResolveResult[], total }` |
+| ADD-U-002a | §1 (overview resp. 2) | REPLACE | Overlay draws in three modes, not “current only”: hidden clears SVG; current paints one `ResolveResult`; chapter paints unique alignments for **currently displayed** drive-column verses via the chapter API (dimmed except current). Chapter mode does **not** require the jump menu. |
+| ADD-U-002b | §2.1 | CLARIFY | Mapping control is a three-option `<select>` labeled **Mapping**, not a boolean checkbox. |
+| ADD-U-002c | §2.3 row 8 | REPLACE | Capability 8: three-mode Mapping control (`Hidden` / `Current` / `All (dimmed)`). `current` → `GET /api/resolve`; `chapter` → `GET /api/resolve/chapter` + dimming — user views in-column alignments without jump menu. Disabled when `!canResolve`. |
+| ADD-U-002d | §3.2 (Mapping toggle) | REPLACE | Three modes: `off` clears overlay; `current` draws the current alignment only; `chapter` draws **unique** alignments for verses **currently displayed** in the drive column (from stored `verse_span` rows; not jump-menu deltas). Text highlight stays on in all modes. Jump menu is optional for chapter-mode viewing. |
+| ADD-U-002e | §7.1 `map` | REPLACE | `map` is `0` \| `1` \| `all`. Absent or unrecognized ⇒ `1` (`current`). Serialize always as `map=0\|1\|all`. |
+| ADD-U-002f | §7.2 | ADD | Session caches chapter resolve: `chapterResolveItems`, `chapterResolveLoading`; fetch gated on `mapMode === "chapter"` and `canResolve`; abort on mode/BCV/pair/scheme change. |
+| ADD-U-002g | §7.6 | ADD | Chapter fetch uses the same drive→from / follower→to mapping as single resolve; `book`/`chapter` are the **drive** column’s BCV. |
+| ADD-U-002h | §8.2 (toggle paragraph) | REPLACE | `off` / `current` / `chapter` behavior; `chapter` paints alignments visible among currently displayed drive-column verses (unique hulls, current emphasized); dim non-current outlines/connectors/labels/void marks at SVG opacity `0.25`; paint dimmed plans first, current last; no duplicate hull paint after server emit-once; highlights independent of map mode; no jump-menu interaction required. |
+| ADD-U-002i | §8.4 | REPLACE | Redraw gate covers three modes; chapter path merges multiple `DrawPlan`s; triggers include Mapping select change (not only boolean toggle). |
+| ADD-U-002j | §9.2 row 5 | REPLACE | **Supersedes** “current only; other verses via jump menu”: `map=1` stays current-only. **`map=all` (chapter mode)** lets the user view alignments among currently displayed verses **without** the jump menu, via `GET /api/resolve/chapter` (not deltas). Jump menu remains for cross-chapter navigation and discovery outside chapter overlay mode. |
+| ADD-U-002k | §9.3 (Resolve + overlay) | REPLACE | Lists `GET /api/resolve` and `GET /api/resolve/chapter`. |
+| ADD-U-002l | §11.3 | ADD | Contract tests: `MapMode` URL round-trip; `mergeDrawPlans` / `indexOfDriveAlignment` (including drive verse in non-first `source_spans`); three-mode overlay behavior; do not test thin fetch wrappers. |
+| ADD-U-002m | §13 (glossary **Current alignment**) | CLARIFY | In `chapter` mode, “current” is the emphasized alignment whose `source_spans` contain the drive BCV (+ part when set), not necessarily the only painted alignment. |
+| ADD-U-002n | §6.3, §6.4, §10 layout | CLARIFY | “Map toggle” / checkbox wording → Mapping `<select>`; disable the select (not merely hide) when `!canResolve`. |
 
-Contract notes to include in the server spec:
+Emphasize rule (must appear in ADD-U-002h or a dedicated row): chapter item whose `source_spans` **contain** the drive `(book, chapter, verse)` (+ part when set); never compare only `[0]` on merge/complex hulls.
 
-- Same scheme-selection / `404` / `409` pre-checks as single resolve.
-- Enumerate distinct whole verses (`part IS NULL` / no part) for `from_translation` in `(book, chapter)` via `verse_span`, ordered by `verse`.
-- Resolve each verse with the same coordinate resolver path as single resolve (no `part` query for chapter items).
-- **Emit-once:** after each successful resolve, compute the alignment fingerprint (Locked decisions); append to `items` only if unseen. This prevents merge/split/`complex` convex hulls from appearing once per member verse.
-- `total` is `len(items)` after dedupe (not raw verse count).
-- On per-verse resolve failure: log ERROR, skip that verse, continue (partial success). Empty chapter ⇒ `{ items: [], total: 0 }`.
-- Do **not** change single-ref `/api/resolve` semantics.
+#### Server — [`frvt-3-server-and-api-spec-1.md`](./frvt-3-server-and-api-spec-1.md) → `### ADD-S-002`
 
-**Test plan** — [`frvt-3-test-plan-viewer-and-overlay-1.md`](./frvt-3-test-plan-viewer-and-overlay-1.md) (wording only in this phase is optional; full case rewrites land in Phase 6): note that TC-OVERLAY-001 / TC-OVERLAY-012 will be revised so `map=1` remains current-only and `map=all` is the chapter-wide path.
+**Purpose:** Batch chapter resolve endpoint returning unique alignments for overlay chapter mode, scoped to stored verse spans, without changing single-reference resolve semantics.
 
-**Acceptance:** amended wording present in UI + server specs; no product code required.
+| Mod id | Target | Action | Effective text (summary — expand when writing the spec) |
+| --- | --- | --- | --- |
+| ADD-S-002a | §2.3 row 8 | REPLACE | Overlay data: `GET /api/resolve` (current) and `GET /api/resolve/chapter` (unique alignments for stored drive-column verses in the requested chapter). |
+| ADD-S-002b | §7.2 | ADD | Response envelope `ChapterResolveOut` (or `Page[ResolveResult]`): `{ items: ResolveResult[], total: int }`; `total === len(items)` after dedupe. |
+| ADD-S-002c | §7.8 | ADD | **`GET /api/resolve/chapter`** — query: `from_translation`, `to_translation`, `book`, `chapter`, optional `from_versification`, `to_versification`. Same scheme-selection / `404` / `409` pre-checks as single resolve. **Verse enumeration:** query distinct whole-verse numbers (`part IS NULL`) from **`verse_span` rows only** for `from_translation` in `(book, chapter)`, ordered by `verse`. Do **not** use navigation, `maxVerses`, or other inferred verse lists — results reflect only verses that exist in the DB and match what the UI can display. Resolve each with the same port path as single resolve (no `part` param). **Emit-once** by alignment fingerprint (Locked decisions). Per-verse failure: log ERROR, skip, continue. Empty chapter / no spans ⇒ `{ items: [], total: 0 }`. **Does not** change `GET /api/resolve` semantics. |
+| ADD-S-002d | §10.3 | ADD | Chapter resolve: happy path; 404/409 pre-checks; **emit-once** regression for merge/split/`complex` hulls in one chapter; partial per-verse skip; enumeration limited to stored `verse_span` rows (no navigation-derived verses). Lives in e.g. `test_api_resolve_chapter.py`. |
+| ADD-S-002e | §8.3 | CLARIFY | UI may call the chapter endpoint for overlay chapter mode so users view in-column alignments without the jump menu; resolver port is invoked repeatedly, not extended. |
+
+Include the endpoint table from Locked decisions in ADD-S-002c effective text.
+
+#### Resolver / ETL — [`frvt-3-resolver-and-etl-spec-1.md`](./frvt-3-resolver-and-etl-spec-1.md) → `### ADD-R-002`
+
+**Purpose:** Cross-spec traceability for chapter batch resolve; document that the resolver package is unchanged.
+
+**No modification rows.** Append this subsection with **Purpose and narrative only** — no modification-row table. The frozen main body and effective specification are unchanged; this addendum exists so implementers and reviewers see the API↔resolver boundary in one place.
+
+**Narrative to include in the spec (paraphrase acceptable; keep the contracts):**
+
+- `GET /api/resolve/chapter` (server **ADD-S-002**) is API-layer orchestration: it selects schemes once, enumerates whole-verse keys from stored `verse_span` rows, and calls the existing single-verse `resolve()` path repeatedly through the resolver port.
+- The `frvt.resolver` package, `ResolutionDTO` shape, and resolution algorithms (§§5–8) are **unchanged**. Emit-once dedupe, alignment fingerprinting, and verse enumeration are **not** resolver concerns.
+- Ingest and `mapping_record` derivation are unchanged.
+- UI chapter mode ( **ADD-U-002** ) consumes the chapter endpoint so users can view alignments among currently displayed verses without the jump menu; that behavior does not require resolver modifications.
+
+No ingest or `mapping_record` derivation changes.
+
+#### Test plan (optional note this phase)
+
+[`frvt-3-test-plan-viewer-and-overlay-1.md`](./frvt-3-test-plan-viewer-and-overlay-1.md): optional Phase 0 note that TC-OVERLAY-001 / TC-OVERLAY-012 will be revised in Phase 6 (`map=1` current-only; `map=all` chapter-wide). Full rewrites are Phase 6.
+
+**Acceptance:**
+
+- `ADD-U-002` and `ADD-S-002` appended with complete modification-row tables; `ADD-R-002` appended with **Purpose + narrative only** (explicit “no modification rows” note).
+- **No** edits to main-body sections before **Addenda** in any of the three product specs.
+- Each addendum subsection has a capability-level **Purpose**; UI/server detail lives in modification rows; resolver detail lives in narrative only.
+- Mod ids, targets, and actions follow the shared policy in UI and server addenda.
+- No product code required.
 
 ---
 
@@ -204,7 +254,7 @@ export function indexOfDriveAlignment(
 
 1. `DEBUG` log entry with translation ids, book, chapter.
 2. `require_translation` both sides; `selected_scheme_ref` both sides (same as `resolve_reference`).
-3. Query distinct whole-verse numbers for `from_translation` where `book`/`chapter` match and part is null, ordered ascending.
+3. Query distinct whole-verse numbers from **`verse_span` rows only** for `from_translation` where `book`/`chapter` match and `part IS NULL`, ordered ascending. Do **not** use navigation or `maxVerses`.
 4. Maintain `seen: set[fingerprint]` and `items: list[ResolveResult]`.
 5. For each verse, build ref via existing BCV helpers, call the same resolve+enrich path as single resolve **reusing already-selected `SchemeRef`s** (do not re-run scheme lookup per verse).
 6. On success: compute fingerprint (Locked decisions). If fingerprint ∈ `seen`, **skip append** (emit-once). Else add fingerprint to `seen` and append the `ResolveResult`.
@@ -215,7 +265,7 @@ Extract a small pure helper (e.g. `alignment_fingerprint(result: ResolveResult) 
 
 **HTTP:**
 
-- Query params: `from_translation`, `to_translation`, `book`, `chapter` (int ≥ 1), optional `*_versification`.
+- Query params: `from_translation`, `to_translation`, `book`, `chapter` (int ≥ 1), optional `*_versification`. Callers pass **drive** as `from_translation` and drive BCV as `book`/`chapter` (same directionality as single resolve §7.6 / UI ADD-U-002g).
 - Auth and error envelope unchanged.
 - Invalid book/chapter: follow existing patterns (`400` for bad input where applicable).
 
@@ -224,6 +274,7 @@ Extract a small pure helper (e.g. `alignment_fingerprint(result: ResolveResult) 
 - Happy path: known paired translations + chapter with multiple verses → `items` are unique alignments; `total == len(items)`.
 - **Hull regression (required):** for a chapter containing a multi-span merge and/or `complex` hull, resolving every member verse must yield **one** `items` entry for that hull (not N). Assert identical fingerprint / equal span sets.
 - Identity verses still appear as separate one-to-one items when they differ.
+- Chapter enumeration includes only verses with stored `verse_span` rows (no navigation-inferred gaps).
 - Essential failure: missing translation → `404`; no preferred scheme → `409` (same as single resolve).
 - ruff / mypy / black clean.
 - Existing single-resolve tests still green.
@@ -243,7 +294,7 @@ Extract a small pure helper (e.g. `alignment_fingerprint(result: ResolveResult) 
 
 1. `resolveChapter({ fromTranslation, toTranslation, book, chapter, fromVersification?, toVersification? }, options?)` → `GET /api/resolve/chapter`.
 2. Session state: `chapterResolveItems: ResolveResult[] | null` (or empty array when loaded empty), `chapterResolveLoading: boolean`.
-3. Effect: when `url.mapMode === "chapter"` and `canResolve` and drive BCV present, fetch with `AbortController`; clear/abort when mode leaves `chapter` or inputs change.
+3. Effect: when `url.mapMode === "chapter"` and `canResolve` and drive BCV present, fetch with `AbortController`. Build args with the **same drive→from / follower→to mapping as §7.6** (`fromTranslation` = drive column, `book`/`chapter` = drive BCV). Clear/abort when mode leaves `chapter` or inputs change.
 4. Keep existing single-resolve effect unchanged (always runs when resolvable — needed for highlights/scroll and for emphasizing “current”).
 5. Expose chapter items + loading on `ViewerSessionValue` for the workspace/overlay.
 
@@ -354,7 +405,7 @@ Update any tests that used `getByLabelText(/show mapping/i)` to `getByLabelText(
 **Acceptance:**
 
 - Updated e2e green against local stack.
-- Product + test-plan docs consistent with shipped behavior.
+- Product addenda (`ADD-U-002`, `ADD-S-002`, `ADD-R-002`) and test-plan docs consistent with shipped behavior.
 - Full quality gates on touched Python and TypeScript clean.
 - No commits/pushes.
 
@@ -364,8 +415,9 @@ Update any tests that used `getByLabelText(/show mapping/i)` to `getByLabelText(
 
 | Artifact | Role |
 | --- | --- |
-| `.spec/frvt-3-ui-spec-1.md` | Mode / URL / overlay contract |
-| `.spec/frvt-3-server-and-api-spec-1.md` | Chapter resolve HTTP contract |
+| `.spec/frvt-3-ui-spec-1.md` | **ADD-U-002** — mode / URL / overlay contract |
+| `.spec/frvt-3-server-and-api-spec-1.md` | **ADD-S-002** — chapter resolve HTTP contract |
+| `.spec/frvt-3-resolver-and-etl-spec-1.md` | **ADD-R-002** — cross-spec narrative only (no modification rows; no resolver code changes) |
 | `.spec/frvt-3-test-plan-viewer-and-overlay-1.md` | Overlay test cases |
 | `frvt/api/schemas/__init__.py` | `ChapterResolveOut` / page envelope |
 | `frvt/api/ports/resolver_port.py` | `resolve_chapter` batch helper + emit-once |
@@ -390,9 +442,9 @@ Update any tests that used `getByLabelText(/show mapping/i)` to `getByLabelText(
 
 ## Residual risks (accepted)
 
-- **Density:** Chapter mode includes identity `one_to_one` for every drive verse, so large chapters can become visually crowded even after hull dedupe. Product-accepted; do not silently filter identities unless a later owner decision says so.
+- **Density:** Chapter mode includes identity `one_to_one` for every stored whole-verse `verse_span` in the drive chapter, so large chapters can become visually crowded even after hull dedupe. Product-accepted; do not silently filter identities unless a later owner decision says so.
 - **Partial geometry:** Hulls with source or target spans outside the loaded chapter(s) omit missing anchors; the remaining connectors still draw. No auto-load of extra chapters.
-- **Performance:** Emit-once still **computes** resolve for every drive verse (needed to discover hull membership); only the response/`items` list is deduped. Acceptable for typical chapter sizes; do not add a second client-side resolve fan-out.
+- **Performance:** Emit-once still **computes** resolve for every enumerated `verse_span` verse (needed to discover hull membership); only the response/`items` list is deduped. Acceptable for typical chapter sizes; do not add a second client-side resolve fan-out.
 
 ---
 

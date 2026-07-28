@@ -18,6 +18,38 @@ export interface SchemePairOverrides {
   toVersification?: string | null;
 }
 
+/** Arguments for ``GET /api/resolve/chapter`` (drive column scope). */
+export interface ResolveChapterArgs {
+  fromTranslation: string;
+  toTranslation: string;
+  book: string;
+  chapter: number;
+  fromVersification?: string | null;
+  toVersification?: string | null;
+}
+
+/**
+ * Resolve unique alignments for stored whole verses in one drive chapter.
+ * Used when map mode is chapter-wide overlay.
+ */
+export function resolveChapter(
+  args: ResolveChapterArgs,
+  options?: RequestOptions,
+): Promise<Page<ResolveResult>> {
+  return apiGet<Page<ResolveResult>>(
+    "/api/resolve/chapter",
+    {
+      from_translation: args.fromTranslation,
+      to_translation: args.toTranslation,
+      book: args.book,
+      chapter: args.chapter,
+      from_versification: args.fromVersification ?? undefined,
+      to_versification: args.toVersification ?? undefined,
+    },
+    options,
+  );
+}
+
 /**
  * Resolve the current driving verse into denormalized source/target spans.
  * Abort prior in-flight calls when the driving ref changes.

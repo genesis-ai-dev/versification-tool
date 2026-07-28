@@ -1,6 +1,7 @@
 import { useEffect, useRef, type RefObject } from "react";
 import type { ResolveResult } from "../../api/types";
-import type { DriveSide } from "./drawPlan";
+import type { MapMode } from "../viewerUrl";
+import type { DriveBcv, DriveSide } from "./drawPlan";
 import { OverlayController } from "./OverlayController";
 
 /** Props wiring the SVG host to workspace column scroll roots. */
@@ -11,12 +12,16 @@ export interface MappingOverlayProps {
   leftColumnRef: RefObject<HTMLElement | null>;
   /** Right column scrollport used for anchor measurement. */
   rightColumnRef: RefObject<HTMLElement | null>;
-  /** Current alignment; null clears connectors when map is on. */
+  /** Current single-verse alignment for current mode and chapter fallback. */
   result: ResolveResult | null;
-  /** URL ``map`` toggle — when false, SVG is cleared. */
-  mapEnabled: boolean;
+  /** Chapter-mode alignments; null while unloaded. */
+  chapterResults: ResolveResult[] | null;
+  /** URL map visibility mode. */
+  mapMode: MapMode;
   /** URL ``drive`` side owning source_spans. */
   driveSide: DriveSide;
+  /** Drive BCV for chapter emphasize selection. */
+  driveBcv: DriveBcv | null;
   /** Changes whenever rendered chapter anchors may have moved or been replaced. */
   layoutKey: string;
 }
@@ -30,8 +35,10 @@ export function MappingOverlay({
   leftColumnRef,
   rightColumnRef,
   result,
-  mapEnabled,
+  chapterResults,
+  mapMode,
   driveSide,
+  driveBcv,
   layoutKey,
 }: MappingOverlayProps) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -47,7 +54,13 @@ export function MappingOverlay({
     }
     const controller = new OverlayController(workspace, svg, left, right);
     controllerRef.current = controller;
-    controller.setModel({ result, mapEnabled, driveSide });
+    controller.setModel({
+      result,
+      chapterResults,
+      mapMode,
+      driveSide,
+      driveBcv,
+    });
     return () => {
       controller.dispose();
       controllerRef.current = null;
@@ -57,8 +70,10 @@ export function MappingOverlay({
     leftColumnRef,
     rightColumnRef,
     result,
-    mapEnabled,
+    chapterResults,
+    mapMode,
     driveSide,
+    driveBcv,
     layoutKey,
   ]);
 

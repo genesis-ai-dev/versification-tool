@@ -40,11 +40,11 @@ test.describe("Overlay e2e", () => {
     const withMap = await connectorCount(page);
     expect(withMap).toBeGreaterThan(0);
 
-    await page.locator(".map-toggle input").click();
+    await page.getByLabel("Mapping").selectOption("off");
     await expect.poll(() => viewerParams(page).get("map")).toBe("0");
     await expect.poll(async () => connectorCount(page)).toBe(0);
 
-    await page.locator(".map-toggle input").click();
+    await page.getByLabel("Mapping").selectOption("current");
     await expect.poll(() => viewerParams(page).get("map")).toBe("1");
     await waitForConnectors(page);
     // Current alignment only — connector count stays small (not chapter-wide).
@@ -232,7 +232,7 @@ test.describe("Overlay e2e", () => {
     await expect(page.locator(".verse-span.is-highlighted").first()).toBeVisible({
       timeout: 30_000,
     });
-    await page.locator(".map-toggle input").click();
+    await page.getByLabel("Mapping").selectOption("off");
     await expect.poll(() => viewerParams(page).get("map")).toBe("0");
     await expect.poll(async () => connectorCount(page)).toBe(0);
     await expect(page.locator(".verse-span.is-highlighted").first()).toBeVisible();
@@ -256,22 +256,53 @@ test.describe("Overlay e2e", () => {
     expect(await connectorCount(page)).toBeGreaterThan(0);
   });
 
-  test("TC-OVERLAY-012: chapter-wide overlay is absent", async ({ page }) => {
+  test("TC-OVERLAY-012: chapter mode draws multiple dimmed connectors", async ({
+    page,
+  }) => {
     const pair = await seedContrastingPair(page.request);
     await openViewerSession(page, {
       left: pair.left.id,
       right: pair.right.id,
-      map: true,
+      mapMode: "current",
+      lvers: pair.engId,
+      rvers: pair.orgId,
+      lb: "PSA",
+      lc: "3",
+      lv: "1",
+    });
+    await trySelectBcv(page, "left", "PSA", "3", "1");
+    await clickFirstVerse(page, "left");
+    await waitForConnectors(page);
+    const currentOnly = await connectorCount(page);
+
+    await page.getByLabel("Mapping").selectOption("All (dimmed)");
+    await expect.poll(() => viewerParams(page).get("map")).toBe("all");
+    await waitForConnectors(page);
+    const chapterMode = await connectorCount(page);
+    expect(chapterMode).toBeGreaterThan(currentOnly);
+    await expect(page.locator('svg.mapping-overlay g[opacity="0.25"]').first()).toBeAttached();
+  });
+
+  test("TC-OVERLAY-013: current mode stays single-alignment with map=1", async ({
+    page,
+  }) => {
+    const pair = await seedContrastingPair(page.request);
+    await openViewerSession(page, {
+      left: pair.left.id,
+      right: pair.right.id,
+      mapMode: "chapter",
       lvers: pair.engId,
       rvers: pair.orgId,
     });
-    // Enable map without hunting every delta — only current resolve should paint.
     await clickFirstVerse(page, "left");
     await waitForConnectors(page);
-    const paths = await connectorCount(page);
-    const leftVerses = await page.locator('.verse-span[data-side="left"]').count();
-    // Chapter-wide would approach verse-count scale; current-result stays small.
-    expect(paths).toBeLessThan(Math.max(8, Math.floor(leftVerses / 2)));
-    expect(paths).toBeGreaterThan(0);
+    const chapterPaths = await connectorCount(page);
+
+    await page.getByLabel("Mapping").selectOption("current");
+    await expect.poll(() => viewerParams(page).get("map")).toBe("1");
+    await waitForConnectors(page);
+    const currentPaths = await connectorCount(page);
+    expect(currentPaths).toBeGreaterThan(0);
+    expect(currentPaths).toBeLessThan(chapterPaths);
   });
 });

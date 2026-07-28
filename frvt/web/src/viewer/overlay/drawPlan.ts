@@ -34,6 +34,8 @@ export interface OutlinePlan {
   dashArray?: string;
   /** Emphasize source on split / target on merge. */
   emphasis: "normal" | "strong" | "thin";
+  /** Optional SVG opacity (omit or 1 = full). */
+  opacity?: number;
 }
 
 /** One connector path between measured endpoints (or toward void). */
@@ -48,6 +50,8 @@ export interface ConnectorPlan {
   label: string;
   /** True when the connector ends at a void terminator (exclude). */
   toVoid: boolean;
+  /** Optional SVG opacity (omit or 1 = full). */
+  opacity?: number;
 }
 
 /** Pure SVG scene description produced from resolve + measured anchors. */
@@ -411,4 +415,103 @@ export function expectedConnectorCount(result: ResolveResult): number {
     default:
       return result.source_spans.length > 0 && result.target_spans.length > 0 ? 1 : 0;
   }
+}
+
+/** Drive BCV used to pick the emphasized chapter alignment. */
+export interface DriveBcv {
+  book: string;
+  chapter: number;
+  verse: number;
+  part: string | null;
+}
+
+/**
+ * Whether a source span matches the drive column BCV for emphasize selection.
+ * Uses membership on the verse, not first-span index (merge/complex hulls).
+ */
+export function sourceSpanMatchesDrive(span: ResolvedSpan, drive: DriveBcv): boolean {
+  if (
+    span.book !== drive.book ||
+    span.chapter !== drive.chapter ||
+    span.verse !== drive.verse
+  ) {
+    return false;
+  }
+  if (drive.part) {
+    return (span.part ?? "") === drive.part;
+  }
+  const spanPart = span.part ?? "";
+  return spanPart === "";
+}
+
+/**
+ * Index of the unique chapter alignment whose source_spans contain drive BCV.
+ * Returns null when none match (all plans should be dimmed).
+ */
+export function indexOfDriveAlignment(
+  results: ResolveResult[],
+  drive: DriveBcv,
+): number | null {
+  for (let index = 0; index < results.length; index += 1) {
+    const spans = results[index]?.source_spans ?? [];
+    if (spans.some((span) => sourceSpanMatchesDrive(span, drive))) {
+      return index;
+    }
+  }
+  if (!drive.part) {
+    for (let index = 0; index < results.length; index += 1) {
+      const spans = results[index]?.source_spans ?? [];
+      if (
+        spans.some(
+          (span) =>
+            span.book === drive.book &&
+            span.chapter === drive.chapter &&
+            span.verse === drive.verse,
+        )
+      ) {
+        return index;
+      }
+    }
+  }
+  return null;
+}
+
+/** Apply dim opacity to every outline and connector in a plan copy. */
+function withPlanOpacity(plan: DrawPlan, opacity: number): DrawPlan {
+  return {
+    outlines: plan.outlines.map((outline) => ({ ...outline, opacity })),
+    connectors: plan.connectors.map((connector) => ({ ...connector, opacity })),
+  };
+}
+
+/**
+ * Merge per-alignment plans; non-emphasized plans get ``dimOpacity``.
+ * Dimmed geometry is concatenated first so the emphasized plan paints on top.
+ */
+export function mergeDrawPlans(
+  plans: DrawPlan[],
+  options: { emphasizeIndex: number | null; dimOpacity?: number },
+): DrawPlan {
+  const dimOpacity = options.dimOpacity ?? 0.25;
+  const dimmed: DrawPlan = { outlines: [], connectors: [] };
+  const emphasized: DrawPlan = { outlines: [], connectors: [] };
+
+  for (let index = 0; index < plans.length; index += 1) {
+    const plan = plans[index]!;
+    const isEmphasized =
+      options.emphasizeIndex !== null && index === options.emphasizeIndex;
+    if (isEmphasized) {
+      emphasized.outlines.push(...plan.outlines);
+      emphasized.connectors.push(...plan.connectors);
+    } else {
+      const dimPlan = withPlanOpacity(plan, dimOpacity);
+      dimmed.outlines.push(...dimPlan.outlines);
+      dimmed.connectors.push(...dimPlan.connectors);
+    }
+  }
+
+  return {
+    outlines: [...dimmed.outlines, ...emphasized.outlines],
+    connectors: [...dimmed.connectors, ...emphasized.connectors],
+  };
 }

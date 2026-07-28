@@ -6,7 +6,10 @@ import {
   createCubicMappingPath,
   expectedConnectorCount,
   facingAnchors,
+  indexOfDriveAlignment,
+  mergeDrawPlans,
   type AnchorMaps,
+  type DrawPlan,
   type Rect,
 } from "./drawPlan";
 import { visualForRelation } from "./visualLanguage";
@@ -178,5 +181,88 @@ describe("buildDrawPlan", () => {
   it("TC-OVERLAY-010: prefers seq keys and falls back to ref+part", () => {
     expect(anchorKey(span(42))).toBe("seq:42");
     expect(anchorKey({ ...span(1), seq: null })).toBe("ref:GEN 1:1|");
+  });
+});
+
+describe("mergeDrawPlans", () => {
+  const samplePlan = (): DrawPlan => ({
+    outlines: [{ rect: rect(0, 0), color: "#fff", emphasis: "normal" }],
+    connectors: [
+      {
+        from: { x: 0, y: 0 },
+        to: { x: 10, y: 0 },
+        color: "#fff",
+        strokeWidth: 1,
+        label: "1:1",
+        toVoid: false,
+      },
+    ],
+  });
+
+  it("dims non-emphasized plans and paints emphasized last", () => {
+    const merged = mergeDrawPlans([samplePlan(), samplePlan()], {
+      emphasizeIndex: 1,
+      dimOpacity: 0.25,
+    });
+    expect(merged.outlines).toHaveLength(2);
+    expect(merged.outlines[0]?.opacity).toBe(0.25);
+    expect(merged.outlines[1]?.opacity).toBeUndefined();
+    expect(merged.connectors[0]?.opacity).toBe(0.25);
+    expect(merged.connectors[1]?.opacity).toBeUndefined();
+  });
+
+  it("dims all plans when emphasize index is null", () => {
+    const merged = mergeDrawPlans([samplePlan()], {
+      emphasizeIndex: null,
+      dimOpacity: 0.25,
+    });
+    expect(merged.outlines[0]?.opacity).toBe(0.25);
+  });
+
+  it("returns empty merged plan for empty input", () => {
+    expect(mergeDrawPlans([], { emphasizeIndex: null }).outlines).toHaveLength(0);
+  });
+});
+
+describe("indexOfDriveAlignment", () => {
+  it("finds drive verse in non-first source_spans slot on merge hulls", () => {
+    const results: ResolveResult[] = [
+      {
+        relation: "merge",
+        source_spans: [
+          { ...span(1, "GEN 1:1"), book: "GEN", chapter: 1, verse: 1 },
+          { ...span(2, "GEN 1:2"), book: "GEN", chapter: 1, verse: 2 },
+        ],
+        target_spans: [span(3, "GEN 1:1")],
+        edges: [],
+      },
+    ];
+    expect(
+      indexOfDriveAlignment(results, {
+        book: "GEN",
+        chapter: 1,
+        verse: 2,
+        part: null,
+      }),
+    ).toBe(0);
+  });
+
+  it("returns null when no alignment contains the drive verse", () => {
+    const results: ResolveResult[] = [
+      {
+        relation: "one_to_one",
+        source_spans: [span(1, "GEN 1:1")],
+        target_spans: [span(2, "GEN 1:1")],
+        edges: [],
+      },
+    ];
+    expect(
+      indexOfDriveAlignment(results, {
+        book: "GEN",
+        chapter: 1,
+        verse: 9,
+        part: null,
+      }),
+    ).toBeNull();
   });
 });

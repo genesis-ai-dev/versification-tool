@@ -1,6 +1,9 @@
 import type { ColumnBcv } from "../lib/bcv";
 import type { DriveSide } from "./overlay/drawPlan";
 
+/** Overlay visibility mode encoded in the ``map`` URL param. */
+export type MapMode = "off" | "current" | "chapter";
+
 /** URL-owned viewer session fields (bookmarkable source of truth). */
 export interface ViewerUrlState {
   left: string | null;
@@ -10,7 +13,7 @@ export interface ViewerUrlState {
   leftVers: string | null;
   rightVers: string | null;
   drive: DriveSide;
-  map: boolean;
+  mapMode: MapMode;
 }
 
 /**
@@ -27,7 +30,7 @@ export function parseViewerSearch(search: string): ViewerUrlState {
     leftVers: emptyToNull(params.get("lvers")),
     rightVers: emptyToNull(params.get("rvers")),
     drive: params.get("drive") === "right" ? "right" : "left",
-    map: params.get("map") !== "0",
+    mapMode: parseMapMode(params.get("map")),
   };
 }
 
@@ -52,8 +55,30 @@ export function serializeViewerSearch(state: ViewerUrlState): string {
     params.set("rvers", state.rightVers);
   }
   params.set("drive", state.drive);
-  params.set("map", state.map ? "1" : "0");
+  params.set("map", serializeMapMode(state.mapMode));
   return params.toString();
+}
+
+/** Parse ``map`` query values into the three-mode overlay contract. */
+export function parseMapMode(raw: string | null): MapMode {
+  if (raw === "0") {
+    return "off";
+  }
+  if (raw === "all") {
+    return "chapter";
+  }
+  return "current";
+}
+
+/** Serialize ``MapMode`` to ``map=0|1|all``. */
+export function serializeMapMode(mode: MapMode): string {
+  if (mode === "off") {
+    return "0";
+  }
+  if (mode === "chapter") {
+    return "all";
+  }
+  return "1";
 }
 
 /** Read structured BCV from four URL keys; null when book/chapter/verse missing. */

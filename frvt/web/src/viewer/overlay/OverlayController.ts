@@ -1,22 +1,28 @@
 import type { ResolveResult, ResolvedSpan } from "../../api/types";
+import type { MapMode } from "../viewerUrl";
 import {
   anchorKey,
   buildDrawPlan,
-  createCubicMappingPath,
+  indexOfDriveAlignment,
+  mergeDrawPlans,
   type AnchorMaps,
-  type DrawPlan,
+  type DriveBcv,
   type DriveSide,
-  type Rect,
 } from "./drawPlan";
+import { clearSvg, paintPlan } from "./paintPlan";
 
-/** Inputs the controller needs to measure and paint one alignment. */
+/** Inputs the controller needs to measure and paint overlay alignments. */
 export interface OverlayModel {
-  /** Latest resolve result for the current driving ref. */
+  /** Latest single-verse resolve (highlights / emphasize key). */
   result: ResolveResult | null;
-  /** When false, clear the SVG scene. */
-  mapEnabled: boolean;
+  /** Chapter alignments when ``mapMode`` is chapter; otherwise ignored. */
+  chapterResults: ResolveResult[] | null;
+  /** URL map visibility mode. */
+  mapMode: MapMode;
   /** URL ``drive`` column owning source_spans. */
   driveSide: DriveSide;
+  /** Drive column BCV for chapter emphasize selection. */
+  driveBcv: DriveBcv | null;
 }
 
 /**
@@ -28,7 +34,13 @@ export class OverlayController {
   private readonly svg: SVGSVGElement;
   private readonly leftRoot: HTMLElement;
   private readonly rightRoot: HTMLElement;
-  private model: OverlayModel = { result: null, mapEnabled: true, driveSide: "left" };
+  private model: OverlayModel = {
+    result: null,
+    chapterResults: null,
+    mapMode: "current",
+    driveSide: "left",
+    driveBcv: null,
+  };
   private rafId = 0;
   private disposed = false;
   private readonly onScrollOrResize = (): void => {
@@ -53,8 +65,8 @@ export class OverlayController {
   }
 
   /**
-   * Replace the current resolve model and schedule a redraw.
-   * Call after resolve, map toggle, scheme switch, or span re-render.
+   * Replace the current overlay model and schedule a redraw.
+   * Call after resolve, map mode change, scheme switch, or span re-render.
    */
   setModel(model: OverlayModel): void {
     this.model = model;
@@ -90,26 +102,52 @@ export class OverlayController {
     if (this.disposed) {
       return;
     }
-    if (!this.model.mapEnabled || !this.model.result) {
+    if (this.model.mapMode === "off") {
       clearSvg(this.svg);
       return;
     }
-    const anchors = this.measureAnchors();
-    const plan = buildDrawPlan(this.model.result, anchors, true);
-    paintPlan(this.svg, plan);
+    if (this.model.mapMode === "current") {
+      if (!this.model.result) {
+        clearSvg(this.svg);
+        return;
+      }
+      const anchors = this.measureAnchors([this.model.result]);
+      const plan = buildDrawPlan(this.model.result, anchors, true);
+      paintPlan(this.svg, plan);
+      return;
+    }
+
+    const chapterItems = this.model.chapterResults;
+    if (chapterItems && chapterItems.length > 0) {
+      const anchors = this.measureAnchors(chapterItems);
+      const plans = chapterItems.map((item) => buildDrawPlan(item, anchors, true));
+      const emphasizeIndex =
+        this.model.driveBcv !== null
+          ? indexOfDriveAlignment(chapterItems, this.model.driveBcv)
+          : null;
+      paintPlan(this.svg, mergeDrawPlans(plans, { emphasizeIndex }));
+      return;
+    }
+
+    if (this.model.result) {
+      const anchors = this.measureAnchors([this.model.result]);
+      const plan = buildDrawPlan(this.model.result, anchors, true);
+      paintPlan(this.svg, plan);
+      return;
+    }
+
+    clearSvg(this.svg);
   }
 
   /** Collect drive/follower anchor rects in overlay-local coordinates. */
-  private measureAnchors(): AnchorMaps {
+  private measureAnchors(results: ResolveResult[]): AnchorMaps {
     const origin = this.workspace.getBoundingClientRect();
     const driveRoot = this.model.driveSide === "left" ? this.leftRoot : this.rightRoot;
     const followerRoot = this.model.driveSide === "left" ? this.rightRoot : this.leftRoot;
-    const drive = measureColumn(driveRoot, origin, this.model.result?.source_spans ?? []);
-    const follower = measureColumn(
-      followerRoot,
-      origin,
-      this.model.result?.target_spans ?? [],
-    );
+    const driveSpans = unionSpans(results, (result) => result.source_spans);
+    const followerSpans = unionSpans(results, (result) => result.target_spans);
+    const drive = measureColumn(driveRoot, origin, driveSpans);
+    const follower = measureColumn(followerRoot, origin, followerSpans);
     const leftBox = this.leftRoot.getBoundingClientRect();
     const rightBox = this.rightRoot.getBoundingClientRect();
     const gutterX = (leftBox.right + rightBox.left) / 2 - origin.left;
@@ -123,13 +161,33 @@ export class OverlayController {
   }
 }
 
+/** Union span lists from multiple resolve results for measurement. */
+function unionSpans(
+  results: ResolveResult[],
+  pick: (result: ResolveResult) => ResolvedSpan[],
+): ResolvedSpan[] {
+  const seen = new Set<string>();
+  const spans: ResolvedSpan[] = [];
+  for (const result of results) {
+    for (const span of pick(result)) {
+      const key = anchorKey(span);
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      spans.push(span);
+    }
+  }
+  return spans;
+}
+
 /** Measure participating spans within a column root. */
 function measureColumn(
   root: HTMLElement,
   origin: DOMRect,
   spans: ResolvedSpan[],
-): Map<string, Rect> {
-  const map = new Map<string, Rect>();
+): Map<string, import("./drawPlan").Rect> {
+  const map = new Map<string, import("./drawPlan").Rect>();
   for (const span of spans) {
     const el = findAnchor(root, span);
     if (!el) {
@@ -180,118 +238,4 @@ function cssEscape(value: string): string {
     return CSS.escape(value);
   }
   return value.replace(/"/g, '\\"');
-}
-
-/** Remove all painted children from the overlay SVG. */
-function clearSvg(svg: SVGSVGElement): void {
-  while (svg.firstChild) {
-    svg.removeChild(svg.firstChild);
-  }
-}
-
-/** Paint outlines, connectors, void stubs, and labels into the SVG host. */
-function paintPlan(svg: SVGSVGElement, plan: DrawPlan): void {
-  clearSvg(svg);
-  const ns = "http://www.w3.org/2000/svg";
-  const markerIds = new Map<string, string>();
-
-  for (const outline of plan.outlines) {
-    const rect = document.createElementNS(ns, "rect");
-    const pad = outline.emphasis === "strong" ? 3 : outline.emphasis === "thin" ? 1 : 2;
-    rect.setAttribute("x", String(outline.rect.x - pad));
-    rect.setAttribute("y", String(outline.rect.y - pad));
-    rect.setAttribute("width", String(outline.rect.width + pad * 2));
-    rect.setAttribute("height", String(outline.rect.height + pad * 2));
-    rect.setAttribute("rx", "4");
-    rect.setAttribute("fill", "none");
-    rect.setAttribute("stroke", outline.color);
-    rect.setAttribute(
-      "stroke-width",
-      outline.emphasis === "strong" ? "2" : outline.emphasis === "thin" ? "1" : "1.5",
-    );
-    if (outline.dashArray) {
-      rect.setAttribute("stroke-dasharray", outline.dashArray);
-    }
-    svg.appendChild(rect);
-  }
-
-  for (const connector of plan.connectors) {
-    const path = document.createElementNS(ns, "path");
-    path.setAttribute("d", createCubicMappingPath(connector.from, connector.to));
-    path.setAttribute("fill", "none");
-    path.setAttribute("stroke", connector.color);
-    path.setAttribute("stroke-width", String(connector.strokeWidth));
-    path.setAttribute("stroke-linecap", "round");
-    path.setAttribute("stroke-linejoin", "round");
-    if (connector.dashArray) {
-      path.setAttribute("stroke-dasharray", connector.dashArray);
-    }
-    if (!connector.toVoid) {
-      path.setAttribute("marker-end", arrowMarkerUrl(svg, markerIds, connector.color));
-    }
-    svg.appendChild(path);
-
-    if (connector.toVoid) {
-      const voidMark = document.createElementNS(ns, "circle");
-      voidMark.setAttribute("cx", String(connector.to.x));
-      voidMark.setAttribute("cy", String(connector.to.y));
-      voidMark.setAttribute("r", "5");
-      voidMark.setAttribute("fill", "var(--void-fill)");
-      voidMark.setAttribute("stroke", "var(--exclude)");
-      voidMark.setAttribute("stroke-width", "1.5");
-      svg.appendChild(voidMark);
-    }
-
-    if (connector.label) {
-      const midX = (connector.from.x + connector.to.x) / 2;
-      const midY = (connector.from.y + connector.to.y) / 2 - 6;
-      const text = document.createElementNS(ns, "text");
-      text.setAttribute("x", String(midX));
-      text.setAttribute("y", String(midY));
-      text.setAttribute("text-anchor", "middle");
-      text.setAttribute("class", "overlay-label");
-      text.textContent = connector.label;
-      svg.appendChild(text);
-    }
-  }
-}
-
-/** Reuse one arrow marker definition per connector color. */
-function arrowMarkerUrl(
-  svg: SVGSVGElement,
-  markerIds: Map<string, string>,
-  color: string,
-): string {
-  const existing = markerIds.get(color);
-  if (existing) {
-    return `url(#${existing})`;
-  }
-
-  const ns = "http://www.w3.org/2000/svg";
-  let defs = svg.querySelector("defs");
-  if (!defs) {
-    defs = document.createElementNS(ns, "defs");
-    svg.appendChild(defs);
-  }
-
-  const id = `frvt-arrow-${markerIds.size}`;
-  markerIds.set(color, id);
-
-  const marker = document.createElementNS(ns, "marker");
-  marker.setAttribute("id", id);
-  marker.setAttribute("viewBox", "0 0 10 10");
-  marker.setAttribute("refX", "9");
-  marker.setAttribute("refY", "5");
-  marker.setAttribute("markerWidth", "14");
-  marker.setAttribute("markerHeight", "14");
-  marker.setAttribute("orient", "auto");
-  marker.setAttribute("markerUnits", "userSpaceOnUse");
-
-  const head = document.createElementNS(ns, "path");
-  head.setAttribute("d", "M 0 0 L 10 5 L 0 10 z");
-  head.setAttribute("fill", color);
-  marker.appendChild(head);
-  defs.appendChild(marker);
-
-  return `url(#${id})`;
 }

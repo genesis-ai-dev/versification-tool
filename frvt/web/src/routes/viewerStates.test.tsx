@@ -125,7 +125,7 @@ describe("viewer empty and one-translation states", () => {
     );
 
     expect(await screen.findByText(/select a second translation/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/show mapping/i)).toBeDisabled();
+    expect(screen.getByLabelText(/^mapping$/i)).toBeDisabled();
     expect(screen.getByLabelText(/left translation/i)).toHaveDisplayValue("Only One");
   });
 

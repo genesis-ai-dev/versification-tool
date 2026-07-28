@@ -187,6 +187,15 @@ class ResolveResult(BaseModel):
     edges: list[ResolveEdge] = Field(default_factory=list)
 
 
+class ChapterResolveOut(BaseModel):
+    """Unique alignments for one drive chapter after emit-once dedupe."""
+
+    # Distinct resolve results for stored whole verses in the chapter.
+    items: list[ResolveResult]
+    # ``len(items)`` after dedupe (not raw verse count).
+    total: int
+
+
 class NavBook(BaseModel):
     """Book with available chapter numbers for navigation selectors."""
 

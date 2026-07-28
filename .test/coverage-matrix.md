@@ -117,7 +117,8 @@ Update this file whenever you implement or defer a case. Phase 12 requires no `p
 | TC-OVERLAY-007 | Optional | 11 | overlay | frvt/web/src/viewer/overlay/OverlayController.test.ts | done | rAF coalesce + dispose |
 | TC-OVERLAY-010 | Optional | 11 | overlay | frvt/web/src/viewer/overlay/OverlayController.test.ts | done | findAnchor fallback |
 | TC-OVERLAY-011 | Required | 9 | overlay | frvt/web/e2e/overlay.spec.ts | done | |
-| TC-OVERLAY-012 | Required | 9 | overlay | frvt/web/e2e/overlay.spec.ts | done | no chapter-wide |
+| TC-OVERLAY-012 | Required | 9 | overlay | frvt/web/e2e/overlay.spec.ts | done | chapter mode dimmed |
+| TC-OVERLAY-013 | Required | 9 | overlay | frvt/web/e2e/overlay.spec.ts | done | current vs chapter count |
 | TC-MANAGE-001 | Required | 10 | manage | frvt/web/e2e/manage.spec.ts | done | |
 | TC-MANAGE-002 | Required | 10 | manage | frvt/web/e2e/manage.spec.ts | done | |
 | TC-MANAGE-003 | Required | 10 | manage | frvt/web/e2e/manage.spec.ts | done | |

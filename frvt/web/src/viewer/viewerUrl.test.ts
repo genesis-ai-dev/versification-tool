@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { parseViewerSearch, serializeViewerSearch } from "../viewer/viewerUrl";
+import {
+  parseMapMode,
+  parseViewerSearch,
+  serializeMapMode,
+  serializeViewerSearch,
+} from "../viewer/viewerUrl";
 import { columnToResolveArgs } from "../lib/bcv";
 
 describe("viewer URL resolve mapping", () => {
@@ -27,8 +32,30 @@ describe("viewer URL resolve mapping", () => {
     const original = parseViewerSearch("left=a&right=b&map=0&lvers=x&drive=right");
     const encoded = serializeViewerSearch(original);
     const again = parseViewerSearch(encoded);
-    expect(again.map).toBe(false);
+    expect(again.mapMode).toBe("off");
     expect(again.leftVers).toBe("x");
     expect(again.drive).toBe("right");
+  });
+});
+
+describe("MapMode URL param", () => {
+  it("parses 0 / 1 / all and defaults unknown to current", () => {
+    expect(parseMapMode("0")).toBe("off");
+    expect(parseMapMode("1")).toBe("current");
+    expect(parseMapMode("all")).toBe("chapter");
+    expect(parseMapMode(null)).toBe("current");
+    expect(parseMapMode("bogus")).toBe("current");
+  });
+
+  it("serializes all modes", () => {
+    expect(serializeMapMode("off")).toBe("0");
+    expect(serializeMapMode("current")).toBe("1");
+    expect(serializeMapMode("chapter")).toBe("all");
+  });
+
+  it("round-trips chapter mode", () => {
+    const state = parseViewerSearch("left=a&right=b&map=all");
+    expect(state.mapMode).toBe("chapter");
+    expect(parseViewerSearch(serializeViewerSearch(state)).mapMode).toBe("chapter");
   });
 });

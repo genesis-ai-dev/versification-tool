@@ -292,15 +292,15 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ## Overlay (`OVERLAY`)
 
-### TC-OVERLAY-001 — Map toggle draws the current result only
+### TC-OVERLAY-001 — Mapping modes: hidden and current
 
 - **Level:** e2e · **Priority:** Required · **Category:** functional · **Traces:** REQ-140
 - **Preconditions:**
   - Viewer with a current alignment for the selected verse.
 - **Steps:**
-  1. Set `map=0`, then `map=1`.
+  1. Select **Hidden** (`map=0`), then **Current** (`map=1`).
 - **Expected result:**
-  - Connectors clear when `map=0`, then draw for the **current** resolve result only when `map=1` (never chapter-wide).
+  - Connectors clear when hidden, then draw for the **current** resolve result only when current (not chapter-wide).
 
 ### TC-OVERLAY-002 — Topologies for one-to-one, split, and merge
 
@@ -347,15 +347,15 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 - **Expected result:**
   - The part-bearing verse is outlined and shows a visible part label (e.g. `part a`).
 
-### TC-OVERLAY-006 — Text highlight is independent of map connectors
+### TC-OVERLAY-006 — Text highlight is independent of Mapping select
 
 - **Level:** e2e · **Priority:** Required · **Category:** functional · **Traces:** REQ-145
 - **Preconditions:**
   - A ready resolve result.
 - **Steps:**
-  1. Toggle the map on and off.
+  1. Cycle Mapping through Hidden, Current, and All (dimmed).
 - **Expected result:**
-  - Highlight spans remain on regardless of `map`; only the connectors follow the map toggle.
+  - Highlight spans remain on in all three modes; only connectors follow the Mapping select.
 
 ### TC-OVERLAY-007 — Redraw coalescing and listener cleanup
 
@@ -388,12 +388,23 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 - **Expected result:**
   - Connectors originate from the right (drive) column and terminate on the left follower; exits are mirrored vs `drive=left` (covered in TC-UI-005).
 
-### TC-OVERLAY-012 — Chapter-wide overlay is absent (POC behavior superseded)
+### TC-OVERLAY-012 — Chapter mode draws unique dimmed connectors
 
-- **Level:** e2e/out-of-scope-confirmation · **Priority:** Required · **Category:** out-of-scope-confirmation · **Traces:** REQ-140, REQ-160
+- **Level:** e2e · **Priority:** Required · **Category:** functional · **Traces:** REQ-140
 - **Preconditions:**
-  - A chapter with many deltas.
+  - Two associated translations; a chapter with multiple stored verses and alignments.
 - **Steps:**
-  1. Enable `map` without changing the current verse.
+  1. Select **Current** (`map=1`), note connector count.
+  2. Select **All (dimmed)** (`map=all`).
 - **Expected result:**
-  - Only the current alignment's connectors are drawn — not all chapter deltas (the POC chapter-wide toggle is out of scope).
+  - Chapter mode draws more connectors than current-only; non-current paths use reduced opacity (`0.25`); current alignment stays full opacity. `map=1` remains current-only.
+
+### TC-OVERLAY-013 — Chapter mode does not stack duplicate hulls
+
+- **Level:** e2e · **Priority:** Required · **Category:** functional · **Traces:** REQ-140
+- **Preconditions:**
+  - A chapter containing a multi-span merge or complex hull.
+- **Steps:**
+  1. Enable **All (dimmed)** and step through member verses of the hull.
+- **Expected result:**
+  - The API returns one item per unique hull (emit-once); the SVG does not stack identical connector sets for each member verse.
