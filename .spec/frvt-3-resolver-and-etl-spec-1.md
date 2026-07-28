@@ -750,3 +750,17 @@ The `frvt.resolver` package, `ResolutionDTO` shape, and resolution algorithms (�
 Ingest and `mapping_record` derivation are unchanged.
 
 UI chapter mode (ADD-U-002) consumes the chapter endpoint so users can view alignments among currently displayed verses without the jump menu; that behavior does not require resolver modifications.
+
+### ADD-R-003 — Jump-books summary (cross-spec traceability)
+
+**Purpose:** Cross-spec traceability for jump-books summary; document that the resolver package is unchanged.
+
+**No modification rows.** The frozen main body and effective specification are unchanged. This addendum records the API↔resolver boundary for implementers and reviewers.
+
+`GET /api/resolve/jump-books` (server ADD-S-003) is API-layer orchestration: it selects schemes, loads cancel-filtered jump mappings (same path as deltas/misalignments), and collects distinct from-side book codes from navigation targets.
+
+The `frvt.resolver` package, `ResolutionDTO` shape, and resolution algorithms (§§5–8) are **unchanged**. Cancel filtering, categorization, and book aggregation are not resolver concerns.
+
+Ingest and `mapping_record` derivation are unchanged.
+
+UI book indicators (ADD-U-003) consume the jump-books endpoint; that behavior does not require resolver modifications.

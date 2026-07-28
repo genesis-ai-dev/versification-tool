@@ -95,3 +95,13 @@ export function spanCacheKey(
 export function navCacheKey(translationId: string, vers: string | null): string {
   return `${translationId}|${vers ?? "preferred"}`;
 }
+
+/** Cache key for one column-direction jump-books summary request. */
+export function jumpBooksCacheKey(
+  fromTranslation: string,
+  toTranslation: string,
+  fromVersification: string | null,
+  toVersification: string | null,
+): string {
+  return `${fromTranslation}|${toTranslation}|${fromVersification ?? ""}|${toVersification ?? ""}`;
+}

@@ -128,6 +128,11 @@ export interface JumpMenuEntries {
   misalignments: Page<MisalignmentEntry>;
 }
 
+/** Distinct from-side books with jump-relevant mapping differences. */
+export interface JumpBooksOut {
+  books: string[];
+}
+
 /** Success body for project ingest (translation plus preferred scheme). */
 export interface ProjectIngestOut {
   translation: TranslationOut;

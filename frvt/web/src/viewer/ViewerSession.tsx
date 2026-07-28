@@ -14,7 +14,7 @@ import {
 import { useSearchParams } from "react-router-dom";
 import { listAssociations } from "../api/associations";
 import { ApiError, describeApiError } from "../api/errors";
-import { resolveMapping, resolveChapter } from "../api/resolve";
+import { resolveMapping, resolveChapter, listJumpBooks } from "../api/resolve";
 import { listTranslations } from "../api/translations";
 import { listVersifications } from "../api/versifications";
 import type {
@@ -76,6 +76,8 @@ export interface ViewerSessionValue {
   associationsFor(side: DriveSide): AssociationOut[];
   /** Whether both columns can resolve (ids + associations present). */
   canResolve: boolean;
+  /** Books flagged with jump differences for one column's from→to direction. */
+  jumpBooksFor(side: DriveSide): ReadonlySet<string>;
   /** Replace URL state and let effects reload derived data. */
   updateUrl(patch: Partial<ViewerUrlState>): void;
   /** Set a column's structured BCV and mark it as the drive side. */
@@ -115,6 +117,9 @@ export function ViewerSessionProvider({ children }: ViewerSessionProviderProps) 
     null,
   );
   const [chapterResolveLoading, setChapterResolveLoading] = useState(false);
+  const [leftJumpBooks, setLeftJumpBooks] = useState<ReadonlySet<string>>(() => new Set());
+  const [rightJumpBooks, setRightJumpBooks] = useState<ReadonlySet<string>>(() => new Set());
+  const [jumpBooksTick, setJumpBooksTick] = useState(0);
   const [resolveLoading, setResolveLoading] = useState(false);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [authRequired, setAuthRequired] = useState(false);
@@ -132,6 +137,9 @@ export function ViewerSessionProvider({ children }: ViewerSessionProviderProps) 
   const scrollLock = useRef(false);
   const resolveAbort = useRef<AbortController | null>(null);
   const chapterAbort = useRef<AbortController | null>(null);
+  const jumpBooksAbort = useRef<{ left: AbortController | null; right: AbortController | null }>(
+    { left: null, right: null },
+  );
   const unauthorizedCount = useRef(0);
   const pendingFollowerScroll = useRef<{
     side: DriveSide;
@@ -451,6 +459,77 @@ export function ViewerSessionProvider({ children }: ViewerSessionProviderProps) 
     handleApiFailure,
   ]);
 
+  // Prefetch jump-books summaries for both column directions (book dropdown markers).
+  useEffect(() => {
+    if (!canResolve || !url.left || !url.right) {
+      setLeftJumpBooks(new Set());
+      setRightJumpBooks(new Set());
+      jumpBooksAbort.current.left?.abort();
+      jumpBooksAbort.current.right?.abort();
+      return;
+    }
+
+    setLeftJumpBooks(new Set());
+    setRightJumpBooks(new Set());
+
+    const leftController = new AbortController();
+    const rightController = new AbortController();
+    jumpBooksAbort.current = { left: leftController, right: rightController };
+
+    void listJumpBooks(
+      {
+        fromTranslation: url.left,
+        toTranslation: url.right,
+        fromVersification: url.leftVers,
+        toVersification: url.rightVers,
+      },
+      { signal: leftController.signal },
+    )
+      .then((out) => {
+        if (leftController.signal.aborted) {
+          return;
+        }
+        setLeftJumpBooks(new Set(out.books));
+        setJumpBooksTick((n) => n + 1);
+      })
+      .catch((error: unknown) => {
+        if (leftController.signal.aborted) {
+          return;
+        }
+        setLeftJumpBooks(new Set());
+        handleApiFailure(error);
+      });
+
+    void listJumpBooks(
+      {
+        fromTranslation: url.right,
+        toTranslation: url.left,
+        fromVersification: url.rightVers,
+        toVersification: url.leftVers,
+      },
+      { signal: rightController.signal },
+    )
+      .then((out) => {
+        if (rightController.signal.aborted) {
+          return;
+        }
+        setRightJumpBooks(new Set(out.books));
+        setJumpBooksTick((n) => n + 1);
+      })
+      .catch((error: unknown) => {
+        if (rightController.signal.aborted) {
+          return;
+        }
+        setRightJumpBooks(new Set());
+        handleApiFailure(error);
+      });
+
+    return () => {
+      leftController.abort();
+      rightController.abort();
+    };
+  }, [canResolve, url.left, url.right, url.leftVers, url.rightVers, handleApiFailure]);
+
   useEffect(() => {
     const pending = pendingFollowerScroll.current;
     if (!pending) {
@@ -490,6 +569,17 @@ export function ViewerSessionProvider({ children }: ViewerSessionProviderProps) 
       return navCache.current.get(navCacheKey(id, vers)) ?? [];
     },
     [navTick, url.left, url.right, url.leftVers, url.rightVers],
+  );
+
+  const jumpBooksFor = useCallback(
+    (side: DriveSide): ReadonlySet<string> => {
+      void jumpBooksTick;
+      if (!canResolve) {
+        return new Set();
+      }
+      return side === "left" ? leftJumpBooks : rightJumpBooks;
+    },
+    [canResolve, jumpBooksTick, leftJumpBooks, rightJumpBooks],
   );
 
   const setColumnBcv = useCallback(
@@ -577,6 +667,7 @@ export function ViewerSessionProvider({ children }: ViewerSessionProviderProps) 
     navigationFor,
     associationsFor,
     canResolve,
+    jumpBooksFor,
     updateUrl,
     setColumnBcv,
     setColumnTranslation,

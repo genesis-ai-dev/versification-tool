@@ -3,16 +3,32 @@
 **Document:** `frvt-3-book-jump-indicators-execution-plan-1`
 **Status:** Ready for implementation
 **Audience:** A coding agent (and reviewers) adding per-book indicators on the viewer book dropdown for books that have jump-menu differences, plus a visible legend.
-**Scope:** Spec amendments; new pair-scoped summary API; ViewerSession fetch/cache; `ColumnChrome` book-option markers and legend; tests.
+**Scope:** Spec addenda (UI, server, resolver cross-spec); new pair-scoped summary API; ViewerSession fetch/cache; `ColumnChrome` book-option markers and legend; tests.
 
 ## How to use this document
 
 - Work phases **in order**. Do not start phase *N+1* until phase *N* Acceptance passes.
-- Product specs remain authoritative after Phase 0 amends them: [server](./frvt-3-server-and-api-spec-1.md), [UI](./frvt-3-ui-spec-1.md).
-- Cite product-spec sections (not this plan) when making policy decisions in code.
+- Product specs remain authoritative after Phase 0 records addenda: [server](./frvt-3-server-and-api-spec-1.md), [UI](./frvt-3-ui-spec-1.md), [resolver/ETL](./frvt-3-resolver-and-etl-spec-1.md).
+- **Effective specification** = frozen main body + addenda applied in order (see [Spec modification policy](#spec-modification-policy-all-three-product-specs) below). Cite effective spec targets (main-body section **or** addendum row), not this plan, when making policy decisions in code.
 - **Never commit or push** (Rule 11).
 
 > **Rule 12 (product code).** Phase numbers and plan/workflow identifiers must **never** appear in product application code under `frvt/api`, `frvt/resolver`, `frvt/ingest`, or `frvt/web/src`. Name modules and symbols for what they do, not for the phase that created them.
+
+---
+
+## Spec modification policy (all three product specs)
+
+Each product spec ([UI](./frvt-3-ui-spec-1.md), [server](./frvt-3-server-and-api-spec-1.md), [resolver/ETL](./frvt-3-resolver-and-etl-spec-1.md)) states the same **modification policy**:
+
+- The numbered main body (everything before **Addenda**) is **frozen** and must **never** be edited.
+- Post-reconciliation changes go **only** in **Addenda** at the end of each file.
+- One logical change set → one addendum subsection (`### ADD-*-NNN`) with a **capability-level Purpose** (no field names or section ids in the Purpose paragraph).
+- Atomic changes → **modification rows** in a table: `Mod id`, `Target` (main-body section id), `Action` (`ADD` \| `CLARIFY` \| `REPLACE` \| `REMOVE`), `Effective text`.
+- Apply subsections in numeric order; within a subsection, apply rows in listed order. Later rows override earlier ones for the same target.
+
+Phase 0 must **append** `ADD-U-003`, `ADD-S-003`, and `ADD-R-003` — not rewrite §2.3, §7.9, §6.6, capability tables, or other main-body text in place. **`ADD-R-003` is documentation-only** (Purpose + narrative; no modification rows).
+
+The navigation test plan ([`frvt-3-test-plan-resolver-and-navigation-1.md`](./frvt-3-test-plan-resolver-and-navigation-1.md)) is **not** governed by this addenda policy; Phase 5 may edit test cases directly.
 
 ---
 
@@ -28,7 +44,7 @@
 | Columns | **Both** left and right book dropdowns. Each request uses that column as `from_translation` and the counterpart as `to_translation`, with that column’s `*_versification` overrides (same directionality as `JumpMenu`) |
 | API | New **`GET /api/resolve/jump-books`**. Do **not** enrich per-translation `NavBook` / navigation (pair-scoped data does not belong there). Do **not** require the client to page through full deltas/misalignments |
 | Response | `{ books: string[] }` — distinct from-side book codes that have ≥1 post-cancel-filter jump row, sorted in USX book order (`usx_book_sort_key`) |
-| Empty / disabled | When `!canResolve`, show no markers and still show the legend (so users learn the symbol) **or** hide the legend when jump is disabled — **decide in Phase 0 UI wording as: show legend whenever a translation is selected; markers only when `canResolve` and data has loaded**. Prefer: legend visible whenever the Book select is enabled; markers appear when summary data is present |
+| Empty / disabled | When `!canResolve`, show no markers. Legend visible whenever the Book select is enabled (translation selected); markers only when `canResolve` and summary data has loaded ( **ADD-U-003b** ) |
 | Loading | While the summary request is in flight, show unmarked book labels (no flicker of stale pair data). Clear cached books immediately when pair/schemes change |
 | Cancel filter | Indicators must match jump-menu visibility: only books with rows **kept** by `filter_canceling_jump_rows` |
 | Non-goals for marker | Do not mark books solely from identity verses; do not show chapter-level marks |
@@ -73,34 +89,66 @@ flowchart LR
 
 ## Phases
 
-### Phase 0 — Spec amendments
+### Phase 0 — Spec addenda (frozen main body unchanged)
 
-Amend product specs before code.
+Append addendum subsections to the three product specs. Do **not** edit numbered sections before **Addenda**. Implementation cites **effective** text (main body as modified by addenda rows), not this plan.
 
-**Server** — [`frvt-3-server-and-api-spec-1.md`](./frvt-3-server-and-api-spec-1.md):
+#### UI — [`frvt-3-ui-spec-1.md`](./frvt-3-ui-spec-1.md) → `### ADD-U-003`
 
-1. Capability row 4 (or adjacent): book dropdown indicators use a pair-scoped summary of jump differences.
-2. New endpoint near §7.9:
+**Purpose (capability level):** Per-book indicators on each column’s native book selector for translation-pair jump differences, plus a visible legend, so users see which books have jump-menu deltas or misalignments before opening Jump.
+
+| Mod id | Target | Action | Effective text (summary — expand when writing the spec) |
+| --- | --- | --- | --- |
+| ADD-U-003a | §2.3 row 3 | REPLACE | Book selector shows a unicode suffix on books that have jump-relevant mapping differences for the current pair and schemes (via `GET /api/resolve/jump-books` for that column’s from→to direction). Always-visible legend: `● Book has mapping differences`. |
+| ADD-U-003b | §10 layout (`ColumnChrome`) | ADD | Native book `<select>`: option **display text** suffixes ` ●` (U+25CF) when the book is in the jump-books set for that column; `value` stays the bare USFM code. Legend visible whenever the Book select is enabled (translation selected). Markers only when `canResolve` and summary data has loaded; unmarked labels while loading or when `!canResolve`. |
+| ADD-U-003c | §7.2 | ADD | Session caches per-side jump-books: e.g. `jumpBooksFor(side): ReadonlySet<string>`. Fetch when `canResolve`; one request per column direction (left-as-from, right-as-from) with `AbortController`; clear cache on translation or versification change before new data arrives. Prefetch independently of Jump panel open state; do not block BCV selection. |
+| ADD-U-003d | §9.3 | ADD | `GET /api/resolve/jump-books` per column when both translations are resolvable. |
+| ADD-U-003e | §11.3 | ADD | Contract tests: option label suffix when book is flagged; legend visible; bare `value` preserved on selection (no marker leaked into URL book params). Do not test thin fetch wrappers. |
+| ADD-U-003f | §6.6 | CLARIFY | Jump-books indicators use the same cancel-filtered row set as Mapped deltas and Misalignments; they are a translation-level summary, not a replacement for the jump menu. |
+
+Accessibility: prefer one visible legend element with an `id` and `aria-describedby` on the Book `<select>` (do not rely on `aria-hidden` alone when using describedby).
+
+#### Server — [`frvt-3-server-and-api-spec-1.md`](./frvt-3-server-and-api-spec-1.md) → `### ADD-S-003`
+
+**Purpose (capability level):** Pair-scoped summary of which from-side books have jump-relevant mapping differences after cancel filtering, without paginating deltas or misalignments.
+
+| Mod id | Target | Action | Effective text (summary — expand when writing the spec) |
+| --- | --- | --- | --- |
+| ADD-S-003a | §2.3 row 3 | REPLACE | Book/chapter/verse selector data includes a pair-scoped jump-books summary (`GET /api/resolve/jump-books`) for book-dropdown indicators. |
+| ADD-S-003b | §7.2 | ADD | `JumpBooksOut`: `{ books: list[str] }` — distinct from-side USFM book codes, USX-sorted. |
+| ADD-S-003c | §7.9 | ADD | **`GET /api/resolve/jump-books`** — query: `from_translation`, `to_translation`, optional `from_versification`, `to_versification`. Response: `200` `JumpBooksOut`. Same scheme-selection / `404` / `409` pre-checks as deltas and jump-menu endpoints. Collect distinct from-side books from **cancel-filtered** scheme-difference rows (same set as deltas/misalignments; `book` query param not used). Derive each row’s book from its discrete navigation target (range lower bound). Sort with existing USX book order. Empty pair, identical schemes, or no differences ⇒ `{ books: [] }`. Do **not** enrich per-translation `NavBook` / navigation with pair-scoped flags. |
+| ADD-S-003d | §10.3 | ADD | Jump-books: happy path with known book differences; cancel-filter excludes identity-only books; empty / identical schemes; `404` / `409` pre-checks; USX sort. Lives in e.g. [`frvt/tests/test_api_jump_books.py`](../frvt/tests/test_api_jump_books.py). |
+
+Include the endpoint table from Locked decisions in ADD-S-003c effective text:
 
 | Method | Path | Query | Response |
 | --- | --- | --- | --- |
 | `GET` | `/api/resolve/jump-books` | `from_translation`, `to_translation`, optional `from_versification`, `to_versification` | `200` `{ books: string[] }` |
 
-Contract notes:
+#### Resolver / ETL — [`frvt-3-resolver-and-etl-spec-1.md`](./frvt-3-resolver-and-etl-spec-1.md) → `### ADD-R-003`
 
-- Same scheme-selection / `404` / `409` rules as deltas / jump-menu.
-- Books are distinct from-side book codes from **cancel-filtered** scheme-difference rows (unfiltered by `book`).
-- Sort with existing USX order.
-- Empty pair / identical schemes / no differences ⇒ `{ books: [] }`.
+**Purpose:** Cross-spec traceability for jump-books summary; document that the resolver package is unchanged.
 
-**UI** — [`frvt-3-ui-spec-1.md`](./frvt-3-ui-spec-1.md):
+**No modification rows.** Append this subsection with **Purpose and narrative only** — no modification-row table. The frozen main body and effective specification are unchanged; this addendum exists so implementers and reviewers see the API↔resolver boundary in one place.
 
-1. Capability / §6.6 (or ColumnChrome §): book `<select>` suffixes ` ●` for books returned by jump-books for that column’s from→to direction.
-2. Always-visible legend copy: `● Book has mapping differences`.
-3. Fetch timing: load when both translations are resolvable; refetch on translation or versification change; do not block BCV selection on this request.
-4. Note native `<option>` limitation: unicode suffix, not a separate icon element.
+**Narrative to include in the spec (paraphrase acceptable; keep the contracts):**
 
-**Acceptance:** wording present in UI + server specs; no product code required.
+- `GET /api/resolve/jump-books` (server **ADD-S-003**) is API-layer orchestration: it selects schemes, loads cancel-filtered jump mappings (same path as deltas/misalignments), and collects distinct from-side book codes from navigation targets.
+- The `frvt.resolver` package, `ResolutionDTO` shape, and resolution algorithms (§§5–8) are **unchanged**. Cancel filtering, categorization, and book aggregation are **not** resolver concerns.
+- Ingest and `mapping_record` derivation are unchanged.
+- UI book indicators ( **ADD-U-003** ) consume the jump-books endpoint; that behavior does not require resolver modifications.
+
+#### Test plan (optional note this phase)
+
+[`frvt-3-test-plan-resolver-and-navigation-1.md`](./frvt-3-test-plan-resolver-and-navigation-1.md): optional Phase 0 note that TC-NAV-014 / TC-NAV-015 will be added in Phase 5. Full case text is Phase 5.
+
+**Acceptance:**
+
+- `ADD-U-003` and `ADD-S-003` appended with complete modification-row tables; `ADD-R-003` appended with **Purpose + narrative only** (explicit “no modification rows” note).
+- **No** edits to main-body sections before **Addenda** in any of the three product specs.
+- Each addendum subsection has a capability-level **Purpose**; UI/server detail lives in modification rows; resolver detail lives in narrative only.
+- Mod ids, targets, and actions follow the shared policy in UI and server addenda.
+- No product code required.
 
 ---
 
@@ -240,8 +288,9 @@ def jump_difference_books(rows: list[JumpMapping]) -> list[str]:
 
 | Artifact | Role |
 | --- | --- |
-| `.spec/frvt-3-server-and-api-spec-1.md` | `GET /api/resolve/jump-books` contract |
-| `.spec/frvt-3-ui-spec-1.md` | Book marker + legend UX |
+| `.spec/frvt-3-server-and-api-spec-1.md` | `ADD-S-003`: `GET /api/resolve/jump-books` contract |
+| `.spec/frvt-3-ui-spec-1.md` | `ADD-U-003`: book marker + legend UX |
+| `.spec/frvt-3-resolver-and-etl-spec-1.md` | `ADD-R-003`: cross-spec traceability (no resolver changes) |
 | `.spec/frvt-3-test-plan-resolver-and-navigation-1.md` | TC-NAV-014 / TC-NAV-015 |
 | `frvt/api/jump_books.py` (or helper in navigation router) | Pure book-set collector |
 | `frvt/api/schemas/__init__.py` | `JumpBooksOut` |

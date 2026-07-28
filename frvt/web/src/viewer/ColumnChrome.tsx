@@ -23,6 +23,8 @@ export function ColumnChrome({ side, resolveDisabled }: ColumnChromeProps) {
   const navigation = session.navigationFor(side);
   const associations = session.associationsFor(side);
   const spans = session.spansFor(side);
+  const jumpBooks = session.jumpBooksFor(side);
+  const bookLegendId = `${side}-book-jump-legend`;
 
   const chapters = navigation.find((book) => book.book === bcv?.book)?.chapters ?? [];
   const verses = uniqueVerses(spans);
@@ -52,6 +54,7 @@ export function ColumnChrome({ side, resolveDisabled }: ColumnChromeProps) {
         <select
           value={bcv?.book ?? ""}
           aria-label={`${side} book`}
+          aria-describedby={translationId ? bookLegendId : undefined}
           disabled={!translationId}
           onChange={(event) => {
             if (!bcv && !event.target.value) {
@@ -71,10 +74,15 @@ export function ColumnChrome({ side, resolveDisabled }: ColumnChromeProps) {
           <option value="">—</option>
           {navigation.map((book) => (
             <option key={book.book} value={book.book}>
-              {book.book}
+              {jumpBooks.has(book.book) ? `${book.book} ●` : book.book}
             </option>
           ))}
         </select>
+        {translationId ? (
+          <p className="book-jump-legend" id={bookLegendId}>
+            ● Book has mapping differences
+          </p>
+        ) : null}
       </label>
 
       <label>

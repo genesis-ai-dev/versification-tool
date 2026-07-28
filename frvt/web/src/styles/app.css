@@ -336,6 +336,16 @@ select:hover:not(:disabled) {
   min-width: 5rem;
 }
 
+.column-chrome .book-jump-legend {
+  margin: 0;
+  grid-column: 1 / -1;
+  font-size: 0.7rem;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--text-faint);
+}
+
 .column-chrome .btn {
   height: 36px;
   align-self: end;

@@ -363,3 +363,28 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
   1. `GET /api/resolve/deltas?book=<book>`.
 - **Expected result:**
   - Results are scoped to the requested book.
+
+### TC-NAV-014 — Jump-books API summary
+
+- **Level:** integration · **Priority:** Required · **Category:** boundary · **Traces:** ADD-S-003
+- **Preconditions:**
+  - Eng↔org (or equivalent) pair with known book-level jump differences; authenticated client.
+- **Steps:**
+  1. `GET /api/resolve/jump-books` with the pair and scheme overrides.
+  2. Compare against cancel-filtered deltas book set.
+- **Expected result:**
+  - `200` `{ books: string[] }` in USX order; books match distinct from-side navigation targets from cancel-filtered rows; identical schemes yield `[]`; missing translation `404`; unassociated scheme `409`.
+
+### TC-NAV-015 — Book dropdown markers and legend
+
+- **Level:** e2e · **Priority:** Required · **Category:** nav · **Traces:** ADD-U-003
+- **Preconditions:**
+  - Two associated translations with known jump differences (e.g. eng↔org Psalms).
+- **Steps:**
+  1. Open the viewer with both columns populated.
+  2. Inspect each column's book `<select>` and legend.
+  3. Select a marked book.
+- **Expected result:**
+  - Legend `● Book has mapping differences` visible in both columns when translations are selected.
+  - Marked books show ` ●` suffix in option text only; `value` stays bare USFM.
+  - URL book param updates without the marker character.

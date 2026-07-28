@@ -680,6 +680,25 @@ test.describe("Viewer e2e", () => {
     await expect.poll(() => viewerParams(page).get("lv")).toBeTruthy();
   });
 
+  test("TC-NAV-015: book dropdown markers and legend", async ({ page }) => {
+    const pair = await seedContrastingPair(page.request);
+    await openViewerSession(page, {
+      left: pair.left.id,
+      right: pair.right.id,
+      lvers: pair.engId,
+      rvers: pair.orgId,
+    });
+    await expect(page.getByText("● Book has mapping differences")).toHaveCount(2, {
+      timeout: 30_000,
+    });
+    const leftBook = page.getByLabel("left book");
+    await expect
+      .poll(async () => leftBook.locator('option[value="PSA"]').textContent())
+      .toMatch(/PSA ●/);
+    await leftBook.selectOption("PSA");
+    await expect.poll(() => viewerParams(page).get("lb")).toBe("PSA");
+  });
+
   test("TC-NAV-011: counterpart jump disabled with a single translation", async ({
     page,
   }) => {

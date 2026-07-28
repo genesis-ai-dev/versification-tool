@@ -257,6 +257,13 @@ class JumpMenuEntries(BaseModel):
     misalignments: Page[MisalignmentEntry]
 
 
+class JumpBooksOut(BaseModel):
+    """Distinct from-side books with jump-relevant mapping differences."""
+
+    # USFM book codes in USX order after cancel filtering.
+    books: list[str]
+
+
 class Page(BaseModel, Generic[PageItem]):
     """Paginated collection envelope ``{items, total}``."""
 

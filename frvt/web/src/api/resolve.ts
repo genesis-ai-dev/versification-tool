@@ -1,6 +1,6 @@
 import { apiGet } from "./client";
 import type { RequestOptions } from "./client";
-import type { DeltaEntry, JumpMenuEntries, MisalignmentEntry, Page, ResolveResult } from "./types";
+import type { DeltaEntry, JumpBooksOut, JumpMenuEntries, MisalignmentEntry, Page, ResolveResult } from "./types";
 
 /** Arguments for ``GET /api/resolve`` built from URL-owned viewer state. */
 export interface ResolveArgs {
@@ -65,6 +65,34 @@ export function resolveMapping(
       to_translation: args.toTranslation,
       ref: args.ref,
       part: args.part ?? undefined,
+      from_versification: args.fromVersification ?? undefined,
+      to_versification: args.toVersification ?? undefined,
+    },
+    options,
+  );
+}
+
+/** Arguments for ``GET /api/resolve/jump-books`` (pair-scoped book summary). */
+export interface JumpBooksArgs {
+  fromTranslation: string;
+  toTranslation: string;
+  fromVersification?: string | null;
+  toVersification?: string | null;
+}
+
+/**
+ * List distinct from-side books with cancel-filtered jump differences.
+ * Used for book-dropdown indicators in column chrome.
+ */
+export function listJumpBooks(
+  args: JumpBooksArgs,
+  options?: RequestOptions,
+): Promise<JumpBooksOut> {
+  return apiGet<JumpBooksOut>(
+    "/api/resolve/jump-books",
+    {
+      from_translation: args.fromTranslation,
+      to_translation: args.toTranslation,
       from_versification: args.fromVersification ?? undefined,
       to_versification: args.toVersification ?? undefined,
     },

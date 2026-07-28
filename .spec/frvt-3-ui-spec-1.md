@@ -736,3 +736,16 @@ Post-reconciliation modifications. Apply subsections in order (`ADD-*-001`, then
 | ADD-U-002l | §11.3 | ADD | Contract tests: `MapMode` URL round-trip; `mergeDrawPlans` and `indexOfDriveAlignment` (including drive verse in a non-first `source_spans` slot); three-mode overlay behavior. Do not test thin fetch wrappers that only forward arguments. |
 | ADD-U-002m | §13 (glossary **Current alignment**) | CLARIFY | In `chapter` mode, "current" is the emphasized alignment whose `source_spans` contain the drive BCV (+ `part` when set), not necessarily the only painted alignment. |
 | ADD-U-002n | §6.3, §6.4, §10 layout | CLARIFY | Replace "map toggle" / checkbox wording with Mapping `<select>`. Disable the select when `!canResolve`. |
+
+### ADD-U-003 — Book jump-difference indicators
+
+**Purpose:** Per-book indicators on each column's native book selector for translation-pair jump differences, plus a visible legend, so users see which books have jump-menu deltas or misalignments before opening Jump.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-U-003a | §2.3 row 3 | REPLACE | Per-column book/chapter/verse selector: book options show a unicode suffix on books that have jump-relevant mapping differences for the current pair and schemes (via `GET /api/resolve/jump-books` for that column's from→to direction). Always-visible legend: `● Book has mapping differences`. |
+| ADD-U-003b | §10 layout (`ColumnChrome`) | ADD | Native book `<select>`: option **display text** suffixes ` ●` (U+25CF) when the book is in the jump-books set for that column; `value` stays the bare USFM code. Legend visible whenever the Book select is enabled (translation selected). Markers only when `canResolve` and summary data has loaded; unmarked labels while loading or when `!canResolve`. Prefer one visible legend element with an `id` and `aria-describedby` on the Book `<select>`. |
+| ADD-U-003c | §7.2 | ADD | Session caches per-side jump-books: e.g. `jumpBooksFor(side): ReadonlySet<string>`. Fetch when `canResolve`; one request per column direction (left-as-from, right-as-from) with `AbortController`; clear cache on translation or versification change before new data arrives. Prefetch independently of Jump panel open state; do not block BCV selection. |
+| ADD-U-003d | §9.3 | ADD | `GET /api/resolve/jump-books` per column when both translations are resolvable. |
+| ADD-U-003e | §11.3 | ADD | Contract tests: option label suffix when book is flagged; legend visible; bare `value` preserved on selection (no marker leaked into URL book params). Do not test thin fetch wrappers. |
+| ADD-U-003f | §6.6 | CLARIFY | Jump-books indicators use the same cancel-filtered row set as Mapped deltas and Misalignments; they are a translation-level summary, not a replacement for the jump menu. |

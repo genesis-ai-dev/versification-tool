@@ -155,7 +155,9 @@ describe("viewer empty and one-translation states", () => {
       if (
         url.endsWith("/api/resolve") &&
         !full.includes("deltas") &&
-        !full.includes("misalignments")
+        !full.includes("misalignments") &&
+        !full.includes("jump-books") &&
+        !full.includes("/chapter")
       ) {
         return jsonResponse({
           source_spans: [
@@ -203,6 +205,9 @@ describe("viewer empty and one-translation states", () => {
           ],
           total: 1,
         });
+      }
+      if (url.endsWith("/api/resolve/jump-books")) {
+        return jsonResponse({ books: [] });
       }
       if (url.endsWith("/api/translations")) {
         return jsonResponse({ items: [left, right], total: 2 });
@@ -255,7 +260,9 @@ describe("viewer empty and one-translation states", () => {
           (u) =>
             u.includes("/api/resolve") &&
             !u.includes("deltas") &&
-            !u.includes("misalignments"),
+            !u.includes("misalignments") &&
+            !u.includes("jump-books") &&
+            !u.includes("/chapter"),
         );
       expect(
         resolveCalls.some((u) => u.includes(`from_versification=${schemeAlt}`)),

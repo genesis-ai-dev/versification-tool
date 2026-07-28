@@ -11,11 +11,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from frvt.api.db import get_session
+from frvt.api.jump_books import jump_difference_books
 from frvt.api.jump_cancel import JumpCancelContext, filter_canceling_jump_rows
 from frvt.api.logging_config import get_logger
 from frvt.api.models import MappingRecord, VerseSpan
 from frvt.api.schemas import (
     DeltaEntry,
+    JumpBooksOut,
     JumpMenuEntries,
     MisalignmentEntry,
     NavBook,
@@ -478,3 +480,32 @@ def resolve_jump_menu(
         deltas=Page[DeltaEntry](items=delta_items, total=len(rows)),
         misalignments=Page[MisalignmentEntry](items=mis_items, total=len(rows)),
     )
+
+
+@router.get("/api/resolve/jump-books", response_model=JumpBooksOut)
+def resolve_jump_books(
+    from_translation: UUID = Query(...),
+    to_translation: UUID = Query(...),
+    from_versification: UUID | None = Query(default=None),
+    to_versification: UUID | None = Query(default=None),
+    session: Session = Depends(get_session),
+) -> JumpBooksOut:
+    """List distinct from-side books with cancel-filtered jump differences."""
+    logger.debug(
+        "Jump books from=%s to=%s from_vers=%s to_vers=%s",
+        from_translation,
+        to_translation,
+        from_versification,
+        to_versification,
+    )
+    require_translation(session, from_translation)
+    require_translation(session, to_translation)
+    rows = _cancel_filtered_jump_mappings(
+        session,
+        from_translation,
+        to_translation,
+        book=None,
+        from_versification=from_versification,
+        to_versification=to_versification,
+    )
+    return JumpBooksOut(books=jump_difference_books(rows))

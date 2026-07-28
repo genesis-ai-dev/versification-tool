@@ -83,6 +83,8 @@ Update this file whenever you implement or defer a case. Phase 12 requires no `p
 | TC-NAV-011 | Required | 8 | nav | frvt/web/e2e/viewer.spec.ts | done | e2e single-translation |
 | TC-NAV-012 | Required | 5 | nav | frvt/tests/test_api_navigation.py | done | |
 | TC-NAV-013 | Required | 5 | nav | frvt/tests/test_api_navigation.py | done | cancel-filter contract, including partial exception |
+| TC-NAV-014 | Required | 5 | nav | frvt/tests/test_api_jump_books.py | done | jump-books API summary |
+| TC-NAV-015 | Required | 8 | nav | frvt/web/e2e/viewer.spec.ts | done | e2e book markers + legend |
 | TC-UI-001 | Required | 8 | ui | frvt/web/e2e/viewer.spec.ts | done | |
 | TC-UI-002 | Required | 8 | ui | frvt/web/e2e/viewer.spec.ts | done | |
 | TC-UI-003 | Required | 8 | ui | frvt/web/e2e/viewer.spec.ts | done | |
