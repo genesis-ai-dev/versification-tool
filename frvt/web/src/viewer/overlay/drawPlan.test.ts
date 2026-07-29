@@ -123,7 +123,7 @@ describe("buildDrawPlan", () => {
     expect(plan.connectors[0].toVoid).toBe(true);
     expect(plan.connectors[0].label).toBe("absent");
     expect(plan.connectors[0].from.x).toBe(102);
-    expect(plan.connectors[0].to.x).toBe(130);
+    expect(plan.connectors[0].to.x).toBe(300);
   });
 
   it("outlines only the part-bearing node for partial", () => {

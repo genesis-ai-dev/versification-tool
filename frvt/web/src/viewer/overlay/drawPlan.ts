@@ -339,7 +339,7 @@ function connectorForEdge(
 }
 
 /**
- * Exclude: outline drive spans only and draw dashed connectors to a void stub.
+ * Exclude: outline drive spans only and draw dashed connectors to the gutter midpoint.
  * Never invents a follower target outline.
  */
 function planExclude(
@@ -363,7 +363,7 @@ function planExclude(
     };
     connectors.push({
       from,
-      to: { x: from.x + direction * 28, y: from.y },
+      to: { x: anchors.gutterX, y: from.y },
       color,
       strokeWidth: 1.5,
       dashArray: "4 4",

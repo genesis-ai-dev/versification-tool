@@ -23,6 +23,8 @@ export function paintPlan(svg: SVGSVGElement, plan: DrawPlan): void {
     from: { x: number; y: number };
     to: { x: number; y: number };
     opacity?: number;
+    /** When true, center the badge on the connector midline in the gutter. */
+    onVoidLine?: boolean;
   }> = [];
 
   for (const outline of plan.outlines) {
@@ -89,6 +91,7 @@ export function paintPlan(svg: SVGSVGElement, plan: DrawPlan): void {
         from: connector.from,
         to: connector.to,
         opacity: connector.opacity,
+        onVoidLine: connector.toVoid,
       });
     }
   }
@@ -106,10 +109,10 @@ export function paintPlan(svg: SVGSVGElement, plan: DrawPlan): void {
         labelGroup.setAttribute("opacity", String(entry.opacity));
       }
       const midX = (entry.from.x + entry.to.x) / 2;
-      const midY = (entry.from.y + entry.to.y) / 2 - 6;
+      const midY = (entry.from.y + entry.to.y) / 2;
       appendLabelBadge(labelGroup, ns, {
         centerX: midX,
-        centerY: midY,
+        centerY: entry.onVoidLine ? midY : midY - 6,
         text: entry.label,
         color: entry.color,
       });

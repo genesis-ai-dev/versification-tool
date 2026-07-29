@@ -81,9 +81,21 @@ def test_verify_parity_pair_unit() -> None:
     assert verify_parity_pair(baseline, mismatch)
 
 
-def test_spanish_org_zip_builds() -> None:
-    data = build_spanish_org_zip()
-    assert len(data) > 100
+def test_spanish_org_zip_includes_act_24_6_and_7() -> None:
+    """Spanish sample USX uses hyphen milestones (ACT 24:6-7); zip must split them."""
+    import io
+    import zipfile
+
+    from frvt.ingest.usx_parse import parse_usx
+
+    with zipfile.ZipFile(io.BytesIO(build_spanish_org_zip())) as archive:
+        act_usx = archive.read("release/USX_1/ACT.usx").decode("utf-8")
+    verses = {
+        span.verse
+        for span in parse_usx(act_usx)
+        if span.book == "ACT" and span.chapter == 24
+    }
+    assert verses >= {6, 7, 8}
 
 
 def test_multihop_seed_creates_engdemo_translation(

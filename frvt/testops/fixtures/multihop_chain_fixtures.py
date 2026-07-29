@@ -15,6 +15,7 @@ from frvt.testops.fixtures.visual_demo_corpus import (
     ensure_psa_verse0,
     extract_usx_books,
     identity_vrs,
+    split_hyphen_verse_milestones,
 )
 
 logger = get_logger(__name__)
@@ -145,6 +146,8 @@ def build_spanish_org_zip() -> bytes:
     logger.debug("Building spanish-org project zip")
     usx = extract_usx_books(_SAMPLE_ZIPS["es"], MULTIHOP_BOOKS)
     usx["PSA"] = ensure_psa_verse0(usx["PSA"], chapter=3)
+    for book in sorted(usx):
+        usx[book] = split_hyphen_verse_milestones(usx[book])
     max_verses = multihop_max_verses()
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
