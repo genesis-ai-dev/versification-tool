@@ -1,4 +1,5 @@
 import { useMemo, useRef } from "react";
+import { DriveDirectionIndicator } from "./DriveDirectionIndicator";
 import { MappingOverlay } from "./overlay/MappingOverlay";
 import { ScriptureColumn } from "./ScriptureColumn";
 import { useViewerSession } from "./ViewerSession";
@@ -46,6 +47,7 @@ export function ViewerWorkspace() {
         <ScriptureColumn side="left" scrollRef={leftColumnRef} />
         <ScriptureColumn side="right" scrollRef={rightColumnRef} />
       </div>
+      {session.canResolve ? <DriveDirectionIndicator drive={session.url.drive} /> : null}
       <MappingOverlay
         workspaceRef={workspaceRef}
         leftColumnRef={leftColumnRef}

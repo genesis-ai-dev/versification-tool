@@ -2,8 +2,8 @@
 
 **Document:** `frvt-3-viewer-chrome-ux-execution-plan-1`
 **Status:** Ready for implementation
-**Audience:** A coding agent (and reviewers) applying three viewer chrome UX fixes: dual-column auto-scroll after verse selection, “based on” suffixes on versification option labels, and Book jump-legend placement beside the Book label.
-**Scope:** UI-spec addendum only; `ViewerSession` scroll generalization; `ColumnChrome` label formatting and legend layout; CSS; unit/RTL/e2e contract updates. **No** server, resolver, or ingest changes.
+**Audience:** A coding agent (and reviewers) applying viewer chrome UX fixes: dual-column auto-scroll after verse selection, “based on” suffixes on versification option labels, Book jump-legend placement beside the Book label, and a drive-direction arrow between columns.
+**Scope:** UI-spec addendum only; `ViewerSession` scroll generalization; `ColumnChrome` label formatting and legend layout; drive-direction indicator; toolbar cleanup; CSS; unit/RTL/e2e contract updates. **No** server, resolver, or ingest changes.
 
 ## How to use this document
 
@@ -52,6 +52,13 @@ The viewer/overlay test plan ([`frvt-3-test-plan-viewer-and-overlay-1.md`](./frv
 | Legend wording / a11y | Keep exact text `● Book has mapping differences`. Keep visible legend `id` + `aria-describedby` on the Book `<select>`. Do not use `aria-hidden` on the described legend |
 | Legend visibility | Unchanged: show whenever the Book select is enabled (translation selected) |
 | Markers | Unchanged: ` ●` suffix on flagged book options; bare `value`; jump-books fetch/cache semantics untouched |
+| Drive arrow meaning | One shared arrow pointing **drive → follower** (resolve from→to). `drive=left` ⇒ `→`; `drive=right` ⇒ `←` |
+| Drive arrow placement | Near the seam between columns at chrome-row height, offset slightly left for visual balance |
+| Drive arrow interaction | **Decorative only** — not a button; drive still changes via verse click / BCV chrome / jump (current behavior) |
+| Drive arrow visibility | Only when `canResolve` is true; hidden otherwise |
+| Drive arrow glyph / a11y | Unicode/CSS arrow (`→` / `←`). Accessible name e.g. `Drive: left → right` or `Drive: right → left` (via `aria-label` on the indicator). Visible text may be the glyph alone |
+| Toolbar drive text | Keep the muted `drive: {left\|right}` span in [`ViewerToolbar.tsx`](../frvt/web/src/viewer/ViewerToolbar.tsx) as a textual complement to the between-column arrow |
+| Existing drive chrome | Keep the drive-column accent bar (`is-source` / verse-list `::before`) — do not remove it as part of this work |
 
 ---
 
@@ -65,17 +72,20 @@ flowchart TB
   followerScroll["Scroll follower to primary target seq"]
   labels["Versification options: name + based on"]
   legend["Legend inline with Book label"]
+  arrow["Drive→follower arrow between columns"]
 
   select --> resolve
   resolve --> driveScroll
   resolve --> followerScroll
   labels -.-> ColumnChrome
   legend -.-> ColumnChrome
+  arrow -.-> ViewerWorkspace
 ```
 
 - Follower already auto-scrolls after resolve; drive often stays scrolled away after chrome or jump selection — both columns must move into view together.
 - Scheme options already join `based_on_name` per §6.5 but do not display it; users need the parent scheme visible in the dropdown.
 - Jump-books legend under the `<select>` wastes vertical chrome and reads as detached from the Book control; place it beside the label.
+- The toolbar text and accent bar identify the drive side; a prominent drive→follower arrow makes the direction immediately visible.
 
 ---
 
@@ -99,7 +109,7 @@ Append one addendum subsection to the UI product spec. Do **not** edit numbered 
 
 #### UI — [`frvt-3-ui-spec-1.md`](./frvt-3-ui-spec-1.md) → `### ADD-U-004`
 
-**Purpose (capability level):** After verse selection, both viewer columns scroll to the relevant spans; versification options show their parent scheme; the book jump-difference legend sits beside the Book label.
+**Purpose (capability level):** After verse selection, both viewer columns scroll to the relevant spans; versification options show their parent scheme; the book jump-difference legend sits beside the Book label; and a visible arrow shows which column is driving resolve.
 
 | Mod id | Target | Action | Effective text (summary — expand when writing the spec) |
 | --- | --- | --- | --- |
@@ -107,7 +117,9 @@ Append one addendum subsection to the UI product spec. Do **not** edit numbered 
 | ADD-U-004b | §6.4 sequence diagram note / step 3 | CLARIFY | Highlight and scroll steps cover **both** columns: drive to selected verse, follower to primary target when present. |
 | ADD-U-004c | §6.5 step 2 (scheme option labels) | REPLACE | Scheme option labels: `{name} (based on {based_on_name})` when `based_on_name` is non-null; otherwise `{name}`. Preferred association appends ` ★` after the full label. The empty option remains `Preferred (default)` with no based-on text. Join path unchanged (associations → versification catalog by `scheme_id`, or enriched `AssociationOut` if present). |
 | ADD-U-004d | §10 layout (`ColumnChrome`) / ADD-U-003b legend placement | REPLACE / CLARIFY | Book jump legend `● Book has mapping differences` is inline on the same row as the **Book** label text (not under the `<select>`). Keep legend `id` + `aria-describedby` on the Book `<select>`. Visibility and marker rules from ADD-U-003 remain. |
-| ADD-U-004e | §11.3 | ADD | Contract tests: drive + follower scroll after resolve (no resolve loop); drive scrolls on exclude; versification option text includes `(based on …)` when `based_on_name` set and omits it when null; preferred ★ after full label; legend is a sibling of the Book label text (not below the select). |
+| ADD-U-004e | §5.3 / §10 layout (`ViewerWorkspace`) | ADD | When `canResolve`, show one non-interactive drive-direction indicator near the seam between the two columns at chrome-row height, offset slightly left for visual balance. Glyph points drive→follower: `→` when `drive=left`, `←` when `drive=right`. Accessible name e.g. `Drive: left → right` / `Drive: right → left`. Hidden when `!canResolve`. Does not change `drive` on click. |
+| ADD-U-004f | §3.2 / toolbar pair context | CLARIFY | Keep the textual `drive: left\|right` cue in the viewer toolbar pair-context row alongside the between-column arrow (ADD-U-004e). Drive-column accent bar (`is-source`) remains. |
+| ADD-U-004g | §11.3 | ADD | Contract tests: drive + follower scroll after resolve (no resolve loop); drive scrolls on exclude; versification option text includes `(based on …)` when `based_on_name` set and omits it when null; preferred ★ after full label; legend is a sibling of the Book label text (not below the select); drive arrow visible only when `canResolve`, flips with `drive`, and is not a control that writes `drive`. |
 
 **Acceptance:**
 
@@ -221,7 +233,53 @@ export function formatVersificationOptionLabel(args: {
 
 ---
 
-### Phase 4 — Dual-column (and drive-only) auto-scroll
+### Phase 4 — Drive-direction arrow between columns
+
+**Touch:**
+
+- [`frvt/web/src/viewer/ViewerWorkspace.tsx`](../frvt/web/src/viewer/ViewerWorkspace.tsx) (or a small sibling component e.g. `DriveDirectionIndicator.tsx` imported by the workspace)
+- [`frvt/web/src/viewer/ViewerToolbar.tsx`](../frvt/web/src/viewer/ViewerToolbar.tsx) — retain `drive: {session.url.drive}`
+- [`frvt/web/src/styles/app.css`](../frvt/web/src/styles/app.css)
+- Unit/RTL test for visibility + glyph flip (workspace or indicator test)
+
+**Layout note:** `.viewer-workspace` is a 2-column CSS grid; columns use `display: contents`, so chrome cells sit in row 1. Prefer one of these approaches (pick the simpler that keeps overlay measurement intact):
+
+1. **Absolute seam marker** (usually simplest): position a non-interactive element inside `.viewer-workspace` at horizontal center, vertically aligned to the chrome row (`top` within chrome height; `left: 50%; transform: translateX(-50%)`; `pointer-events: none`; z-index above chrome, below overlay if needed).
+2. **Extra grid track:** introduce a narrow center column for the chrome row only — only if absolute positioning fights existing styles. Do **not** break overlay coordinate assumptions or verse-list borders without re-checking [`MappingOverlay`](../frvt/web/src/viewer/overlay/MappingOverlay.tsx).
+
+**Implement:**
+
+```tsx
+{session.canResolve ? (
+  <div
+    className="drive-direction-indicator"
+    aria-label={
+      session.url.drive === "left"
+        ? "Drive: left → right"
+        : "Drive: right → left"
+    }
+  >
+    {session.url.drive === "left" ? "→" : "←"}
+  </div>
+) : null}
+```
+
+- Not a `<button>`; no `onClick`; do not call URL/`drive` setters.
+- Style: muted, readable at chrome height; no card, glow, or pill chrome. Match existing toolbar/chrome typography tokens.
+- Keep toolbar `drive: …` text as a redundant textual cue alongside the arrow and existing `is-source` accent bar.
+
+**Acceptance:**
+
+- `canResolve === true` and `drive=left` ⇒ visible `→` with accessible name mentioning left → right.
+- Switch drive to right (verse click / BCV on right) ⇒ glyph becomes `←`.
+- `canResolve === false` ⇒ indicator absent.
+- Clicking the indicator does nothing (not focusable as a control; no drive swap).
+- Toolbar shows `drive: left` / `drive: right` consistently with the arrow.
+- Overlay still draws correctly after layout change.
+
+---
+
+### Phase 5 — Dual-column (and drive-only) auto-scroll
 
 This is the highest-risk phase. Keep follower semantics intact; extend the pending-scroll model.
 
@@ -265,7 +323,7 @@ This is the highest-risk phase. Keep follower semantics intact; extend the pendi
 
 ---
 
-### Phase 5 — Test-plan sync, e2e, gate wrap-up
+### Phase 6 — Test-plan sync, e2e, gate wrap-up
 
 **Touch:**
 
@@ -273,6 +331,7 @@ This is the highest-risk phase. Keep follower semantics intact; extend the pendi
   - Update **TC-UI-034** expectations to mention drive + follower scroll without resolve loop.
   - Update **TC-UI-035** expected option text to the locked `(based on …)` / ★-after-full-label format (replace vague “showing name / canonical / based_on”).
   - Add a focused case (suggested id: **TC-UI-038**) for Book legend placement beside the Book label + `aria-describedby`.
+  - Add a focused case (suggested id: **TC-UI-039**) for drive-direction arrow: visible when resolvable, flips with `drive`, absent when `!canResolve`, toolbar text agrees with the direction.
 - [`frvt/web/e2e/viewer.spec.ts`](../frvt/web/e2e/viewer.spec.ts) (and helpers if needed)
 - Coverage matrix under [`.test/`](../.test/) only if an existing matrix row must stay in sync
 
@@ -284,7 +343,8 @@ This is the highest-risk phase. Keep follower semantics intact; extend the pendi
 4. Exclude locus (if fixture available) → drive scrolls; follower not forced to a fake verse.
 5. Versification dropdown shows `(based on …)` for non-root schemes; root schemes bare; preferred ★ at end; Preferred (default) unchanged.
 6. Legend sits beside “Book”, not under the book `<select>`; still two legends when both translations selected.
-7. Single-translation mode: changing verse via chrome scrolls that column when spans are loaded.
+7. Single-translation mode: changing verse via chrome scrolls that column when spans are loaded; drive arrow hidden.
+8. With both translations resolvable: arrow between columns points left→right when left drives; flips when right drives; toolbar text agrees with the current drive side.
 
 **Acceptance:** docs and tests agree with shipped behavior; quality gates clean; no commits/pushes.
 
@@ -294,15 +354,18 @@ This is the highest-risk phase. Keep follower semantics intact; extend the pendi
 
 | Artifact | Role |
 | --- | --- |
-| `.spec/frvt-3-ui-spec-1.md` | `ADD-U-004`: dual scroll, based-on labels, legend placement |
-| `.spec/frvt-3-test-plan-viewer-and-overlay-1.md` | TC-UI-034 / 035 updates; TC-UI-038 legend placement |
+| `.spec/frvt-3-ui-spec-1.md` | `ADD-U-004`: dual scroll, based-on labels, legend placement, drive arrow |
+| `.spec/frvt-3-test-plan-viewer-and-overlay-1.md` | TC-UI-034 / 035 updates; TC-UI-038 legend; TC-UI-039 drive arrow |
 | `frvt/web/src/lib/formatVersificationOption.ts` | Pure option-label helper |
 | `frvt/web/src/viewer/columnScroll.ts` (optional extract) | Shared `scrollColumnToSeq` + `seqForBcv` |
 | `frvt/web/src/viewer/ViewerSession.tsx` | Pending drive+follower scroll; exclude path fix; `!canResolve` drive scroll |
 | `frvt/web/src/viewer/ColumnChrome.tsx` | Based-on labels; legend beside Book label |
-| `frvt/web/src/styles/app.css` | Book label-row + legend layout |
+| `frvt/web/src/viewer/ViewerWorkspace.tsx` | Drive-direction indicator mount |
+| `frvt/web/src/viewer/DriveDirectionIndicator.tsx` (optional) | Isolated arrow component |
+| `frvt/web/src/viewer/ViewerToolbar.tsx` | Textual `drive:` cue |
+| `frvt/web/src/styles/app.css` | Book label-row + legend layout; drive arrow seam placement |
 | `frvt/web/src/viewer/ColumnChrome.test.tsx` | Label + legend contracts |
-| `frvt/web/e2e/viewer.spec.ts` | Scroll / label / legend smoke |
+| `frvt/web/e2e/viewer.spec.ts` | Scroll / label / legend / drive-arrow smoke |
 
 ---
 
@@ -315,17 +378,20 @@ This is the highest-risk phase. Keep follower semantics intact; extend the pendi
 - `block: "center"` scrolling, instant scroll, or per-column independent scroll-locks
 - Enriching `AssociationOut` solely for this feature (optional join shortcut remains optional per §6.5)
 - Manage-page “Based on” column changes ([`VersificationsManagePage.tsx`](../frvt/web/src/routes/VersificationsManagePage.tsx) already shows based-on separately)
+- Clickable drive swap control; replacing the `is-source` accent bar
+- Animated arrow transitions or custom SVG arrow assets (unicode/CSS is enough)
 - Committing or pushing (Rule 11)
 
 ---
 
 ## Verification cheat-sheet (implementer)
 
-After Phase 5, a reviewer should be able to:
+After Phase 6, a reviewer should be able to:
 
 1. Select a verse via chrome while scrolled away → **both** columns move to the relevant verses after resolve.
 2. Confirm an on-screen verse click does not visibly yank the drive column (`nearest`).
 3. Open the versification `<select>` and see `Name (based on parent)` / `Name (based on parent) ★` / bare root names as appropriate.
 4. See `● Book has mapping differences` on the **same row as** the Book label, above the book dropdown.
-5. Confirm TC-UI-034 still passes (no resolve scroll loop).
-6. Confirm book option `value`s and versification `value`s remain bare ids (no display suffixes in URL params).
+5. See a prominent `→` / `←` near the seam between the columns when both sides can resolve; it flips with drive and agrees with the toolbar `drive:` text.
+6. Confirm TC-UI-034 still passes (no resolve scroll loop).
+7. Confirm book option `value`s and versification `value`s remain bare ids (no display suffixes in URL params).

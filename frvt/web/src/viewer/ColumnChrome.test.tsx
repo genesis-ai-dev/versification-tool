@@ -19,7 +19,26 @@ function buildSession(overrides: Partial<ViewerSessionValue> = {}): ViewerSessio
     },
     translations: [],
     translationTotal: 2,
-    versifications: [],
+    versifications: [
+      {
+        id: "scheme-eng",
+        name: "English",
+        based_on_name: "org",
+        based_on_id: null,
+        canonical: false,
+        created_at: "",
+        updated_at: "",
+      },
+      {
+        id: "scheme-org",
+        name: "org",
+        based_on_name: null,
+        based_on_id: null,
+        canonical: true,
+        created_at: "",
+        updated_at: "",
+      },
+    ],
     resolveResult: null,
     chapterResolveItems: null,
     chapterResolveLoading: false,
@@ -31,7 +50,20 @@ function buildSession(overrides: Partial<ViewerSessionValue> = {}): ViewerSessio
       { book: "GEN", chapters: [1] },
       { book: "PSA", chapters: [1] },
     ],
-    associationsFor: () => [],
+    associationsFor: () => [
+      {
+        id: "assoc-eng",
+        translation_id: "left-id",
+        scheme_id: "scheme-eng",
+        preferred: true,
+      },
+      {
+        id: "assoc-org",
+        translation_id: "left-id",
+        scheme_id: "scheme-org",
+        preferred: false,
+      },
+    ],
     canResolve: true,
     jumpBooksFor: (side: DriveSide) => (side === "left" ? new Set(["PSA"]) : new Set()),
     updateUrl: vi.fn(),
@@ -52,16 +84,20 @@ vi.mock("./ViewerSession", () => ({
 import { useViewerSession } from "./ViewerSession";
 
 describe("ColumnChrome book jump indicators", () => {
-  it("suffixes flagged books and shows the legend", () => {
+  it("suffixes flagged books and shows the legend beside the Book label", () => {
     vi.mocked(useViewerSession).mockReturnValue(buildSession());
 
-    render(<ColumnChrome side="left" resolveDisabled={false} />);
+    const { container } = render(<ColumnChrome side="left" resolveDisabled={false} />);
 
-    expect(screen.getByLabelText("left book")).toHaveAttribute(
-      "aria-describedby",
-      "left-book-jump-legend",
-    );
-    expect(screen.getByText("● Book has mapping differences")).toBeInTheDocument();
+    const bookSelect = screen.getByLabelText("left book");
+    expect(bookSelect).toHaveAttribute("aria-describedby", "left-book-jump-legend");
+    const legend = screen.getByText("● Book has mapping differences");
+    expect(legend).toBeInTheDocument();
+    const labelRow = container.querySelector(".book-chrome-label-row");
+    expect(labelRow).toContainElement(legend);
+    expect(
+      legend.compareDocumentPosition(bookSelect) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(screen.getByRole("option", { name: "PSA ●" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "GEN" })).toBeInTheDocument();
   });
@@ -109,5 +145,19 @@ describe("ColumnChrome book jump indicators", () => {
       expect(screen.queryByRole("option", { name: /●/ })).not.toBeInTheDocument();
     });
     expect(screen.getByText("● Book has mapping differences")).toBeInTheDocument();
+  });
+
+  it("formats versification options with based-on and preferred star", () => {
+    vi.mocked(useViewerSession).mockReturnValue(buildSession());
+
+    render(<ColumnChrome side="left" resolveDisabled={false} />);
+
+    expect(
+      screen.getByRole("option", { name: "English (based on org) ★" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "org" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: "Preferred (default)" }),
+    ).toBeInTheDocument();
   });
 });

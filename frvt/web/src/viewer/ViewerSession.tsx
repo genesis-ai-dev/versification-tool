@@ -26,6 +26,7 @@ import type {
   VersificationOut,
 } from "../api/types";
 import { columnToResolveArgs, type ColumnBcv } from "../lib/bcv";
+import { scrollColumnToSeq, seqForBcv } from "./columnScroll";
 import { ensureFollowerChapter } from "./followerChapter";
 import type { DriveSide } from "./overlay/drawPlan";
 import {
@@ -117,13 +118,18 @@ export function ViewerSessionProvider({ children }: ViewerSessionProviderProps) 
     null,
   );
   const [chapterResolveLoading, setChapterResolveLoading] = useState(false);
-  const [leftJumpBooks, setLeftJumpBooks] = useState<ReadonlySet<string>>(() => new Set());
-  const [rightJumpBooks, setRightJumpBooks] = useState<ReadonlySet<string>>(() => new Set());
+  const [leftJumpBooks, setLeftJumpBooks] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const [rightJumpBooks, setRightJumpBooks] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const [jumpBooksTick, setJumpBooksTick] = useState(0);
   const [resolveLoading, setResolveLoading] = useState(false);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [authRequired, setAuthRequired] = useState(false);
   const [spanTick, setSpanTick] = useState(0);
+  const [followerScrollTick, setFollowerScrollTick] = useState(0);
   const [navTick, setNavTick] = useState(0);
   const [assocTick, setAssocTick] = useState(0);
 
@@ -137,14 +143,13 @@ export function ViewerSessionProvider({ children }: ViewerSessionProviderProps) 
   const scrollLock = useRef(false);
   const resolveAbort = useRef<AbortController | null>(null);
   const chapterAbort = useRef<AbortController | null>(null);
-  const jumpBooksAbort = useRef<{ left: AbortController | null; right: AbortController | null }>(
-    { left: null, right: null },
-  );
+  const jumpBooksAbort = useRef<{
+    left: AbortController | null;
+    right: AbortController | null;
+  }>({ left: null, right: null });
   const unauthorizedCount = useRef(0);
-  const pendingFollowerScroll = useRef<{
-    side: DriveSide;
-    seq: number;
-  } | null>(null);
+  /** Follower seq awaiting scroll once the resolved chapter is rendered. */
+  const pendingFollowerScroll = useRef<{ side: DriveSide; seq: number } | null>(null);
 
   const updateUrl = useCallback(
     (patch: Partial<ViewerUrlState>) => {
@@ -358,6 +363,7 @@ export function ViewerSessionProvider({ children }: ViewerSessionProviderProps) 
             side: followerSide,
             seq: followerTarget.seq,
           };
+          setFollowerScrollTick((n) => n + 1);
         }
       })
       .catch((error: unknown) => {
@@ -530,20 +536,39 @@ export function ViewerSessionProvider({ children }: ViewerSessionProviderProps) 
     };
   }, [canResolve, url.left, url.right, url.leftVers, url.rightVers, handleApiFailure]);
 
+  // Bring the selected verse of the driving column into view (chrome, click, or jump).
+  useEffect(() => {
+    const side = url.drive;
+    const translationId = side === "left" ? url.left : url.right;
+    const bcv = side === "left" ? url.leftBcv : url.rightBcv;
+    if (!translationId || !bcv) {
+      return;
+    }
+    const spans =
+      spanCache.current.get(spanCacheKey(translationId, bcv.book, bcv.chapter)) ?? [];
+    const seq = seqForBcv(spans, bcv);
+    if (seq === null) {
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      scrollColumnToSeq(scrollRoots.current[side], seq, scrollLock);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [spanTick, url.drive, url.left, url.right, url.leftBcv, url.rightBcv]);
+
+  // Bring the resolved follower target into view once its chapter is rendered.
   useEffect(() => {
     const pending = pendingFollowerScroll.current;
     if (!pending) {
       return;
     }
     const frame = window.requestAnimationFrame(() => {
-      if (
-        scrollFollowerToSeq(scrollRoots.current[pending.side], pending.seq, scrollLock)
-      ) {
+      if (scrollColumnToSeq(scrollRoots.current[pending.side], pending.seq, scrollLock)) {
         pendingFollowerScroll.current = null;
       }
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [spanTick, url.leftBcv, url.rightBcv]);
+  }, [followerScrollTick, spanTick, url.leftBcv, url.rightBcv]);
 
   const spansFor = useCallback(
     (side: DriveSide): VerseSpanOut[] => {
@@ -711,25 +736,4 @@ function applyCatalogDefaults(
   if (Object.keys(patch).length > 0) {
     updateUrl(patch);
   }
-}
-
-/** Scroll the follower column to a target seq under scroll-lock. */
-function scrollFollowerToSeq(
-  root: HTMLElement | null,
-  seq: number | null,
-  lock: { current: boolean },
-): boolean {
-  if (!root || seq === null || seq === undefined) {
-    return false;
-  }
-  const el = root.querySelector<HTMLElement>(`[data-seq="${seq}"]`);
-  if (!el) {
-    return false;
-  }
-  lock.current = true;
-  el.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  window.setTimeout(() => {
-    lock.current = false;
-  }, 400);
-  return true;
 }

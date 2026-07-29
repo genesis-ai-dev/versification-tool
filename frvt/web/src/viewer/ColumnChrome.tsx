@@ -1,4 +1,5 @@
 import { formatVerseLabel } from "../lib/formatRef";
+import { formatVersificationOptionLabel } from "../lib/formatVersificationOption";
 import type { DriveSide } from "./overlay/drawPlan";
 import { JumpMenu } from "./JumpMenu";
 import { useViewerSession } from "./ViewerSession";
@@ -49,8 +50,15 @@ export function ColumnChrome({ side, resolveDisabled }: ColumnChromeProps) {
         </select>
       </label>
 
-      <label>
-        Book
+      <label className="book-chrome-field">
+        <span className="book-chrome-label-row">
+          Book
+          {translationId ? (
+            <span className="book-jump-legend" id={bookLegendId}>
+              ● Book has mapping differences
+            </span>
+          ) : null}
+        </span>
         <select
           value={bcv?.book ?? ""}
           aria-label={`${side} book`}
@@ -78,11 +86,6 @@ export function ColumnChrome({ side, resolveDisabled }: ColumnChromeProps) {
             </option>
           ))}
         </select>
-        {translationId ? (
-          <p className="book-jump-legend" id={bookLegendId}>
-            ● Book has mapping differences
-          </p>
-        ) : null}
       </label>
 
       <label>
@@ -155,11 +158,13 @@ export function ColumnChrome({ side, resolveDisabled }: ColumnChromeProps) {
           {associations.map((assoc) => {
             const scheme = session.versifications.find((v) => v.id === assoc.scheme_id);
             const name = scheme?.name ?? assoc.scheme_id.slice(0, 8);
-            const preferred = assoc.preferred ? " ★" : "";
             return (
               <option key={assoc.scheme_id} value={assoc.scheme_id}>
-                {name}
-                {preferred}
+                {formatVersificationOptionLabel({
+                  name,
+                  basedOnName: scheme?.based_on_name ?? null,
+                  preferred: assoc.preferred,
+                })}
               </option>
             );
           })}

@@ -160,6 +160,7 @@ test.describe("Viewer e2e", () => {
     await trySelectBcv(page, "left", "PSA", "3", "1");
     await clickFirstVerse(page, "left");
     await expect.poll(() => viewerParams(page).get("drive")).toBe("left");
+    await expect(page.getByLabel("Drive: left → right")).toBeVisible();
     await expect(page.locator(".pair-context")).toContainText("drive: left");
     await expect.poll(async () => connectorCount(page)).toBeGreaterThan(0);
 
@@ -179,6 +180,7 @@ test.describe("Viewer e2e", () => {
       rv: "2",
     });
     await expect.poll(() => viewerParams(page).get("drive")).toBe("right");
+    await expect(page.getByLabel("Drive: right → left")).toBeVisible();
     await expect(page.locator(".pair-context")).toContainText("drive: right");
     await trySelectBcv(page, "right", "PSA", "3", "2");
     const rightVerse = page.locator('.verse-span[data-side="right"]').nth(1);
@@ -569,6 +571,10 @@ test.describe("Viewer e2e", () => {
     const select = page.getByLabel("left versification");
     await expect(select.locator("option").first()).toHaveText("Preferred (default)");
     expect(await select.locator("option").count()).toBeGreaterThanOrEqual(2);
+    // Non-root schemes include "(based on …)"; preferred ★ is after the full label when present.
+    const optionTexts = await select.locator("option").allTextContents();
+    const basedOn = optionTexts.filter((t) => t.includes("(based on "));
+    expect(basedOn.length).toBeGreaterThan(0);
     await select.selectOption({ index: 0 });
     await expect.poll(() => viewerParams(page).get("lvers") ?? "").toBe("");
   });
@@ -692,11 +698,60 @@ test.describe("Viewer e2e", () => {
       timeout: 30_000,
     });
     const leftBook = page.getByLabel("left book");
+    await expect(leftBook).toHaveAttribute("aria-describedby", "left-book-jump-legend");
+    // Legend sits with the Book label (before the select), not under the dropdown.
+    const legendBeforeSelect = await leftBook.evaluate((select) => {
+      const legend = document.getElementById("left-book-jump-legend");
+      return Boolean(
+        legend &&
+          (legend.compareDocumentPosition(select) & Node.DOCUMENT_POSITION_FOLLOWING) !==
+            0,
+      );
+    });
+    expect(legendBeforeSelect).toBe(true);
     await expect
       .poll(async () => leftBook.locator('option[value="PSA"]').textContent())
       .toMatch(/PSA ●/);
     await leftBook.selectOption("PSA");
     await expect.poll(() => viewerParams(page).get("lb")).toBe("PSA");
+  });
+
+  test("TC-UI-039: drive-direction arrow between columns", async ({ page }) => {
+    const pair = await seedContrastingPair(page.request);
+    await openViewerSession(page, {
+      left: pair.left.id,
+      right: pair.right.id,
+      drive: "left",
+      lvers: pair.engId,
+      rvers: pair.orgId,
+    });
+    await expect(page.getByLabel("Drive: left → right")).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(page.locator(".pair-context")).toContainText("drive: left");
+
+    await openViewerSession(page, {
+      left: pair.left.id,
+      right: pair.right.id,
+      drive: "right",
+      lvers: pair.engId,
+      rvers: pair.orgId,
+    });
+    await expect(page.getByLabel("Drive: right → left")).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(page.locator(".pair-context")).toContainText("drive: right");
+
+    await deleteAllTranslations(page.request);
+    const alone = await createEmptyTranslation(
+      page.request,
+      `E2E-DriveSolo-${Date.now().toString(36)}`,
+    );
+    await page.goto(`/?left=${alone.id}`);
+    await expect(page.getByText("Select a second translation")).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(page.getByLabel(/Drive:/)).toHaveCount(0);
   });
 
   test("TC-NAV-011: counterpart jump disabled with a single translation", async ({

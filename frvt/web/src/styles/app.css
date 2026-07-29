@@ -253,6 +253,7 @@ select:hover:not(:disabled) {
 .scripture-column[data-side="left"] .column-chrome {
   grid-column: 1;
   grid-row: 1;
+  padding-right: 2.75rem;
 }
 
 .scripture-column[data-side="left"] .verse-list,
@@ -265,6 +266,7 @@ select:hover:not(:disabled) {
 .scripture-column[data-side="right"] .column-chrome {
   grid-column: 2;
   grid-row: 1;
+  padding-left: 2.75rem;
 }
 
 .scripture-column[data-side="right"] .verse-list,
@@ -336,14 +338,35 @@ select:hover:not(:disabled) {
   min-width: 5rem;
 }
 
+.column-chrome .book-chrome-label-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
 .column-chrome .book-jump-legend {
   margin: 0;
-  grid-column: 1 / -1;
   font-size: 0.7rem;
   font-weight: 400;
   letter-spacing: normal;
   text-transform: none;
   color: var(--text-faint);
+}
+
+.drive-direction-indicator {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  z-index: var(--z-controls);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateX(-1.5rem);
+  pointer-events: none;
+  color: var(--text-muted);
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1;
 }
 
 .column-chrome .btn {
