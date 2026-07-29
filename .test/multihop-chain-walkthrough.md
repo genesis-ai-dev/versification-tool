@@ -2,6 +2,58 @@
 
 Manual parity QA for Project B. Case ids match [`PARITY_CASES`](../frvt/testops/fixtures/multihop_chain_fixtures.py).
 
+## Background and spec cross-references
+
+### What this test bed exercises
+
+**Parity:** for each `P-*` ref, resolving **Spanish → American** with **Configuration A** (`spanish-org-ref` on the left, bootstrap **`org`** on the right) must agree with **Configuration B** (`spanish-eng` on the left, same **`org`** on the right) on:
+
+1. **`relation`** (e.g. `shift`, `exclude`, `one_to_one`)
+2. **Target BCV set** on the American column (book/chapter/verse/part)
+
+Connector hop count may differ; **follower verse locations on the right** must match. Automated check: `verify_parity_pair` in [`multihop_chain_fixtures.py`](../frvt/testops/fixtures/multihop_chain_fixtures.py); `pytest frvt/tests/test_multihop_chain_testbed.py`.
+
+### Two-hop chain vs baseline (self-contained)
+
+| Path | Left `lvers` | Hops (numbering spaces) |
+|---|---|---|
+| **A — baseline** | `spanish-org-ref` | Spanish → **org** (direct) |
+| **B — two-hop** | `spanish-eng` | Spanish → **engdemo** → **org** |
+
+- **`engdemo`** is a hop-2 **scheme** (`basedOn: org`) with decomposed mappings (e.g. `PSA 3:0 → 3:1 → 3:2`).
+- **`spanish-eng`** is hop-1 (`basedOn: engdemo` **translation name**, not a hyphenated id). Its `mappedVerses` are **inferred** by org-pivot: for each baseline row `S → O`, find the unique engdemo source `E` with `E → O` in engdemo ([`infer_spanish_eng_ingredient`](../frvt/testops/fixtures/multihop_chain_fixtures.py)).
+- **`engdemo`** translation is an **empty shell** (no spans) — it exists only as the `basedOn` numbering-space node for `spanish-eng` ([Server spec ADD-S-001c](.spec/frvt-3-server-and-api-spec-1.md#add-s-001--visual-alignment-and-category-test-coverage)).
+
+### Load-bearing seed order
+
+Do not reorder when seeding manually:
+
+1. Create **`engdemo`** translation shell.
+2. Upload **`engdemo`** scheme; associate and **make preferred** on that translation.
+3. Ingest **`spanish-org`** and **`american-standard-multihop`** project zips.
+4. Upload **`spanish-org-ref`**; associate with Spanish.
+5. Upload **`spanish-eng`** (requires step 1–2); associate with Spanish; **make preferred** for default two-hop testing.
+6. Associate bootstrap **`org`** with the American translation.
+
+Without step 2, `spanish-eng` upload fails (`basedOn` must resolve to the engdemo translation’s preferred scheme).
+
+### USX notes (P-exclude and ACT 24)
+
+| Zip | ACT 24:6 / 24:7 |
+|---|---|
+| **`spanish-org.zip`** | ES sample uses `6-7` hyphen milestones; builder **splits** them so both verses appear in the Viewer. |
+| **`american-standard-multihop.zip`** | EN sample uses separate milestones; **ACT 24:7** includes placeholder text for exclude overlay QA (same helper as visual-demo EN). |
+
+### Product spec cross-references
+
+| Topic | Spec |
+|---|---|
+| Multi-hop / intermediate `basedOn` translation | [Server spec ADD-S-001c](.spec/frvt-3-server-and-api-spec-1.md#add-s-001--visual-alignment-and-category-test-coverage) |
+| Ingredient `basedOn` charset (`engdemo`, not hyphens) | [Server spec ADD-S-001a](.spec/frvt-3-server-and-api-spec-1.md#add-s-001--visual-alignment-and-category-test-coverage) |
+| Shared-ancestor chain walk | [Resolver spec §6.1–§6.2](.spec/frvt-3-resolver-and-etl-spec-1.md#61-orchestration-resolve) |
+| Supplementary parity pytest + this walkthrough | [Server spec ADD-S-001e](.spec/frvt-3-server-and-api-spec-1.md#add-s-001--visual-alignment-and-category-test-coverage), [Resolver spec ADD-R-001d](.spec/frvt-3-resolver-and-etl-spec-1.md#add-r-001--visual-alignment-and-category-test-coverage) |
+| Exclude void presentation (**P-exclude**) | [UI spec §8.5](.spec/frvt-3-ui-spec-1.md#85-exclude--connector-to-void) |
+
 ## Preconditions
 
 1. FRVT server running with Postgres — see [`.test/runbooks/env-up.md`](runbooks/env-up.md) (`docker compose up -d` in `frvt/`, migrations, UI build, uvicorn).
@@ -278,6 +330,6 @@ frvt/.venv/bin/python .test/scripts/seed-multihop-chain.py --replace spanish ame
 
 Spanish **`spanish-org.zip`** applies hyphen-milestone splitting (required for **ACT 24:6** and **ACT 24:7** in the Biblica ES sample). American **`american-standard-multihop.zip`** includes an **ACT 24:7** placeholder for exclude overlay QA.
 
-Design reference: [`.spec/visual-demo-corpus-plan.md`](../.spec/visual-demo-corpus-plan.md) (Project B / multi-hop sections).
+Further reading: [Background and spec cross-references](#background-and-spec-cross-references) above.
 
 Seed scripts: [`.test/scripts/write-multihop-assets.py`](scripts/write-multihop-assets.py), [`.test/scripts/seed-multihop-chain.py`](scripts/seed-multihop-chain.py).

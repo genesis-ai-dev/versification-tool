@@ -2,6 +2,55 @@
 
 Manual overlay and jump-menu QA for Project A. Case ids match [`VERIFICATION_CASES`](../frvt/testops/fixtures/visual_demo_ingredients.py) and [`CATEGORY_CASES`](../frvt/testops/fixtures/visual_demo_ingredients.py).
 
+## Background and spec cross-references
+
+### What this corpus exercises
+
+Minimal **EN** (`visual-demo-en`) and **ES** (`visual-demo-es`) translations plus seven uploaded schemes. Together they cover every overlay **relation topology** in the `C-*` cases and every jump-menu **misalignment category** in the `CAT-*` cases. The corpus is for development, pytest, and manual QA — not production seed data ([UI spec §3.2 — empty state](.spec/frvt-3-ui-spec-1.md#32-assumptions-and-locked-decisions)).
+
+### Fixture design (zip vs scheme)
+
+| Layer | Rule |
+|---|---|
+| **Project zips** | Subset USX (JHN, PSA, GEN, ACT, SIR); **identity-only** `versification.vrs` (per-chapter maxima, **no** `=` mapping lines). |
+| **Custom schemes** | All deliberate divergence lives in uploaded Copenhagen JSON (`visual-demo-scheme-a`, etc.). |
+| **ES USX** | Hyphen-combined milestones (e.g. Biblica `ACT 24:6-7`) are split into discrete verses at zip build time. |
+| **EN USX** | **ACT 24:7** carries placeholder text so exclude overlay cases are visible after note stripping. |
+| **C-partial** | Sub-verse **SIR 36:13a** is **not** in the zip; run [`seed-visual-demo-partials.py`](scripts/seed-visual-demo-partials.py) after ingest. |
+
+Ingredient builders: [`visual_demo_corpus.py`](../frvt/testops/fixtures/visual_demo_corpus.py), [`visual_demo_ingredients.py`](../frvt/testops/fixtures/visual_demo_ingredients.py).
+
+### Overlay and mapping (product spec)
+
+When a case’s overlay looks wrong, compare against the normative relation table and void rules:
+
+| Topic | Spec |
+|---|---|
+| Relation colors, topology, labels (`shift`, `merge`, `complex`, `range`, …) | [UI spec §8.2 — Relation visual language](.spec/frvt-3-ui-spec-1.md#82-relation-visual-language-v1-baseline) |
+| Exclude → gutter void, no invented target | [UI spec §8.5](.spec/frvt-3-ui-spec-1.md#85-exclude--connector-to-void) |
+| Mapping **Hidden / Current / All (dimmed)** | [UI spec ADD-U-002 — Mapping visibility modes](.spec/frvt-3-ui-spec-1.md#add-u-002--mapping-visibility-modes) |
+| Drive vs follower columns, scroll on exclude | [UI spec ADD-U-004 — Viewer chrome UX](.spec/frvt-3-ui-spec-1.md#add-u-004--viewer-chrome-ux-polish) |
+| Composed hull hub badges (`complex`, `range`) | [UI spec ADD-U-005 — Composed alignment presentation](.spec/frvt-3-ui-spec-1.md#add-u-005--composed-alignment-presentation) |
+| DOM `data-seq` / `data-ref` anchors | [UI spec §8.3](.spec/frvt-3-ui-spec-1.md#83-dom-anchor-contract) |
+
+### Jump menu and book markers
+
+| Topic | Spec |
+|---|---|
+| Deltas, misalignments, navigation rules | [UI spec §6.6 — Jump menu](.spec/frvt-3-ui-spec-1.md#66-jump-menu) |
+| Seven category vocabulary (`psalm_title`, `nt_omission`, …) | [UI spec ADD-U-001b](.spec/frvt-3-ui-spec-1.md#add-u-001--visual-alignment-and-category-test-coverage) |
+| Server-side category heuristics | [Server spec ADD-S-001d](.spec/frvt-3-server-and-api-spec-1.md#add-s-001--visual-alignment-and-category-test-coverage) |
+| Cancel-filter (e.g. **CAT-cancel** hides identity-only rows) | [Server spec §7.9 — cancel filtering](.spec/frvt-3-server-and-api-spec-1.md#79-navigation-deltas-and-misalignments) |
+| Book `●` markers and legend | [UI spec ADD-U-003 — Book jump-difference indicators](.spec/frvt-3-ui-spec-1.md#add-u-003--book-jump-difference-indicators) |
+
+### Resolver and automated contracts
+
+| Topic | Spec / code |
+|---|---|
+| Relation vocabulary and hop composition | [Resolver spec §3.3 — Relation vocabulary](.spec/frvt-3-resolver-and-etl-spec-1.md#33-relation-vocabulary) |
+| Supplementary pytest + this walkthrough | [Server spec ADD-S-001e](.spec/frvt-3-server-and-api-spec-1.md#add-s-001--visual-alignment-and-category-test-coverage), [UI spec ADD-U-001a](.spec/frvt-3-ui-spec-1.md#add-u-001--visual-alignment-and-category-test-coverage) |
+| Resolve contract per case id | `pytest frvt/tests/test_visual_demo_corpus.py` |
+
 ## Preconditions
 
 1. FRVT server running with Postgres — see [`.test/runbooks/env-up.md`](runbooks/env-up.md) (`docker compose up -d` in `frvt/`, migrations, UI build, uvicorn).
@@ -317,8 +366,8 @@ If `pytest frvt/tests/test_visual_demo_corpus.py` fails, fix ingredients and re-
 frvt/.venv/bin/python -c "from frvt.testops.fixtures.visual_demo_corpus import write_demo_project_zip; write_demo_project_zip('en'); write_demo_project_zip('es')"
 ```
 
-Then delete and re-ingest demo translations on the live server (see Corpus setup).
+Then delete and re-ingest demo translations on the live server (see Corpus setup), or delete named rows in Manage and re-run [`seed-visual-demo.sh`](scripts/seed-visual-demo.sh).
 
-Design reference: [`.spec/visual-demo-corpus-plan.md`](../.spec/visual-demo-corpus-plan.md).
+Further reading: [Background and spec cross-references](#background-and-spec-cross-references) above.
 
 Seed scripts: [`.test/scripts/seed-visual-demo.sh`](scripts/seed-visual-demo.sh), [`.test/scripts/seed-visual-demo-partials.py`](scripts/seed-visual-demo-partials.py).
