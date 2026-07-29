@@ -545,7 +545,7 @@ flowchart LR
 
 | Book | Source | Notes |
 |---|---|---|
-| `JHN` | sample zip | identity / `other` |
+| `JHN` | sample zip | identity only (`C-ident`; not a jump-menu category case) |
 | `PSA` | sample zip + **verse-0 patch** on chapter 3 | shift / psalm_title / Title (0) |
 | `GEN` | sample zip | merge / split / complex / renumber islands |
 | `ACT` | sample zip | exclude / nt_omission |
@@ -705,13 +705,13 @@ Defined as `VERIFICATION_CASES` in Python; copied into `.spec` and referenced by
 
 | Case id | scheme param | ref | filter / expect category |
 |---|---|---|---|
-| CAT-psalm-title | scheme-a | `PSA 3:1` | `psalm_title` |
+| CAT-psalm-title | scheme-a | `PSA 3:0` | `psalm_title` |
 | CAT-lxx | visual-demo-lxx | `PSA 3:0` | `lxx_psalm` |
 | CAT-synodal | visual-demo-synodal | `GEN 31:55` | `synodal` |
 | CAT-nt-omit | visual-demo-nt-omit | `ACT 24:7` | `nt_omission` |
 | CAT-chapter-boundary | scheme-a | `GEN 31:55` | `chapter_boundary` |
 | CAT-chapter-count | scheme-a | `GEN 2:5` | `chapter_count` |
-| CAT-other | scheme-a | `JHN 3:16` | `other` |
+| CAT-other | scheme-a | `GEN 2:1` | `other` |
 | CAT-cancel | psalm-a + psalm-b | `PSA 3:1` | entry not in misalignments |
 
 If a composed case fails, fix ingredient coordinates and update all three artifacts together. Coordinates above are **design intent**; if resolve returns a different relation during first implementation, adjust mappings (and this table) until Layer C passes — do not weaken asserts to “whatever compose returns”.

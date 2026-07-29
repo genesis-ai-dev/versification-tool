@@ -72,6 +72,20 @@ def extract_usx_books(sample_zip: Path, books: set[str]) -> dict[str, str]:
     return found
 
 
+# Hyphen-combined USX milestones (``number="11-12"``) are expanded for demo ingest.
+_HYPHEN_VERSE_MILESTONE = re.compile(
+    r'<verse number="(\d+)-(\d+)"([^>]*)/>(.*?)<verse eid="([^"]+)"\s*/>',
+    re.DOTALL,
+)
+# ACT 24:7 in the ASV sample is a footnote-only variant; notes are stripped at ingest.
+_ACT_24_7_NOTE_ONLY = re.compile(
+    r'(<verse number="7" style="v" sid="ACT 24:7"\s*/>)<note\b[^>]*>.*?</note>\s*'
+    r'(<verse eid="ACT 24:7"\s*/>)',
+    re.DOTALL,
+)
+_ACT_24_7_PLACEHOLDER = "[Excluded verse placeholder — ACT 24:7]"
+
+
 def ensure_psa_verse0(psa_usx: str, *, chapter: int = 3) -> str:
     """Ensure PSA ``chapter`` includes a verse-0 title milestone when absent."""
     if f'PSA {chapter}:0' in psa_usx or f'sid="PSA {chapter}:0"' in psa_usx:
@@ -94,6 +108,52 @@ def ensure_psa_verse0(psa_usx: str, *, chapter: int = 3) -> str:
     if count:
         logger.debug("Patching PSA chapter %s with verse 0", chapter)
     return patched
+
+
+def ensure_act_24_7_content(act_usx: str) -> str:
+    """Ensure ACT 24:7 has visible text after USX note stripping (C-exclude fixture).
+
+    The ASV sample encodes verse 7 as a textual-variant footnote with no body text.
+    Injects a short placeholder so exclude overlay cases remain visually verifiable.
+    """
+    if _ACT_24_7_PLACEHOLDER in act_usx:
+        return act_usx
+
+    def _inject(match: re.Match[str]) -> str:
+        return f"{match.group(1)}{_ACT_24_7_PLACEHOLDER} {match.group(2)}"
+
+    patched, count = _ACT_24_7_NOTE_ONLY.subn(_inject, act_usx, count=1)
+    if count:
+        logger.debug("Patching ACT 24:7 with exclude placeholder text")
+    return patched
+
+
+def split_hyphen_verse_milestones(usx: str) -> str:
+    """Expand hyphen-combined verse milestones into discrete per-verse milestones.
+
+    Biblica ES exports use ``number="11-12"`` milestones that the USX parser skips.
+    Duplicates combined content into each split verse for visual-demo walkthrough QA.
+    """
+    def _expand(match: re.Match[str]) -> str:
+        start = int(match.group(1))
+        end = int(match.group(2))
+        content = match.group(4)
+        eid = match.group(5)
+        book, chapter_range = eid.rsplit(" ", 1)
+        chapter = chapter_range.split(":")[0]
+        segments: list[str] = []
+        for verse in range(start, end + 1):
+            sid = f"{book} {chapter}:{verse}"
+            segments.append(
+                f'<verse number="{verse}" style="v" sid="{sid}"/>{content}'
+                f'<verse eid="{sid}"/>'
+            )
+        return "".join(segments)
+
+    expanded, count = _HYPHEN_VERSE_MILESTONE.subn(_expand, usx)
+    if count:
+        logger.debug("Split %s hyphen verse milestone(s) in demo USX", count)
+    return expanded
 
 
 def minimal_sir_usx() -> str:
@@ -176,6 +236,11 @@ def build_demo_project_zip(language: Literal["en", "es"]) -> bytes:
     sample = _SAMPLE_ZIPS[language]
     usx = extract_usx_books(sample, DEMO_BOOKS - {"SIR"})
     usx["PSA"] = ensure_psa_verse0(usx["PSA"], chapter=3)
+    if language == "en":
+        usx["ACT"] = ensure_act_24_7_content(usx["ACT"])
+    else:
+        for book in sorted(usx):
+            usx[book] = split_hyphen_verse_milestones(usx[book])
     usx["SIR"] = minimal_sir_usx()
     max_verses = demo_max_verses()
     buffer = io.BytesIO()
@@ -196,6 +261,18 @@ def demo_project_zip_path(language: Literal["en", "es"]) -> Path:
     _ASSETS_DIR.mkdir(parents=True, exist_ok=True)
     path = _ASSETS_DIR / f"visual-demo-{language}.zip"
     if not path.is_file():
-        path.write_bytes(build_demo_project_zip(language))
-        logger.debug("Wrote demo zip to %s", path)
+        write_demo_project_zip(language)
+    return path
+
+
+def write_demo_project_zip(language: Literal["en", "es"]) -> Path:
+    """Build and overwrite the on-disk visual-demo project zip for ``language``.
+
+    Use when demo USX builder logic changes so committed assets and ingested DB
+    rows stay aligned with walkthrough expectations.
+    """
+    _ASSETS_DIR.mkdir(parents=True, exist_ok=True)
+    path = _ASSETS_DIR / f"visual-demo-{language}.zip"
+    path.write_bytes(build_demo_project_zip(language))
+    logger.debug("Wrote demo zip to %s", path)
     return path

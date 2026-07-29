@@ -100,6 +100,8 @@ Environment overrides: `FRVT_BASE_URL` (default `http://localhost:8000`), `FRVT_
 
 The script is idempotent (reuses existing `visual-demo-en` / `visual-demo-es` and scheme names). It prints a logical-key → UUID map for debugging; manual QA should still confirm names in the UI.
 
+**After demo zip updates:** the script does **not** replace already-ingested span text. Delete **`visual-demo-en`** and **`visual-demo-es`** on **`/manage/translations`**, then re-run the script or repeat Option A uploads so PSA verse 0, ACT 24:7 placeholder, and ES GEN split verses appear in the Viewer.
+
 Then run the partial-span helper if you need **C-partial**:
 
 ```bash
@@ -284,13 +286,13 @@ For each case: set versifications, navigate, open **Jump**, inspect **Misalignme
 
 | Case id | Left / Right versification | Navigate to | Look for in Misalignments | Expect |
 |---|---|---|---|---|
-| **CAT-psalm-title** | `visual-demo-scheme-a` / **Preferred (default)** ES | **PSA 3:1** | **Psalm titles:** | Row for **PSA 3:1** (or navigation ref in psalm-title range) |
+| **CAT-psalm-title** | `visual-demo-scheme-a` / **Preferred (default)** ES | **PSA 3:0** (**Title (0)**) | **Psalm titles:** | Row for **PSA 3:0** |
 | **CAT-lxx** | `visual-demo-lxx` / **Preferred (default)** ES | **PSA 3:0** (**Title (0)**) | **LXX Psalms:** | Row for **PSA 3:0** |
 | **CAT-synodal** | `visual-demo-synodal` / **Preferred (default)** ES | **GEN 31:55** | **Synodal:** | Row for **GEN 31:55** |
 | **CAT-nt-omit** | `visual-demo-nt-omit` / **Preferred (default)** ES | **ACT 24:7** | **NT omissions:** | Row for **ACT 24:7** |
 | **CAT-chapter-boundary** | `visual-demo-scheme-a` / **Preferred (default)** ES | **GEN 31:55** | **Chapter boundaries:** | Row for **GEN 31:55** |
 | **CAT-chapter-count** | `visual-demo-scheme-a` / **Preferred (default)** ES | **GEN 2:5** | **Chapter counts:** | Row for **GEN 2:5** |
-| **CAT-other** | `visual-demo-scheme-a` / **Preferred (default)** ES | **JHN 3:16** | **Other:** | Row for **JHN 3:16** (or no stronger category) |
+| **CAT-other** | `visual-demo-scheme-a` / **Preferred (default)** ES | **GEN 2:1** | **Other:** | Row for **GEN 2:1** |
 | **CAT-cancel** | `visual-demo-psalm-a` / `visual-demo-psalm-b` | **PSA 3:1** | (any category) | **No** row for **PSA 3:1** |
 
 **Tip:** Click a misalignment row to jump; confirm book/chapter/verse selectors and text column match the expected location.
@@ -309,7 +311,13 @@ For each case: set versifications, navigate, open **Jump**, inspect **Misalignme
 
 ## Maintenance
 
-If `pytest frvt/tests/test_visual_demo_corpus.py` fails, fix ingredients and re-run before this walkthrough. Regenerate scheme JSON when ingredients change.
+If `pytest frvt/tests/test_visual_demo_corpus.py` fails, fix ingredients and re-run before this walkthrough. Regenerate committed zips when builder logic changes:
+
+```bash
+frvt/.venv/bin/python -c "from frvt.testops.fixtures.visual_demo_corpus import write_demo_project_zip; write_demo_project_zip('en'); write_demo_project_zip('es')"
+```
+
+Then delete and re-ingest demo translations on the live server (see Corpus setup).
 
 Design reference: [`.spec/visual-demo-corpus-plan.md`](../.spec/visual-demo-corpus-plan.md).
 

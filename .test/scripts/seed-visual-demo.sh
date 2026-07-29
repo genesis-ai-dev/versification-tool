@@ -87,14 +87,26 @@ upload_scheme() {
 ensure_association() {
   local translation_id="$1"
   local scheme_id="$2"
+  if association_exists "${translation_id}" "${scheme_id}"; then
+    echo "  already associated translation=${translation_id} scheme=${scheme_id}" >&2
+    return 0
+  fi
   local status
   status="$(api -o /dev/null -w '%{http_code}' -X POST \
     "${BASE_URL}/api/translations/${translation_id}/versifications" \
     -H "Content-Type: application/json" \
     -d "{\"scheme_id\":\"${scheme_id}\"}")"
-  if [[ "${status}" != "201" && "${status}" != "409" ]]; then
+  if [[ "${status}" != "201" ]]; then
     die "associate translation=${translation_id} scheme=${scheme_id} failed HTTP ${status}"
   fi
+  echo "  associated translation=${translation_id} scheme=${scheme_id}" >&2
+}
+
+association_exists() {
+  local translation_id="$1"
+  local scheme_id="$2"
+  api "${BASE_URL}/api/translations/${translation_id}/versifications" \
+    | jq -e --arg sid "${scheme_id}" '.[] | select(.scheme_id == $sid)' >/dev/null
 }
 
 ensure_translation() {
@@ -104,7 +116,7 @@ ensure_translation() {
   local existing
   existing="$(translation_id "${name}")"
   if [[ -n "${existing}" ]]; then
-    echo "  reusing translation ${name} (${existing})"
+    echo "  reusing translation ${name} (${existing})" >&2
     echo "${existing}"
     return
   fi
@@ -121,7 +133,7 @@ ensure_scheme() {
   local existing
   existing="$(scheme_id "${name}")"
   if [[ -n "${existing}" ]]; then
-    echo "  reusing scheme ${name} (${existing})"
+    echo "  reusing scheme ${name} (${existing})" >&2
     echo "${existing}"
     return
   fi
@@ -156,12 +168,26 @@ done
 echo
 
 echo "Associations (both translations × all custom schemes)"
+associated=0
 for name in "${SCHEME_FILES[@]}"; do
   id="${SCHEME_IDS[${name}]}"
   ensure_association "${EN_ID}" "${id}"
   ensure_association "${ES_ID}" "${id}"
+  associated=$((associated + 2))
 done
-echo "  done"
+echo "  ensured ${associated} association(s)"
+echo
+
+echo "Association check"
+for entry in "EN:${EN_ID}" "ES:${ES_ID}"; do
+  name="${entry%%:*}"
+  tid="${entry#*:}"
+  count="$(api "${BASE_URL}/api/translations/${tid}/versifications" | jq 'length')"
+  echo "  ${name} translation has ${count} associated scheme(s) (expect 8)"
+  if [[ "${count}" -lt 8 ]]; then
+    die "${name} translation ${tid} has only ${count} associations; expected 8 (identity + 7 custom)"
+  fi
+done
 echo
 
 echo "Logical key map (for case tables in visual-demo-walkthrough.md):"
@@ -177,3 +203,5 @@ echo "  psalm-b              visual-demo-psalm-b          (${SCHEME_IDS[visual-d
 echo
 echo "Next: validate in Manage UI, then open the Viewer. For C-partial, run:"
 echo "  frvt/.venv/bin/python .test/scripts/seed-visual-demo-partials.py"
+echo
+echo "If demo zips were updated, delete visual-demo-en/es translations and re-run this script."

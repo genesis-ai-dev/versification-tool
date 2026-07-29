@@ -89,6 +89,48 @@ def test_psa_verse0_present_in_built_zip() -> None:
     assert 'sid="PSA 3:0"' in psa
 
 
+def test_on_disk_demo_zips_include_psa_verse0() -> None:
+    """Committed asset zips must match fresh builder output for PSA verse 0."""
+    import zipfile
+
+    for language in ("en", "es"):
+        path = demo_project_zip_path(language)
+        with zipfile.ZipFile(path) as archive:
+            psa = archive.read("release/USX_1/PSA.usx").decode("utf-8")
+        assert 'sid="PSA 3:0"' in psa, language
+
+
+def test_on_disk_en_act_24_7_has_visible_content() -> None:
+    """ACT 24:7 in committed EN zip ingests with non-empty exclude-fixture text."""
+    import zipfile
+
+    from frvt.ingest.usx_parse import parse_usx
+
+    path = demo_project_zip_path("en")
+    with zipfile.ZipFile(path) as archive:
+        act = archive.read("release/USX_1/ACT.usx").decode("utf-8")
+    spans = parse_usx(act)
+    verse7 = next(
+        span for span in spans if span.book == "ACT" and span.chapter == 24 and span.verse == 7
+    )
+    assert verse7.content.strip()
+
+
+def test_on_disk_es_gen_1_includes_split_verses() -> None:
+    """Committed ES zip splits hyphen milestones so GEN 1:11 is ingested."""
+    import zipfile
+
+    from frvt.ingest.usx_parse import parse_usx
+
+    path = demo_project_zip_path("es")
+    with zipfile.ZipFile(path) as archive:
+        gen = archive.read("release/USX_1/GEN.usx").decode("utf-8")
+    assert "11-12" not in gen
+    spans = parse_usx(gen)
+    gen1 = {span.verse for span in spans if span.book == "GEN" and span.chapter == 1}
+    assert {11, 12}.issubset(gen1)
+
+
 def test_all_ingredients_validate() -> None:
     for name, builder in SCHEME_BUILDERS.items():
         issues = validate_ingredient(builder())
@@ -269,9 +311,7 @@ def test_misalignment_categories(
     )
     assert response.status_code == 200, response.text
     refs = {item["navigation_ref"] for item in response.json()["items"]}
-    assert case.ref.split()[0] in str(refs) or case.ref in refs or any(
-        case.ref.split()[1].split(":")[0] in r for r in refs
-    )
+    assert case.ref in refs, f"expected {case.ref!r} in {sorted(refs)}"
 
 
 def test_cancel_filter_psalm_pair(

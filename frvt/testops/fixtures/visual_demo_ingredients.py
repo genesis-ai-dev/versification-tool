@@ -154,13 +154,13 @@ VERIFICATION_CASES: tuple[VerificationCase, ...] = (
 )
 
 CATEGORY_CASES: tuple[CategoryCase, ...] = (
-    CategoryCase("CAT-psalm-title", "scheme-a", "PSA 3:1", "psalm_title"),
+    CategoryCase("CAT-psalm-title", "scheme-a", "PSA 3:0", "psalm_title"),
     CategoryCase("CAT-lxx", "visual-demo-lxx", "PSA 3:0", "lxx_psalm"),
     CategoryCase("CAT-synodal", "visual-demo-synodal", "GEN 31:55", "synodal"),
     CategoryCase("CAT-nt-omit", "visual-demo-nt-omit", "ACT 24:7", "nt_omission"),
     CategoryCase("CAT-chapter-boundary", "scheme-a", "GEN 31:55", "chapter_boundary"),
     CategoryCase("CAT-chapter-count", "scheme-a", "GEN 2:5", "chapter_count"),
-    CategoryCase("CAT-other", "scheme-a", "JHN 3:16", "other"),
+    CategoryCase("CAT-other", "scheme-a", "GEN 2:1", "other"),
     CategoryCase(
         "CAT-cancel",
         "psalm-a",
