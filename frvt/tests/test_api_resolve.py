@@ -254,6 +254,8 @@ def test_complex_hull_with_edges(
     assert len(body["target_spans"]) > 1
     assert body["edges"]
     assert all(edge.get("relation") for edge in body["edges"])
+    assert body.get("source_rel")
+    assert body.get("target_rel")
 
 
 @pytest.mark.phase4
@@ -418,8 +420,138 @@ def test_unequal_length_range_zip_clamps(
     )
     assert response.status_code == 200, response.text
     body = response.json()
-    assert body["target_spans"]
-    assert body["target_spans"][0]["ref"] == "GEN 1:2"
+    assert body["relation"] == "range"
+    assert [s["ref"] for s in body["source_spans"]] == [
+        "GEN 1:1",
+        "GEN 1:2",
+        "GEN 1:3",
+    ]
+    assert [s["ref"] for s in body["target_spans"]] == ["GEN 1:1", "GEN 1:2"]
+    edges = body["edges"]
+    assert len(edges) == 2
+    assert edges[0]["source_index"] == 0 and edges[0]["target_index"] == 0
+    assert edges[0]["relation"] == "renumber"
+    last_edge = next(e for e in edges if e["source_index"] == 2)
+    assert last_edge["target_index"] == 1
+    assert last_edge["relation"] == "renumber"
+    assert "source_rel" not in body
+    assert "target_rel" not in body
+
+
+@pytest.mark.phase4
+@pytest.mark.resolve
+def test_unequal_length_range_on_target_hops(
+    api_client: TestClient, eng_org: dict[str, str], seeded_session: Session
+) -> None:
+    """Unequal zip on the target chain still yields a range hull."""
+    scheme = upload_ingredient_json(
+        api_client, f"uneq-tgt-{uuid4().hex[:8]}", unequal_range_ingredient()
+    )
+    right = create_translation(api_client, name=f"UneqR-{uuid4().hex[:8]}")
+    associate(api_client, right["id"], scheme["id"])
+    _seed_mapping(
+        seeded_session,
+        scheme["id"],
+        source_ref="GEN 1:1-2",
+        base_ref="GEN 1:1-3",
+        relation=RelationType.renumber,
+        ordinal=1,
+    )
+    response = _resolve(
+        api_client,
+        from_translation=eng_org["translation_id"],
+        to_translation=right["id"],
+        ref="GEN 1:3",
+        from_versification=eng_org["eng_id"],
+        to_versification=scheme["id"],
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["relation"] == "range"
+    assert len(body["source_spans"]) == 3
+    assert len(body["target_spans"]) == 2
+
+
+@pytest.mark.phase4
+@pytest.mark.resolve
+def test_equal_length_psalm_shift_stays_atomic(
+    api_client: TestClient, eng_org: dict[str, str]
+) -> None:
+    """Equal-length zip hops remain atomic with no range hull edges."""
+    response = _resolve(
+        api_client,
+        from_translation=eng_org["translation_id"],
+        to_translation=eng_org["org_translation_id"],
+        ref="PSA 3:1",
+        from_versification=eng_org["eng_id"],
+        to_versification=eng_org["org_id"],
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["relation"] in {"shift", "one_to_one"}
+    assert body["edges"] == []
+    assert "source_rel" not in body
+    assert "target_rel" not in body
+
+
+@pytest.mark.phase4
+@pytest.mark.resolve
+def test_complex_wins_over_range_trigger(
+    api_client: TestClient, seeded_session: Session
+) -> None:
+    """Complex hull precedence suppresses a co-path unequal zip trigger."""
+    left_scheme = upload_ingredient_json(
+        api_client, f"cx-rng-l-{uuid4().hex[:8]}", complex_left_ingredient()
+    )
+    right_scheme = upload_ingredient_json(
+        api_client, f"cx-rng-r-{uuid4().hex[:8]}", complex_right_ingredient()
+    )
+    left = create_translation(api_client, name=f"CxRngL-{uuid4().hex[:8]}")
+    right = create_translation(api_client, name=f"CxRngR-{uuid4().hex[:8]}")
+    associate(api_client, left["id"], left_scheme["id"])
+    associate(api_client, right["id"], right_scheme["id"])
+    _seed_mapping(
+        seeded_session,
+        left_scheme["id"],
+        source_ref="GEN 1:1-3",
+        base_ref="GEN 1:1-2",
+        relation=RelationType.renumber,
+    )
+
+    response = _resolve(
+        api_client,
+        from_translation=left["id"],
+        to_translation=right["id"],
+        ref="GEN 1:1",
+        from_versification=left_scheme["id"],
+        to_versification=right_scheme["id"],
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["relation"] == "complex"
+    assert body.get("source_rel")
+    assert body.get("target_rel")
+
+
+@pytest.mark.phase4
+@pytest.mark.resolve
+def test_atomic_resolve_omits_axis_keys(
+    api_client: TestClient, eng_org: dict[str, str]
+) -> None:
+    """Atomic alignments omit optional axis summary keys from the JSON body."""
+    response = _resolve(
+        api_client,
+        from_translation=eng_org["translation_id"],
+        to_translation=eng_org["org_translation_id"],
+        ref="JHN 3:16",
+        from_versification=eng_org["eng_id"],
+        to_versification=eng_org["org_id"],
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["relation"] == "one_to_one"
+    assert "source_rel" not in body
+    assert "target_rel" not in body
 
 
 @pytest.mark.phase4
@@ -684,4 +816,6 @@ def test_resolve_pivots_not_in_body(
         "target_spans",
         "relation",
         "edges",
+        "source_rel",
+        "target_rel",
     }

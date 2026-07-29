@@ -84,9 +84,7 @@ test.describe("Viewer e2e", () => {
     await waitForVerseSpans(page);
   });
 
-  test("TC-UI-003: spans render in seq order regardless of scheme", async ({
-    page,
-  }) => {
+  test("TC-UI-003: spans render in seq order regardless of scheme", async ({ page }) => {
     const pair = await seedContrastingPair(page.request);
     await openViewerSession(page, {
       left: pair.left.id,
@@ -95,24 +93,18 @@ test.describe("Viewer e2e", () => {
     });
     const before = await page
       .locator('.verse-span[data-side="left"]')
-      .evaluateAll((nodes) =>
-        nodes.map((n) => (n as HTMLElement).dataset.seq ?? ""),
-      );
+      .evaluateAll((nodes) => nodes.map((n) => (n as HTMLElement).dataset.seq ?? ""));
     expect(before.length).toBeGreaterThan(0);
     for (let i = 1; i < before.length; i += 1) {
       expect(Number(before[i])).toBeGreaterThanOrEqual(Number(before[i - 1]));
     }
 
     await page.getByLabel("left versification").selectOption(pair.leftSchemeId);
-    await expect
-      .poll(() => viewerParams(page).get("lvers"))
-      .toBe(pair.leftSchemeId);
+    await expect.poll(() => viewerParams(page).get("lvers")).toBe(pair.leftSchemeId);
     await waitForVerseSpans(page);
     const after = await page
       .locator('.verse-span[data-side="left"]')
-      .evaluateAll((nodes) =>
-        nodes.map((n) => (n as HTMLElement).dataset.seq ?? ""),
-      );
+      .evaluateAll((nodes) => nodes.map((n) => (n as HTMLElement).dataset.seq ?? ""));
     expect(after).toEqual(before);
   });
 
@@ -185,9 +177,9 @@ test.describe("Viewer e2e", () => {
     await trySelectBcv(page, "right", "PSA", "3", "2");
     const rightVerse = page.locator('.verse-span[data-side="right"]').nth(1);
     await rightVerse.click();
-    await expect.poll(async () => connectorCount(page), { timeout: 45_000 }).toBeGreaterThan(
-      0,
-    );
+    await expect
+      .poll(async () => connectorCount(page), { timeout: 45_000 })
+      .toBeGreaterThan(0);
   });
 
   test("TC-UI-006: column scheme selection is per-request only", async ({ page }) => {
@@ -259,9 +251,9 @@ test.describe("Viewer e2e", () => {
     await expect(page.locator("svg.mapping-overlay circle").first()).toBeVisible({
       timeout: 45_000,
     });
-    await expect(page.locator('.verse-span[data-side="right"].is-highlighted')).toHaveCount(
-      0,
-    );
+    await expect(
+      page.locator('.verse-span[data-side="right"].is-highlighted'),
+    ).toHaveCount(0);
   });
 
   test("TC-UI-009: viewer and manage routes render with cross-links", async ({
@@ -370,9 +362,7 @@ test.describe("Viewer e2e", () => {
     await deleteVersification(page.request, uploaded.id);
     await page.reload();
     await waitForVerseSpans(page);
-    await expect
-      .poll(() => viewerParams(page).get("lvers") ?? "")
-      .toBe("");
+    await expect.poll(() => viewerParams(page).get("lvers") ?? "").toBe("");
   });
 
   test("TC-UI-023: no resolve without associated schemes", async ({ page }) => {
@@ -438,12 +428,13 @@ test.describe("Viewer e2e", () => {
     await clickFirstVerse(page, "left");
     await waitForConnectors(page);
     const before = await connectorCount(page);
-    await page.locator('.verse-list').first().evaluate((el) => {
-      el.scrollTop = Math.min(el.scrollHeight, 200);
-    });
-    await expect
-      .poll(async () => connectorCount(page))
-      .toBeGreaterThan(0);
+    await page
+      .locator(".verse-list")
+      .first()
+      .evaluate((el) => {
+        el.scrollTop = Math.min(el.scrollHeight, 200);
+      });
+    await expect.poll(async () => connectorCount(page)).toBeGreaterThan(0);
     expect(before).toBeGreaterThan(0);
   });
 
@@ -459,7 +450,10 @@ test.describe("Viewer e2e", () => {
     expect(book).toBeTruthy();
     await bookSelect.selectOption(book!);
     await expect.poll(() => viewerParams(page).get("lb")).toBe(book);
-    const chapters = await page.getByLabel("left chapter").locator("option").allTextContents();
+    const chapters = await page
+      .getByLabel("left chapter")
+      .locator("option")
+      .allTextContents();
     expect(chapters.length).toBeGreaterThan(0);
     await page.getByLabel("left chapter").selectOption(chapters[0]!);
     await expect.poll(() => viewerParams(page).get("lc")).toBe(chapters[0]!);
@@ -494,9 +488,7 @@ test.describe("Viewer e2e", () => {
     await deleteAllTranslations(page.request);
     const pair = await seedContrastingPair(page.request);
     await page.goto("/");
-    await expect
-      .poll(() => viewerParams(page).get("left"))
-      .toBeTruthy();
+    await expect.poll(() => viewerParams(page).get("left")).toBeTruthy();
     const params = viewerParams(page);
     expect(params.get("left")).toBeTruthy();
     expect(params.get("right")).toBeTruthy();
@@ -626,7 +618,10 @@ test.describe("Viewer e2e", () => {
     });
     await expect(page.getByText("Loading…")).toHaveCount(0);
     const mappedSection = page.locator(".jump-menu-panel section").first();
-    const rangeEntry = mappedSection.locator("button.linkish").filter({ hasText: /-/ }).first();
+    const rangeEntry = mappedSection
+      .locator("button.linkish")
+      .filter({ hasText: /-/ })
+      .first();
     await expect(rangeEntry).toBeVisible({ timeout: 30_000 });
     const label = (await rangeEntry.innerText()).trim();
     expect(label).toMatch(/-/);
@@ -704,8 +699,7 @@ test.describe("Viewer e2e", () => {
       const legend = document.getElementById("left-book-jump-legend");
       return Boolean(
         legend &&
-          (legend.compareDocumentPosition(select) & Node.DOCUMENT_POSITION_FOLLOWING) !==
-            0,
+        (legend.compareDocumentPosition(select) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
       );
     });
     expect(legendBeforeSelect).toBe(true);

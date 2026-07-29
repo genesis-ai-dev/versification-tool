@@ -80,6 +80,10 @@ class ResolutionDTO:
     relation: str
     # Populated only when ``relation == "complex"``.
     edges: tuple[ResolutionEdgeDTO, ...] = field(default_factory=tuple)
+    # Dominant non-identity relation on the source axis of a composed hull.
+    source_rel: str | None = None
+    # Dominant non-identity relation on the target axis of a composed hull.
+    target_rel: str | None = None
 
 
 @dataclass(frozen=True)

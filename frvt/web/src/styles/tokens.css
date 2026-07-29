@@ -24,6 +24,7 @@
   --exclude: #ef7189;
   --partial: #5fd1aa;
   --complex: #9b8afb;
+  --range: #8fd14f;
   --void-fill: #27161b;
 
   /* Legacy aliases used across the app and overlay code */
@@ -38,6 +39,7 @@
   --rel-partial: var(--partial);
   --rel-exclude: var(--exclude);
   --rel-complex: var(--complex);
+  --rel-range: var(--range);
   --void: var(--exclude);
 
   --font-ui:

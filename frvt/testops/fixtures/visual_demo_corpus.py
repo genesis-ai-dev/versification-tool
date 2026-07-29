@@ -26,14 +26,8 @@ _METADATA = (
     "<language>{language}</language></identification></DBLMetadata>"
 )
 _SAMPLE_ZIPS: dict[str, Path] = {
-    "en": repo_root()
-    / "research"
-    / "SampleTranslations"
-    / "american-standard-1.zip",
-    "es": repo_root()
-    / "research"
-    / "SampleTranslations"
-    / "biblica-spanish-1.zip",
+    "en": repo_root() / "research" / "SampleTranslations" / "american-standard-1.zip",
+    "es": repo_root() / "research" / "SampleTranslations" / "biblica-spanish-1.zip",
 }
 
 
@@ -88,7 +82,7 @@ _ACT_24_7_PLACEHOLDER = "[Excluded verse placeholder — ACT 24:7]"
 
 def ensure_psa_verse0(psa_usx: str, *, chapter: int = 3) -> str:
     """Ensure PSA ``chapter`` includes a verse-0 title milestone when absent."""
-    if f'PSA {chapter}:0' in psa_usx or f'sid="PSA {chapter}:0"' in psa_usx:
+    if f"PSA {chapter}:0" in psa_usx or f'sid="PSA {chapter}:0"' in psa_usx:
         return psa_usx
 
     chapter_open = re.compile(
@@ -134,6 +128,7 @@ def split_hyphen_verse_milestones(usx: str) -> str:
     Biblica ES exports use ``number="11-12"`` milestones that the USX parser skips.
     Duplicates combined content into each split verse for visual-demo walkthrough QA.
     """
+
     def _expand(match: re.Match[str]) -> str:
         start = int(match.group(1))
         end = int(match.group(2))
@@ -175,7 +170,9 @@ def identity_vrs(max_verses: dict[str, list[str]]) -> str:
     """Build Paratext-style maxVerses-only VRS (no mapping ``=`` lines)."""
     lines: list[str] = []
     for book in sorted(max_verses):
-        chapters = " ".join(f"{idx + 1}:{count}" for idx, count in enumerate(max_verses[book]))
+        chapters = " ".join(
+            f"{idx + 1}:{count}" for idx, count in enumerate(max_verses[book])
+        )
         lines.append(f"{book} {chapters}")
     text = "\n".join(lines) + "\n"
     logger.debug("Built identity VRS books=%s", sorted(max_verses))

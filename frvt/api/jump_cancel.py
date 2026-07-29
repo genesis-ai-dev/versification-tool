@@ -16,9 +16,10 @@ from frvt.resolver.chains import (
     hops_to_ancestor,
     nearest_shared_translation,
 )
+from frvt.resolver.normalize import spans_share_bcv
 from frvt.resolver.parse_ref import expand, parse_ref
-from frvt.resolver.resolve import _atomic_result, _select_scheme
-from frvt.resolver.types import Hop, ResolutionDTO, ResolvedSpanDTO, SchemeRef, VerseId
+from frvt.resolver.resolve import _select_scheme, assemble
+from frvt.resolver.types import Hop, ResolutionDTO, SchemeRef, VerseId
 
 logger = get_logger(__name__)
 
@@ -86,16 +87,7 @@ class JumpCancelContext:
                 VerseId(book=m.book, chapter=m.chapter, verse=m.verse, part=part)
                 for m in members
             ]
-        return _atomic_result(members, src_hops, tgt_hops)
-
-
-def spans_share_bcv(source: ResolvedSpanDTO, target: ResolvedSpanDTO) -> bool:
-    """Return whether two resolved spans share the same book/chapter/verse/part.
-
-    ``ResolvedSpanDTO.ref`` is always a single-verse BCV string, so string
-    equality is sufficient without re-parsing.
-    """
-    return source.ref == target.ref and source.part == target.part
+        return assemble(members, src_hops, tgt_hops)
 
 
 def is_canceling_resolution(dto: ResolutionDTO) -> bool:

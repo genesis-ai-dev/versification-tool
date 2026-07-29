@@ -72,9 +72,7 @@ test.describe("Overlay e2e", () => {
     await expect(page.locator("svg.mapping-overlay path").first()).toBeAttached();
   });
 
-  test("TC-OVERLAY-003: complex multi-edge connectors when present", async ({
-    page,
-  }) => {
+  test("TC-OVERLAY-003: complex multi-edge connectors when present", async ({ page }) => {
     const pair = await seedContrastingPair(page.request);
     const suffix = Date.now().toString(36);
     const ingredients = complexIngredientPair();
@@ -135,9 +133,9 @@ test.describe("Overlay e2e", () => {
     await expect(
       page.locator('.verse-span[data-side="left"].is-highlighted').first(),
     ).toBeVisible();
-    await expect(page.locator('.verse-span[data-side="right"].is-highlighted')).toHaveCount(
-      0,
-    );
+    await expect(
+      page.locator('.verse-span[data-side="right"].is-highlighted'),
+    ).toHaveCount(0);
   });
 
   test("TC-OVERLAY-005: partial outline/label when part-bearing result occurs", async ({
@@ -194,9 +192,9 @@ test.describe("Overlay e2e", () => {
       await expect(
         page.locator('svg.mapping-overlay path[stroke-dasharray="6 4"]'),
       ).toHaveCount(1);
-      await expect(page.locator("svg.mapping-overlay text.overlay-label")).toHaveText(
-        "part a",
-      );
+      await expect(
+        page.locator("svg.mapping-overlay .overlay-label-badge-text"),
+      ).toHaveText("part a");
       await expect(
         page.locator('.verse-span[data-side="left"][data-ref="GEN 1:1"].is-highlighted'),
       ).toHaveCount(1);
@@ -283,7 +281,9 @@ test.describe("Overlay e2e", () => {
     await waitForConnectors(page);
     const chapterMode = await connectorCount(page);
     expect(chapterMode).toBeGreaterThan(currentOnly);
-    await expect(page.locator('svg.mapping-overlay g[opacity="0.25"]').first()).toBeAttached();
+    await expect(
+      page.locator('svg.mapping-overlay g[opacity="0.25"]').first(),
+    ).toBeAttached();
   });
 
   test("TC-OVERLAY-013: current mode stays single-alignment with map=1", async ({

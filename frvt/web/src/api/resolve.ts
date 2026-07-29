@@ -1,6 +1,13 @@
 import { apiGet } from "./client";
 import type { RequestOptions } from "./client";
-import type { DeltaEntry, JumpBooksOut, JumpMenuEntries, MisalignmentEntry, Page, ResolveResult } from "./types";
+import type {
+  DeltaEntry,
+  JumpBooksOut,
+  JumpMenuEntries,
+  MisalignmentEntry,
+  Page,
+  ResolveResult,
+} from "./types";
 
 /** Arguments for ``GET /api/resolve`` built from URL-owned viewer state. */
 export interface ResolveArgs {

@@ -691,7 +691,7 @@ Defined as `VERIFICATION_CASES` in Python; copied into `.spec` and referenced by
 | C-shift | scheme-a | identity-es | `PSA 3:1` | `shift` | |
 | C-renumber | scheme-a | identity-es | `GEN 31:55` | `renumber` | jump `chapter_boundary` |
 | C-shift-renum | scheme-a | scheme-b | `GEN 2:1` | `shift` | composed |
-| C-chapter-count | scheme-a | identity-es | `GEN 2:5` | `renumber` | jump `chapter_count` |
+| C-chapter-count | scheme-a | identity-es | `GEN 2:5` | `range` | jump `chapter_count` |
 | C-exclude | scheme-a | scheme-b | `ACT 24:7` | `exclude` | empty targets |
 | C-merge | scheme-a | identity-es | `GEN 1:1` | `merge` | N→1 |
 | C-split | identity-en | scheme-b | `GEN 1:1` | `split` | 1→N |

@@ -764,6 +764,16 @@ Post-reconciliation modifications. Apply subsections in order (`ADD-*-001`, then
 | ADD-U-004f | §3.2 / toolbar pair context | CLARIFY | Keep the textual `drive: left\|right` cue in the viewer toolbar pair-context row alongside the between-column direction arrow (ADD-U-004e). Drive-column accent bar (`is-source`) also remains. |
 | ADD-U-004g | §11.3 | ADD | Contract tests: drive + follower scroll after resolve (no resolve loop); drive scrolls on exclude; versification option text includes `(based on …)` when `based_on_name` set and omits it when null; preferred ★ after full label; legend is a sibling of the Book label text (not below the select); drive arrow visible only when `canResolve`, flips with `drive`, and is not a control that writes `drive`. |
 
+### ADD-U-005 — Composed alignment presentation
+
+**Purpose:** Single-point presentation of composed alignments: the overlay states an alignment's character once at the hub instead of repeating or approximating it on every connector, and renders the classification the server reports without re-deriving it from span counts.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-U-005a | §8.2 | CLARIFY | The overlay renders the server relation verbatim and never re-derives it from span counts. |
+| ADD-U-005b | §8.2 | REPLACE | The `complex` row: a gutter hub badge carries the axis summary; per-connector labels are suppressed whenever a hub badge is present. |
+| ADD-U-005c | §8.2 | ADD | `range` row: new color token, graph topology, one connector per edge, fixed hub label, no per-connector labels. |
+
 ### ADD-U-005 — Content-backed book/chapter navigation
 
 **Purpose:** Column BCV selectors only offer books and chapters that exist as stored content for the selected translation.

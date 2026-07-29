@@ -13,7 +13,10 @@ from frvt.testops.fixtures.api_setup import (
     eng_org_resolve_context,
     upload_ingredient_json,
 )
-from frvt.testops.fixtures.synthetic_schemes import merge_ingredient
+from frvt.testops.fixtures.synthetic_schemes import (
+    merge_ingredient,
+    unequal_range_ingredient,
+)
 from frvt.testops.http_client import assert_error_envelope, basic_auth_header
 from httpx import Response
 from sqlalchemy import select
@@ -186,7 +189,7 @@ def test_chapter_resolve_missing_translation_404(
 @pytest.mark.resolve
 def test_alignment_fingerprint_stable_for_same_hull() -> None:
     """Fingerprint helper treats identical hulls as equal keys."""
-    from frvt.api.schemas import RelationType, ResolveResult, ResolvedSpan
+    from frvt.api.schemas import RelationType, ResolvedSpan, ResolveResult
 
     span_a = ResolvedSpan(
         ref="GEN 1:1", book="GEN", chapter=1, verse=1, seq=1, part=None
@@ -208,3 +211,62 @@ def test_alignment_fingerprint_stable_for_same_hull() -> None:
         relation=RelationType.merge,
     )
     assert alignment_fingerprint(first) == alignment_fingerprint(second)
+
+
+@pytest.mark.phase4
+@pytest.mark.resolve
+def test_chapter_resolve_range_emit_once(
+    api_client: TestClient, eng_org: dict[str, str]
+) -> None:
+    """Unequal range hull appears once when member verses are walked separately."""
+    scheme = upload_ingredient_json(
+        api_client, f"range-ch-{uuid4().hex[:8]}", unequal_range_ingredient()
+    )
+    associate(api_client, eng_org["translation_id"], scheme["id"])
+    response = _resolve_chapter(
+        api_client,
+        from_translation=eng_org["translation_id"],
+        to_translation=eng_org["org_translation_id"],
+        book="GEN",
+        chapter=1,
+        from_versification=scheme["id"],
+        to_versification=eng_org["org_id"],
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    range_items = [item for item in body["items"] if item["relation"] == "range"]
+    assert len(range_items) == 1
+    assert len(range_items[0]["source_spans"]) == 3
+    assert len(range_items[0]["target_spans"]) == 2
+
+
+@pytest.mark.phase4
+@pytest.mark.resolve
+def test_alignment_fingerprint_includes_axis_fields() -> None:
+    """Fingerprint helper distinguishes complex hulls by axis summary fields."""
+    from frvt.api.schemas import RelationType, ResolvedSpan, ResolveResult
+
+    span_a = ResolvedSpan(
+        ref="GEN 1:1", book="GEN", chapter=1, verse=1, seq=1, part=None
+    )
+    span_b = ResolvedSpan(
+        ref="GEN 1:10", book="GEN", chapter=1, verse=10, seq=2, part=None
+    )
+    target = ResolvedSpan(
+        ref="GEN 1:1", book="GEN", chapter=1, verse=1, seq=3, part=None
+    )
+    merge_axis = ResolveResult(
+        source_spans=[span_a, span_b],
+        target_spans=[target],
+        relation=RelationType.complex,
+        source_rel=RelationType.merge,
+        target_rel=RelationType.split,
+    )
+    split_axis = ResolveResult(
+        source_spans=[span_a, span_b],
+        target_spans=[target],
+        relation=RelationType.complex,
+        source_rel=RelationType.split,
+        target_rel=RelationType.merge,
+    )
+    assert alignment_fingerprint(merge_axis) != alignment_fingerprint(split_axis)

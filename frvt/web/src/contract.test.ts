@@ -82,6 +82,7 @@ describe("relation visual language", () => {
     ["partial", "direct"],
     ["exclude", "to_void"],
     ["complex", "graph"],
+    ["range", "graph"],
   ])("assigns %s its connector topology", (relation, topology) => {
     expect(visualForRelation(relation).topology).toBe(topology);
   });

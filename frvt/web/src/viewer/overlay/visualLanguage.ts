@@ -81,6 +81,13 @@ export function visualForRelation(relation: RelationType): RelationVisual {
         topology: "graph",
         label: "complex",
       };
+    case "range":
+      return {
+        color: "var(--rel-range)",
+        strokeWidth: 1.5,
+        topology: "graph",
+        label: "range",
+      };
   }
 }
 

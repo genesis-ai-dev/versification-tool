@@ -99,7 +99,9 @@ def infer_spanish_eng_ingredient(
     for source, org_target in org_ref.get("mappedVerses", {}).items():
         candidates = reverse.get(org_target, [])
         if not candidates:
-            raise ValueError(f"No engdemo source for org target {org_target} ({source})")
+            raise ValueError(
+                f"No engdemo source for org target {org_target} ({source})"
+            )
         if len(candidates) > 1:
             raise ValueError(
                 f"Ambiguous engdemo sources for {org_target}: {candidates}"
@@ -125,10 +127,7 @@ def verify_parity_pair(baseline: dict[str, Any], chain: dict[str, Any]) -> list[
 
     def _bcv_set(body: dict[str, Any]) -> set[tuple[str, int, int, str | None]]:
         spans = body.get("target_spans") or []
-        return {
-            (s["book"], s["chapter"], s["verse"], s.get("part"))
-            for s in spans
-        }
+        return {(s["book"], s["chapter"], s["verse"], s.get("part")) for s in spans}
 
     base_targets = _bcv_set(baseline)
     chain_targets = _bcv_set(chain)

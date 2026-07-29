@@ -39,9 +39,19 @@ def _translation_for_scheme(logical: str, ctx: dict) -> str:
         return ctx["es_translation_id"]
     if logical == "identity-en":
         return ctx["en_translation_id"]
-    if logical in ("psalm-a", "scheme-a", "visual-demo-lxx", "visual-demo-synodal", "visual-demo-nt-omit"):
+    if logical in (
+        "psalm-a",
+        "scheme-a",
+        "visual-demo-lxx",
+        "visual-demo-synodal",
+        "visual-demo-nt-omit",
+    ):
         return ctx["en_translation_id"]
-    return ctx["es_translation_id"] if logical in ("scheme-b", "psalm-b") else ctx["en_translation_id"]
+    return (
+        ctx["es_translation_id"]
+        if logical in ("scheme-b", "psalm-b")
+        else ctx["en_translation_id"]
+    )
 
 
 def _resolve(
@@ -111,7 +121,9 @@ def test_on_disk_en_act_24_7_has_visible_content() -> None:
         act = archive.read("release/USX_1/ACT.usx").decode("utf-8")
     spans = parse_usx(act)
     verse7 = next(
-        span for span in spans if span.book == "ACT" and span.chapter == 24 and span.verse == 7
+        span
+        for span in spans
+        if span.book == "ACT" and span.chapter == 24 and span.verse == 7
     )
     assert verse7.content.strip()
 
@@ -161,11 +173,15 @@ def test_merged_verses_have_mapped_targets() -> None:
         ingredient = builder()
         mapped = ingredient.get("mappedVerses", {})
         for merged in ingredient.get("mergedVerses", []):
-            assert merged in mapped, f"{name} merged {merged!r} missing mappedVerses key"
+            assert (
+                merged in mapped
+            ), f"{name} merged {merged!r} missing mappedVerses key"
 
 
 def test_verification_case_ids_unique() -> None:
-    ids = [case.id for case in VERIFICATION_CASES] + [case.id for case in CATEGORY_CASES]
+    ids = [case.id for case in VERIFICATION_CASES] + [
+        case.id for case in CATEGORY_CASES
+    ]
     assert len(ids) == len(set(ids))
 
 
@@ -270,14 +286,19 @@ def test_resolve_verification_cases_composed(
 ) -> None:
     case = next(item for item in VERIFICATION_CASES if item.id == case_id)
     body = _resolve(api_client, visual_demo_ctx, case)
+    assert body["relation"] == case.expected_relation
     if case_id == "C-cancel-jump":
         assert len(body["source_spans"]) == 1
         assert len(body["target_spans"]) == 1
         assert body["source_spans"][0]["ref"] == body["target_spans"][0]["ref"]
-        return
-    assert body["relation"] == case.expected_relation
     if case_id == "C-complex":
         assert body.get("edges")
+        assert body.get("source_rel")
+        assert body.get("target_rel")
+    if case_id == "C-chapter-count":
+        assert len(body["source_spans"]) == 3
+        assert len(body["target_spans"]) == 2
+        assert len(body["edges"]) == 2
 
 
 @pytest.mark.parametrize("case", CATEGORY_CASES, ids=lambda c: c.id)
@@ -296,7 +317,9 @@ def test_misalignment_categories(
     elif scheme_key == "visual-demo-nt-omit":
         scheme_id = visual_demo_ctx["schemes"]["visual-demo-nt-omit"]
     else:
-        scheme_id = visual_demo_ctx["schemes"].get(scheme_key, visual_demo_ctx["schemes"]["scheme-a"])
+        scheme_id = visual_demo_ctx["schemes"].get(
+            scheme_key, visual_demo_ctx["schemes"]["scheme-a"]
+        )
     params = {
         "from_translation": visual_demo_ctx["en_translation_id"],
         "to_translation": visual_demo_ctx["es_translation_id"],

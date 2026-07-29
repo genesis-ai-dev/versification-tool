@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 from frvt.api.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -16,6 +18,28 @@ _PRIORITY: tuple[str, ...] = (
     "partial",
     "one_to_one",
 )
+
+
+def priority_rank(relation: str) -> int:
+    """Return composition precedence rank; unknown relations sort last."""
+    try:
+        return _PRIORITY.index(relation)
+    except ValueError:
+        return len(_PRIORITY)
+
+
+def dominant_relation(relations: Iterable[str]) -> str | None:
+    """Return the highest-precedence non-identity relation, or None if all identity."""
+    best: str | None = None
+    best_rank = len(_PRIORITY)
+    for relation in relations:
+        if relation == "one_to_one":
+            continue
+        rank = priority_rank(relation)
+        if rank < best_rank:
+            best = relation
+            best_rank = rank
+    return best
 
 
 def invert_relation(relation: str) -> str:

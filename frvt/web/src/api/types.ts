@@ -12,7 +12,8 @@ export type RelationType =
   | "merge"
   | "exclude"
   | "partial"
-  | "complex";
+  | "complex"
+  | "range";
 
 /** Public translation row (canonical anchors are excluded server-side). */
 export interface TranslationOut {
@@ -82,6 +83,10 @@ export interface ResolveResult {
   target_spans: ResolvedSpan[];
   relation: RelationType;
   edges: ResolveEdge[];
+  /** Present only for composed hulls with a non-identity source axis. */
+  source_rel?: RelationType;
+  /** Present only for composed hulls with a non-identity target axis. */
+  target_rel?: RelationType;
 }
 
 /** Book with available chapter numbers for navigation selectors. */

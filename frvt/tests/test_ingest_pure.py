@@ -5,7 +5,6 @@ from __future__ import annotations
 import io
 import json
 import zipfile
-from pathlib import Path
 
 import pytest
 from frvt.ingest.derive_mappings import derive_mapping_records
@@ -13,13 +12,15 @@ from frvt.ingest.ingest_api import ingest_project, ingest_versification
 from frvt.ingest.types import ParsedScheme, ParsedSpan
 from frvt.ingest.usx_parse import collapse_duplicate_spans, parse_usx
 from frvt.ingest.vrs_convert import convert_vrs
+from frvt.testops.sample_assets import repo_root
 
-_REPO = Path(__file__).resolve().parents[2]
+_REPO = repo_root()
 _ENG_JSON = _REPO / "research" / "CopenhagenFormat" / "eng.json"
 _VALIDATED_JSON = _REPO / "research" / "CopenhagenFormat" / "validated.json"
 _ENG_VRS = _REPO / "research" / "ParatextFormat" / "eng.vrs"
 _LXX_VRS = _REPO / "research" / "ParatextFormat" / "lxx.vrs"
-_SAMPLE_ZIP = next((_REPO / "research" / "SampleTranslations").glob("*.zip"))
+# Pin the English sample used elsewhere (visual demo, e2e); glob order is not stable.
+_SAMPLE_ZIP = _REPO / "research" / "SampleTranslations" / "american-standard-1.zip"
 
 
 @pytest.mark.phase6
@@ -188,7 +189,9 @@ def test_merged_verses_override_mapped_classification() -> None:
         "mergedVerses": ["GEN 1:1-2"],
     }
     rows = derive_mapping_records(
-        ParsedScheme(name="merge-test", based_on="org", canonical=False, ingredient=ingredient)
+        ParsedScheme(
+            name="merge-test", based_on="org", canonical=False, ingredient=ingredient
+        )
     )
     matches = [row for row in rows if row.source_ref == "GEN 1:1-2"]
     assert len(matches) == 1

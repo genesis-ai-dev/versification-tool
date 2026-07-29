@@ -1,7 +1,5 @@
-import {
-  createCubicMappingPath,
-  type DrawPlan,
-} from "./drawPlan";
+import { createCubicMappingPath, type DrawPlan } from "./drawPlan";
+import { appendLabelBadge } from "./labelBadge";
 
 /** Remove all painted children from the overlay SVG. */
 export function clearSvg(svg: SVGSVGElement): void {
@@ -12,13 +10,20 @@ export function clearSvg(svg: SVGSVGElement): void {
 
 /**
  * Paint outlines, connectors, void stubs, and labels into the SVG host.
- * Honors per-plan opacity by wrapping each shape group so arrow markers stay
- * consistent (marker-end often ignores path opacity).
+ * Labels are painted after connector paths so badges sit above lines.
  */
 export function paintPlan(svg: SVGSVGElement, plan: DrawPlan): void {
   clearSvg(svg);
   const ns = "http://www.w3.org/2000/svg";
   const markerIds = new Map<string, string>();
+  const connectorGroups: SVGGElement[] = [];
+  const connectorLabels: Array<{
+    label: string;
+    color: string;
+    from: { x: number; y: number };
+    to: { x: number; y: number };
+    opacity?: number;
+  }> = [];
 
   for (const outline of plan.outlines) {
     const group = document.createElementNS(ns, "g");
@@ -76,19 +81,57 @@ export function paintPlan(svg: SVGSVGElement, plan: DrawPlan): void {
       group.appendChild(voidMark);
     }
 
+    connectorGroups.push(group);
     if (connector.label) {
-      const midX = (connector.from.x + connector.to.x) / 2;
-      const midY = (connector.from.y + connector.to.y) / 2 - 6;
-      const text = document.createElementNS(ns, "text");
-      text.setAttribute("x", String(midX));
-      text.setAttribute("y", String(midY));
-      text.setAttribute("text-anchor", "middle");
-      text.setAttribute("class", "overlay-label");
-      text.textContent = connector.label;
-      group.appendChild(text);
+      connectorLabels.push({
+        label: connector.label,
+        color: connector.color,
+        from: connector.from,
+        to: connector.to,
+        opacity: connector.opacity,
+      });
     }
+  }
 
+  for (const group of connectorGroups) {
     svg.appendChild(group);
+  }
+
+  if (connectorLabels.length > 0) {
+    const labelsLayer = document.createElementNS(ns, "g");
+    labelsLayer.setAttribute("class", "overlay-connector-labels");
+    for (const entry of connectorLabels) {
+      const labelGroup = document.createElementNS(ns, "g");
+      if (entry.opacity !== undefined && entry.opacity < 1) {
+        labelGroup.setAttribute("opacity", String(entry.opacity));
+      }
+      const midX = (entry.from.x + entry.to.x) / 2;
+      const midY = (entry.from.y + entry.to.y) / 2 - 6;
+      appendLabelBadge(labelGroup, ns, {
+        centerX: midX,
+        centerY: midY,
+        text: entry.label,
+        color: entry.color,
+      });
+      labelsLayer.appendChild(labelGroup);
+    }
+    svg.appendChild(labelsLayer);
+  }
+
+  if (plan.hub) {
+    const hubGroup = document.createElementNS(ns, "g");
+    hubGroup.setAttribute("class", "overlay-hub");
+    if (plan.hub.opacity !== undefined && plan.hub.opacity < 1) {
+      hubGroup.setAttribute("opacity", String(plan.hub.opacity));
+    }
+    appendLabelBadge(hubGroup, ns, {
+      centerX: plan.hub.x,
+      centerY: plan.hub.y,
+      text: plan.hub.text,
+      color: plan.hub.color,
+      emphasis: true,
+    });
+    svg.appendChild(hubGroup);
   }
 }
 

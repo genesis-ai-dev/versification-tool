@@ -6,7 +6,6 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-
 from frvt.api.jump_books import jump_difference_books
 from frvt.api.routers.navigation import JumpMapping
 from frvt.api.usx_book_order import usx_book_sort_key

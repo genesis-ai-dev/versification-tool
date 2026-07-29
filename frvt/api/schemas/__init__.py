@@ -7,7 +7,7 @@ from enum import StrEnum
 from typing import Annotated, Generic, Literal, TypeVar
 from uuid import UUID
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints, model_serializer
 
 # Item type carried by the reusable paginated response envelope.
 PageItem = TypeVar("PageItem")
@@ -27,6 +27,8 @@ class RelationType(StrEnum):
     exclude = "exclude"
     partial = "partial"
     complex = "complex"
+    # Resolve-time only, like ``complex``; never stored on a mapping_record.
+    range = "range"  # type: ignore[assignment]
 
 
 class TranslationCreate(BaseModel):
@@ -164,7 +166,7 @@ class ResolvedSpan(BaseModel):
 
 
 class ResolveEdge(BaseModel):
-    """One connector for a ``complex`` resolve result."""
+    """One connector for a ``complex`` or ``range`` resolve result."""
 
     # Index into ``source_spans``.
     source_index: int
@@ -183,8 +185,21 @@ class ResolveResult(BaseModel):
     target_spans: list[ResolvedSpan]
     # Top-level relation classification.
     relation: RelationType
-    # Populated only when ``relation == complex``.
+    # Populated when ``relation`` is ``complex`` or ``range``.
     edges: list[ResolveEdge] = Field(default_factory=list)
+    # Dominant non-identity source-axis relation; key omitted when absent.
+    source_rel: RelationType | None = None
+    # Dominant non-identity target-axis relation; key omitted when absent.
+    target_rel: RelationType | None = None
+
+    @model_serializer(mode="wrap")
+    def _omit_absent_axes(self, handler):
+        """Drop axis keys entirely when unset so clients can test for presence."""
+        data = handler(self)
+        for key in ("source_rel", "target_rel"):
+            if data.get(key) is None:
+                data.pop(key, None)
+        return data
 
 
 class ChapterResolveOut(BaseModel):

@@ -764,3 +764,16 @@ The `frvt.resolver` package, `ResolutionDTO` shape, and resolution algorithms (�
 Ingest and `mapping_record` derivation are unchanged.
 
 UI book indicators (ADD-U-003) consume the jump-books endpoint; that behavior does not require resolver modifications.
+
+### ADD-R-004 — Composed alignment classification
+
+**Purpose:** Truer top-level classification for alignments produced by composing mappings across schemes, so that a round trip landing on its own coordinate, a range whose two sides differ in length, and a many-to-many hull are each reported as what they are rather than collapsed onto the nearest atomic relation.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-R-004a | §3.3 | ADD | `range` joins the resolve-time-only vocabulary alongside `complex`; never storable on a `mapping_record`. |
+| ADD-R-004b | §6.3 | CLARIFY | Cover width then `ordinal` also orders selection among competing unequal-zip covers on a path. |
+| ADD-R-004c | §6.4 | ADD | A zip-class cover whose two sides differ in length marks that hop as a range trigger; index clamping itself is unchanged. `partial` rows are excluded. |
+| ADD-R-004d | §6.6 | ADD | After assembly, a result with exactly one source and one target span sharing book/chapter/verse/part is emitted as `one_to_one`; skip when the top-level relation is already `one_to_one`, `merge`, `split`, `complex`, `range`, `exclude`, or `partial`, or when either side has more than one span; per-connector `edges[].relation` is never rewritten. |
+| ADD-R-004e | §6.8 | ADD | Each connector carries a source leg and a target leg; a composed hull reports the dominant non-identity relation per axis using the §3.3 composition priority, omitted when an axis is all-identity. |
+| ADD-R-004f | §6.8 | ADD | Precedence: a hull that qualifies as `complex` always wins over `range`. |

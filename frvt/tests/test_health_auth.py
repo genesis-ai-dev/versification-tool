@@ -118,7 +118,11 @@ def test_static_ui_falls_back_for_client_routes(tmp_path: Path) -> None:
     with TestClient(app) as static_client:
         route = static_client.get("/manage/translations")
         missing_asset = static_client.get("/assets/missing.js")
+        root = static_client.get("/")
 
     assert route.status_code == 200
     assert "id='root'" in route.text
+    assert route.headers.get("cache-control") == "no-cache"
+    assert root.status_code == 200
+    assert root.headers.get("cache-control") == "no-cache"
     assert missing_asset.status_code == 404

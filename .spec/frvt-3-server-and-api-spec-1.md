@@ -1039,6 +1039,17 @@ Post-reconciliation modifications. Apply subsections in order (`ADD-*-001`, then
 | ADD-S-003c | §7.9 | ADD | **`GET /api/resolve/jump-books`** — query: `from_translation`, `to_translation`, optional `from_versification`, `to_versification`. Response: `200` `JumpBooksOut`. Same scheme-selection / `404` / `409` pre-checks as deltas and jump-menu endpoints. Collect distinct from-side books from **cancel-filtered** scheme-difference rows (same set as deltas/misalignments; no `book` query param). Derive each row's book from its discrete navigation target (range lower bound). Sort with existing USX book order. Empty pair, identical schemes, or no differences ⇒ `{ books: [] }`. Do **not** enrich per-translation `NavBook` / navigation with pair-scoped flags. Endpoint table: `GET` `/api/resolve/jump-books` — query `from_translation`, `to_translation`, optional `from_versification`, `to_versification` — response `200` `{ books: string[] }`. |
 | ADD-S-003d | §10.3 | ADD | Jump-books: happy path with known book differences; cancel-filter excludes identity-only books; empty / identical schemes; `404` / `409` pre-checks; USX sort. Lives in e.g. [`frvt/tests/test_api_jump_books.py`](../frvt/tests/test_api_jump_books.py). |
 
+### ADD-S-004 — Composed alignment classification on resolve responses
+
+**Purpose:** Resolve responses carry the refined classification of composed alignments, including an optional summary of a hull's two axes that is omitted rather than emptied when it does not apply, so clients can test for presence.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-S-004a | §6.2 | CLARIFY | The reported relation reflects the normalized resolve result. |
+| ADD-S-004b | §6.2 | ADD | `range` row in the vocabulary table: resolve-time only, edges populated, never stored. |
+| ADD-S-004c | §7.2 | ADD | `range` accepted on the resolve response model and its edges. |
+| ADD-S-004d | §7.2 | ADD | Two optional relation-valued fields on the resolve response, present only for composed hulls with a non-identity axis; **keys are absent** rather than null when unset. |
+
 ### ADD-S-004 — Navigation tree from stored spans only
 
 **Purpose:** Book/chapter selectors list only content that exists for the translation, so partial canons (e.g. NT-only) are not padded with empty scheme books from `maxVerses`.

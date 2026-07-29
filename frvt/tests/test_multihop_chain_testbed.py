@@ -67,11 +67,7 @@ def test_infer_spanish_eng_produces_nontrivial_hop1_rows() -> None:
         spanish_org_ref_ingredient(),
         engdemo_ingredient(),
     )
-    nontrivial = [
-        pair
-        for pair in hop1["mappedVerses"].items()
-        if pair[0] != pair[1]
-    ]
+    nontrivial = [pair for pair in hop1["mappedVerses"].items() if pair[0] != pair[1]]
     assert len(nontrivial) >= 3
 
 

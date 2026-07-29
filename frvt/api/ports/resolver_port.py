@@ -96,6 +96,8 @@ def _to_result(
     dto: ResolutionDTO,
 ) -> ResolveResult:
     """Map a resolver DTO onto the HTTP ``ResolveResult`` contract."""
+    source_rel = RelationType(dto.source_rel) if dto.source_rel is not None else None
+    target_rel = RelationType(dto.target_rel) if dto.target_rel is not None else None
     return ResolveResult(
         source_spans=[
             _enrich_span(session, source_translation, s) for s in dto.source_spans
@@ -112,6 +114,8 @@ def _to_result(
             )
             for e in dto.edges
         ],
+        source_rel=source_rel,
+        target_rel=target_rel,
     )
 
 

@@ -18,9 +18,21 @@ class SpaStaticFiles(StaticFiles):
         except HTTPException as exc:
             if exc.status_code != 404 or "." in path.rsplit("/", 1)[-1]:
                 raise
-            return await super().get_response("index.html", scope)
+            return self._with_spa_cache_policy(
+                await super().get_response("index.html", scope)
+            )
         if response.status_code == 404 and "." not in path.rsplit("/", 1)[-1]:
-            return await super().get_response("index.html", scope)
+            return self._with_spa_cache_policy(
+                await super().get_response("index.html", scope)
+            )
+        if response.media_type == "text/html":
+            return self._with_spa_cache_policy(response)
+        return response
+
+    @staticmethod
+    def _with_spa_cache_policy(response: Response) -> Response:
+        """Prevent browsers from pinning an old ``index.html`` after ``npm run build``."""
+        response.headers["Cache-Control"] = "no-cache"
         return response
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:

@@ -380,11 +380,7 @@ def test_jump_menu_keeps_identity_locus_partial(
         body = response.json()
 
         delta = next(
-            (
-                item
-                for item in body["deltas"]["items"]
-                if item["relation"] == "partial"
-            ),
+            (item for item in body["deltas"]["items"] if item["relation"] == "partial"),
             None,
         )
         assert delta is not None, f"{direction}: partial delta missing"

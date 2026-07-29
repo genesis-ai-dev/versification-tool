@@ -18,6 +18,14 @@ from frvt.resolver.types import MappingView, RefRange, VerseId
 
 logger = get_logger(__name__)
 
+# Zip-class relations that may trigger an unequal-length range hull.
+ZIP_RANGE_RELATIONS: frozenset[str] = frozenset({"one_to_one", "shift", "renumber"})
+
+
+def _range_length(ref_range: RefRange) -> int:
+    """Return the inclusive verse count of ``ref_range``."""
+    return ref_range.verse_end - ref_range.verse_start + 1
+
 
 @dataclass(frozen=True)
 class Projection:
@@ -88,6 +96,27 @@ def find_covering_record(
         return None
     candidates.sort(key=lambda item: (item[0], item[1]))
     return candidates[0][2]
+
+
+def unequal_zip_cover(
+    record: MappingView,
+    *,
+    upward: bool,
+) -> tuple[RefRange, RefRange] | None:
+    """Return cover/output ranges when ``record`` is an unequal zip-class row.
+
+    Cover is ``source_ref`` when climbing and ``base_ref`` when descending,
+    matching ``find_covering_record``. ``partial`` rows never trigger a hull.
+    """
+    if record.relation not in ZIP_RANGE_RELATIONS:
+        return None
+    cover = _record_range(record, upward=upward)
+    output = _record_range(record, upward=not upward)
+    if cover is None or output is None:
+        return None
+    if _range_length(cover) == _range_length(output):
+        return None
+    return cover, output
 
 
 def _zip_project(

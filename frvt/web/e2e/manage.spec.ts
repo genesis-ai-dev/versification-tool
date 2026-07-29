@@ -67,9 +67,12 @@ test.describe("Manage e2e", () => {
     await expect(page.getByRole("heading", { name: "Delete translation" })).toBeVisible();
     expect(new URL(page.url()).pathname).toBe("/manage/translations");
     await page.getByRole("button", { name: "Delete" }).last().click();
-    await expect(page.getByRole("heading", { name: "Delete translation" })).toHaveCount(0, {
-      timeout: 180_000,
-    });
+    await expect(page.getByRole("heading", { name: "Delete translation" })).toHaveCount(
+      0,
+      {
+        timeout: 180_000,
+      },
+    );
     await expect(page.getByText(`E2E-Upload-${suffix}`)).toHaveCount(0, {
       timeout: 60_000,
     });
@@ -97,7 +100,9 @@ test.describe("Manage e2e", () => {
 
     // Upload another standalone scheme via UI.
     await page.getByRole("button", { name: "Upload versification" }).click();
-    await expect(page.getByRole("heading", { name: "Upload versification" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Upload versification" }),
+    ).toBeVisible();
     await page.locator('input[type="file"]').setInputFiles(paratextVrsPath("org"));
     await page.getByLabel(/Display name/i).fill(`E2E-VrsUp-${suffix}`);
     await page.getByRole("button", { name: "Upload", exact: true }).click();
@@ -106,7 +111,9 @@ test.describe("Manage e2e", () => {
     // Delete the unassociated renamed scheme.
     const deleteRow = page.locator("tr", { hasText: renamed });
     await deleteRow.getByRole("button", { name: "Delete" }).click();
-    await expect(page.getByRole("heading", { name: "Delete versification" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Delete versification" }),
+    ).toBeVisible();
     await page.getByRole("button", { name: "Delete" }).last().click();
     await expect(page.locator("tbody tr").filter({ hasText: renamed })).toHaveCount(0);
   });
@@ -238,13 +245,18 @@ test.describe("Manage e2e", () => {
     const row = page.locator("tbody tr").filter({ hasText: schemeName }).first();
     await expect(row).toBeVisible({ timeout: 30_000 });
     await row.getByRole("button", { name: "Delete" }).click();
-    await expect(page.getByRole("heading", { name: "Delete versification" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Delete versification" }),
+    ).toBeVisible();
     await page.getByRole("button", { name: "Delete" }).last().click();
     // Conflict may surface as inline error text, banner, or a still-open dialog message.
     await expect
       .poll(async () => {
         const inline = await page.locator(".error-text, .error-banner, .banner").count();
-        const dialogText = await page.getByRole("dialog").innerText().catch(() => "");
+        const dialogText = await page
+          .getByRole("dialog")
+          .innerText()
+          .catch(() => "");
         return inline > 0 || /conflict|associated|cannot delete|in use/i.test(dialogText);
       })
       .toBe(true);

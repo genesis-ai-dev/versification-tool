@@ -12,24 +12,34 @@ from frvt.api.errors import AppError
 from frvt.api.logging_config import get_logger
 from frvt.api.models import VerseSpan
 from frvt.api.ports.resolver_port import resolve_single_with_schemes
-from frvt.api.scheme_select import require_translation, selected_scheme_ref
 from frvt.api.schemas import ChapterResolveOut, ResolveResult
-from frvt.resolver.types import SchemeRef
+from frvt.api.scheme_select import require_translation, selected_scheme_ref
 
 logger = get_logger(__name__)
 
 
 def alignment_fingerprint(result: ResolveResult) -> tuple[Any, ...]:
     """Stable hashable key for emit-once dedupe across chapter member resolves."""
-    source_keys = tuple(sorted((span.ref, span.part or "") for span in result.source_spans))
-    target_keys = tuple(sorted((span.ref, span.part or "") for span in result.target_spans))
+    source_keys = tuple(
+        sorted((span.ref, span.part or "") for span in result.source_spans)
+    )
+    target_keys = tuple(
+        sorted((span.ref, span.part or "") for span in result.target_spans)
+    )
     edge_keys = tuple(
         sorted(
             (edge.source_index, edge.target_index, edge.relation.value)
             for edge in result.edges
         )
     )
-    return (result.relation.value, source_keys, target_keys, edge_keys)
+    return (
+        result.relation.value,
+        source_keys,
+        target_keys,
+        edge_keys,
+        result.source_rel.value if result.source_rel is not None else None,
+        result.target_rel.value if result.target_rel is not None else None,
+    )
 
 
 def _stored_whole_verses(
@@ -77,9 +87,7 @@ def resolve_chapter(
     source_scheme = selected_scheme_ref(session, from_translation, from_versification)
     target_scheme = selected_scheme_ref(session, to_translation, to_versification)
 
-    verses = _stored_whole_verses(
-        session, from_translation, book=book, chapter=chapter
-    )
+    verses = _stored_whole_verses(session, from_translation, book=book, chapter=chapter)
     seen: set[tuple[Any, ...]] = set()
     items: list[ResolveResult] = []
 

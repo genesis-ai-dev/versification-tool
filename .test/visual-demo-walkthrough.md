@@ -216,7 +216,7 @@ Each case: set **Left** / **Right versification** as named, navigate, click the 
 | **Right versification** | **Preferred (default)** on ES |
 | **Navigate to** | **GEN** · chapter **2** · verse **5** |
 | **Action** | Click **GEN 2:5** on the **left** |
-| **Expect** | Renumber within chapter (chapter-count category in jump menu); **right** shows **GEN 2:4** from scheme-a mapping `GEN 2:5-7 → GEN 2:4-5`. |
+| **Expect** | **Range** hull: three left outlines (**GEN 2:5–2:7**), two right outlines (**GEN 2:4–2:5**), uniform lime connectors, **`range`** hub badge in the gutter; follower scrolls to **GEN 2:4**. Jump menu still lists the row under **Chapter counts** (stored mapping is unchanged). |
 
 ### C-exclude — void terminator
 
@@ -256,7 +256,7 @@ Each case: set **Left** / **Right versification** as named, navigate, click the 
 | **Right versification** | `visual-demo-scheme-b` |
 | **Navigate to** | **GEN** · chapter **1** · verse **1** |
 | **Action** | Click **GEN 1:1** on the **left** |
-| **Expect** | **Complex** hull: several spans outlined on **both** sides; **multiple** connector edges with possibly different relation colors. Not a single simple 1:1 line. |
+| **Expect** | **Complex** hull: several spans outlined on **both** sides; **multiple** connector edges with per-edge colors and **no** per-connector text. Gutter hub badge reads **`merge / split`**. |
 
 ### C-partial — sub-verse part
 
@@ -276,7 +276,7 @@ Each case: set **Left** / **Right versification** as named, navigate, click the 
 | **Right versification** | `visual-demo-psalm-b` |
 | **Navigate to** | **PSA** · chapter **3** · verse **1** |
 | **Action** | Open **Jump** on either column → read the **Misalignments** section (do **not** rely on overlay alone). |
-| **Expect** | Resolve at **PSA 3:1** is same BCV on both sides after cancel filter; **PSA 3:1** is **absent** from the misalignments list. Overlay may still show connectors when **Mapping** is **Current**. |
+| **Expect** | Resolve at **PSA 3:1** reports **`one_to_one`** (same BCV on both sides after cancel filter); **PSA 3:1** is **absent** from the misalignments list. Overlay may still show connectors when **Mapping** is **Current**. |
 
 ---
 

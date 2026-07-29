@@ -22,7 +22,7 @@ def jump_difference_books(rows: list[JumpMapping]) -> list[str]:
     """
     from frvt.api.routers.navigation import navigation_target
 
-    logger.trace("Collecting jump-difference books from %d rows", len(rows))
+    logger.trace("Collecting jump-difference books from %d rows", len(rows))  # type: ignore[attr-defined]
     books: set[str] = set()
     for row in rows:
         try:

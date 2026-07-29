@@ -5,8 +5,6 @@ from __future__ import annotations
 from uuid import UUID
 
 import pytest
-from sqlalchemy import select
-
 from frvt.api.models import VerseSpan
 from frvt.testops.fixtures.api_setup import (
     associate,
@@ -17,6 +15,7 @@ from frvt.testops.fixtures.api_setup import (
 )
 from frvt.testops.fixtures.synthetic_schemes import exclude_ingredient
 from frvt.testops.fixtures.verse0_project import zip_with_psalm_verse0
+from sqlalchemy import select
 
 
 @pytest.mark.usefixtures("seeded_session")

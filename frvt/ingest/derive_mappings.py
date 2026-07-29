@@ -44,7 +44,9 @@ def derive_mapping_records(scheme: ParsedScheme) -> tuple[MappingRecordDTO, ...]
     merged_list = ingredient.get("mergedVerses") or []
     # Keys listed in ``mergedVerses`` are emitted only as ``merge`` rows below;
     # skipping them here avoids a duplicate renumber/shift row for the same ref.
-    merged_keys = {str(ref) for ref in merged_list} if isinstance(merged_list, list) else set()
+    merged_keys = (
+        {str(ref) for ref in merged_list} if isinstance(merged_list, list) else set()
+    )
     if isinstance(mapped, dict):
         for key, value in mapped.items():
             if str(key) in merged_keys:

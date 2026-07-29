@@ -134,14 +134,20 @@ SCHEME_BUILDERS: dict[str, Any] = {
 VERIFICATION_CASES: tuple[VerificationCase, ...] = (
     VerificationCase("C-ident", "scheme-a", "scheme-b", "JHN 3:16", None, "one_to_one"),
     VerificationCase("C-shift", "scheme-a", "identity-es", "PSA 3:1", None, "shift"),
-    VerificationCase("C-renumber", "scheme-a", "identity-es", "GEN 31:55", None, "renumber"),
+    VerificationCase(
+        "C-renumber", "scheme-a", "identity-es", "GEN 31:55", None, "renumber"
+    ),
     VerificationCase("C-shift-renum", "scheme-a", "scheme-b", "GEN 2:1", None, "shift"),
-    VerificationCase("C-chapter-count", "scheme-a", "identity-es", "GEN 2:5", None, "renumber"),
+    VerificationCase(
+        "C-chapter-count", "scheme-a", "identity-es", "GEN 2:5", None, "range"
+    ),
     VerificationCase("C-exclude", "scheme-a", "scheme-b", "ACT 24:7", None, "exclude"),
     VerificationCase("C-merge", "scheme-a", "identity-es", "GEN 1:1", None, "merge"),
     VerificationCase("C-split", "identity-en", "scheme-b", "GEN 1:1", None, "split"),
     VerificationCase("C-complex", "scheme-a", "scheme-b", "GEN 1:1", None, "complex"),
-    VerificationCase("C-partial", "scheme-a", "identity-es", "SIR 36:13", "a", "partial"),
+    VerificationCase(
+        "C-partial", "scheme-a", "identity-es", "SIR 36:13", "a", "partial"
+    ),
     VerificationCase(
         "C-cancel-jump",
         "psalm-a",

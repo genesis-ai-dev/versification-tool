@@ -52,6 +52,7 @@ describe("visualLanguage", () => {
     expect(visualForRelation("merge").topology).toBe("converge");
     expect(visualForRelation("exclude").topology).toBe("to_void");
     expect(visualForRelation("complex").topology).toBe("graph");
+    expect(visualForRelation("range").topology).toBe("graph");
     expect(visualForRelation("partial").dashArray).toBeTruthy();
   });
 });
@@ -138,22 +139,52 @@ describe("buildDrawPlan", () => {
   });
 
   it("draws one connector per complex edge with per-edge coloring", () => {
-    const result: ResolveResult = {
+    const withAxes: ResolveResult = {
       relation: "complex",
       source_spans: [span(1), span(2)],
       target_spans: [span(3), span(4)],
+      source_rel: "merge",
+      target_rel: "split",
       edges: [
         { source_index: 0, target_index: 0, relation: "shift" },
         { source_index: 1, target_index: 1, relation: "renumber" },
       ],
     };
-    const plan = buildDrawPlan(result, anchors("left", [1, 2], [3, 4]), true);
+    const plan = buildDrawPlan(withAxes, anchors("left", [1, 2], [3, 4]), true);
     expect(plan.connectors).toHaveLength(2);
     expect(plan.outlines).toHaveLength(4);
     expect(plan.connectors[0].color).toBe(visualForRelation("shift").color);
     expect(plan.connectors[1].color).toBe(visualForRelation("renumber").color);
-    expect(plan.connectors[0].label).toContain("complex");
-    expect(plan.connectors[0].label).toContain("shift");
+    expect(plan.connectors.every((connector) => connector.label === "")).toBe(true);
+    expect(plan.hub?.text).toBe("merge / split");
+
+    const withoutAxes: ResolveResult = {
+      relation: "complex",
+      source_spans: [span(1), span(2)],
+      target_spans: [span(3), span(4)],
+      edges: [{ source_index: 0, target_index: 0, relation: "shift" }],
+    };
+    const barePlan = buildDrawPlan(withoutAxes, anchors("left", [1, 2], [3, 4]), true);
+    expect(barePlan.hub?.text).toBe("complex");
+  });
+
+  it("draws range hull connectors with a fixed hub badge", () => {
+    const result: ResolveResult = {
+      relation: "range",
+      source_spans: [span(1), span(2), span(3, "GEN 1:3")],
+      target_spans: [span(4, "GEN 1:1"), span(5, "GEN 1:2")],
+      edges: [
+        { source_index: 0, target_index: 0, relation: "renumber" },
+        { source_index: 2, target_index: 1, relation: "renumber" },
+      ],
+    };
+    const plan = buildDrawPlan(result, anchors("left", [1, 2, 3], [4, 5]), true);
+    expect(plan.connectors).toHaveLength(2);
+    expect(
+      plan.connectors.every((connector) => connector.color === "var(--rel-range)"),
+    ).toBe(true);
+    expect(plan.connectors.every((connector) => connector.label === "")).toBe(true);
+    expect(plan.hub?.text).toBe("range");
   });
 
   it("reverses edge attachment when drive is right", () => {
@@ -197,6 +228,7 @@ describe("mergeDrawPlans", () => {
         toVoid: false,
       },
     ],
+    hub: { x: 300, y: 20, text: "merge / split", color: "#fff" },
   });
 
   it("dims non-emphasized plans and paints emphasized last", () => {
@@ -209,6 +241,15 @@ describe("mergeDrawPlans", () => {
     expect(merged.outlines[1]?.opacity).toBeUndefined();
     expect(merged.connectors[0]?.opacity).toBe(0.25);
     expect(merged.connectors[1]?.opacity).toBeUndefined();
+    expect(merged.hub?.text).toBe("merge / split");
+  });
+
+  it("drops hub badges when no plan is emphasized", () => {
+    const merged = mergeDrawPlans([samplePlan()], {
+      emphasizeIndex: null,
+      dimOpacity: 0.25,
+    });
+    expect(merged.hub).toBeUndefined();
   });
 
   it("dims all plans when emphasize index is null", () => {

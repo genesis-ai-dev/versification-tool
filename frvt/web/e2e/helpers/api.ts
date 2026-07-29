@@ -46,26 +46,19 @@ interface Page<T> {
 }
 
 /** Repo root: frvt/web/e2e/helpers → four levels up. */
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../../..",
+);
 
 /** Absolute path to the primary sample project zip used by ingest happy paths. */
 export function primaryProjectZipPath(): string {
-  return path.join(
-    repoRoot,
-    "research",
-    "SampleTranslations",
-    "biblica-spanish-1.zip",
-  );
+  return path.join(repoRoot, "research", "SampleTranslations", "biblica-spanish-1.zip");
 }
 
 /** Absolute path to a second sample zip when two distinct projects are needed. */
 export function secondaryProjectZipPath(): string {
-  return path.join(
-    repoRoot,
-    "research",
-    "SampleTranslations",
-    "american-standard-1.zip",
-  );
+  return path.join(repoRoot, "research", "SampleTranslations", "american-standard-1.zip");
 }
 
 /** Absolute path to a Paratext VRS file for standalone versification upload. */
@@ -242,9 +235,7 @@ export async function listAssociations(
   request: APIRequestContext,
   translationId: string,
 ): Promise<AssociationOut[]> {
-  const response = await request.get(
-    `/api/translations/${translationId}/versifications`,
-  );
+  const response = await request.get(`/api/translations/${translationId}/versifications`);
   await assertOk(response, `list associations for ${translationId}`);
   return (await response.json()) as AssociationOut[];
 }
@@ -304,14 +295,16 @@ export async function uploadVersificationFile(
       `API seed failed (upload versification): file not found at ${filePath}`,
     );
   }
-  const multipart: Record<string, string | { name: string; mimeType: string; buffer: Buffer }> =
-    {
-      file: {
-        name: path.basename(filePath),
-        mimeType: filePath.endsWith(".json") ? "application/json" : "text/plain",
-        buffer: fs.readFileSync(filePath),
-      },
-    };
+  const multipart: Record<
+    string,
+    string | { name: string; mimeType: string; buffer: Buffer }
+  > = {
+    file: {
+      name: path.basename(filePath),
+      mimeType: filePath.endsWith(".json") ? "application/json" : "text/plain",
+      buffer: fs.readFileSync(filePath),
+    },
+  };
   if (name) {
     multipart.name = name;
   }
@@ -587,7 +580,10 @@ export async function seedVisualDemoCorpus(
   const uploads: Array<[string, Record<string, unknown>]> = [
     ["visual-demo-scheme-a", schemeAIngredient()],
     ["visual-demo-scheme-b", schemeBIngredient()],
-    ["visual-demo-lxx", { ...schemeAIngredient(), mappedVerses: { "PSA 3:0-8": "PSA 3:1-9" } }],
+    [
+      "visual-demo-lxx",
+      { ...schemeAIngredient(), mappedVerses: { "PSA 3:0-8": "PSA 3:1-9" } },
+    ],
     [
       "visual-demo-synodal",
       {
@@ -625,8 +621,16 @@ export async function seedVisualDemoCorpus(
     await ensureAssociated(request, enIngest.translation.id, uploaded.id);
     await ensureAssociated(request, esIngest.translation.id, uploaded.id);
   }
-  const psalmA = await uploadIngredientJson(request, "visual-demo-psalm-a", psalmStyleA());
-  const psalmB = await uploadIngredientJson(request, "visual-demo-psalm-b", psalmStyleB());
+  const psalmA = await uploadIngredientJson(
+    request,
+    "visual-demo-psalm-a",
+    psalmStyleA(),
+  );
+  const psalmB = await uploadIngredientJson(
+    request,
+    "visual-demo-psalm-b",
+    psalmStyleB(),
+  );
   schemes["psalm-a"] = psalmA.id;
   schemes["psalm-b"] = psalmB.id;
   await ensureAssociated(request, enIngest.translation.id, psalmA.id);

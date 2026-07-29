@@ -92,7 +92,9 @@ def set_preferred(
 
     Mirrors e2e ``setPreferredScheme``. Raises ``AssertionError`` on failure.
     """
-    logger.debug("Setting preferred scheme=%s translation=%s", scheme_id, translation_id)
+    logger.debug(
+        "Setting preferred scheme=%s translation=%s", scheme_id, translation_id
+    )
     response = api_client.put(
         f"/api/translations/{translation_id}/versifications/{scheme_id}/preferred",
         headers=basic_auth_header(),

@@ -13,8 +13,12 @@ test.describe("Auth e2e", () => {
     expect(response!.status()).toBeLessThan(400);
     await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Viewer", exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Translations", exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Versifications", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Translations", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Versifications", exact: true }),
+    ).toBeVisible();
     await expect(page.getByLabel(/username|password|email/i)).toHaveCount(0);
     await expect(page.getByRole("button", { name: /sign in|log in|login/i })).toHaveCount(
       0,
@@ -27,9 +31,9 @@ test.describe("Auth e2e", () => {
     await expect(page).toHaveURL(/\/($|\?)/);
     await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
     await expect(page.locator("form").filter({ hasText: /password/i })).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: /sign in|log in|login/i })).toHaveCount(
-      0,
-    );
+    await expect(
+      page.getByRole("heading", { name: /sign in|log in|login/i }),
+    ).toHaveCount(0);
   });
 
   test("TC-AUTH-013: auth-failure banner after repeated 401s", async ({ page }) => {
@@ -50,9 +54,7 @@ test.describe("Auth e2e", () => {
     // Force catalog refresh / navigation that issues API calls after credentials "fail".
     await page.getByRole("link", { name: "Translations" }).click();
     await page.getByRole("link", { name: "Viewer" }).click();
-    await expect
-      .poll(() => apiHits, { timeout: 15_000 })
-      .toBeGreaterThanOrEqual(2);
+    await expect.poll(() => apiHits, { timeout: 15_000 }).toBeGreaterThanOrEqual(2);
     await expect(
       page.getByText("Authentication required — reload and sign in"),
     ).toBeVisible({ timeout: 15_000 });

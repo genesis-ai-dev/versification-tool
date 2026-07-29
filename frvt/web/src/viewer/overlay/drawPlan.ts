@@ -1,4 +1,5 @@
 import type { ResolveEdge, ResolvedSpan, ResolveResult } from "../../api/types";
+import { hubBadge, hubTextForComplex, type HubBadgePlan } from "./hubBadge";
 import { partialLabel, visualForRelation } from "./visualLanguage";
 
 /** Axis-aligned rectangle in overlay-local coordinates. */
@@ -58,6 +59,8 @@ export interface ConnectorPlan {
 export interface DrawPlan {
   outlines: OutlinePlan[];
   connectors: ConnectorPlan[];
+  /** Optional gutter hub badge for composed hulls. */
+  hub?: HubBadgePlan;
 }
 
 /**
@@ -83,6 +86,8 @@ export function buildDrawPlan(
       return planConverge(result, anchors, visual.color, "merge");
     case "complex":
       return planComplex(result, anchors);
+    case "range":
+      return planRange(result, anchors);
     case "partial":
       return planDirect(result, anchors, {
         color: visual.color,
@@ -229,12 +234,16 @@ function planConverge(
   return { outlines, connectors };
 }
 
-/**
- * Complex hull: one connector per ``edges`` entry with per-edge coloring.
- * Outlines every participating source and target span.
- */
-function planComplex(result: ResolveResult, anchors: AnchorMaps): DrawPlan {
-  const fallback = visualForRelation("complex");
+function planGraphHull(
+  result: ResolveResult,
+  anchors: AnchorMaps,
+  options: {
+    fallbackColor: string;
+    connectorColor: (edge: ResolveEdge) => string;
+    hubText: string;
+    hubColor: string;
+  },
+): DrawPlan {
   const outlines: OutlinePlan[] = [];
   const seen = new Set<string>();
 
@@ -243,7 +252,7 @@ function planComplex(result: ResolveResult, anchors: AnchorMaps): DrawPlan {
     const rect = anchors.drive.get(key);
     if (rect && !seen.has(`d:${key}`)) {
       seen.add(`d:${key}`);
-      outlines.push({ rect, color: fallback.color, emphasis: "normal" });
+      outlines.push({ rect, color: options.fallbackColor, emphasis: "normal" });
     }
   }
   for (const span of result.target_spans) {
@@ -251,28 +260,54 @@ function planComplex(result: ResolveResult, anchors: AnchorMaps): DrawPlan {
     const rect = anchors.follower.get(key);
     if (rect && !seen.has(`f:${key}`)) {
       seen.add(`f:${key}`);
-      outlines.push({ rect, color: fallback.color, emphasis: "normal" });
+      outlines.push({ rect, color: options.fallbackColor, emphasis: "normal" });
     }
   }
 
   const connectors: ConnectorPlan[] = [];
   for (const edge of result.edges) {
-    const connector = connectorForEdge(edge, result, anchors, fallback.color);
+    const connector = connectorForEdge(
+      edge,
+      result,
+      anchors,
+      options.connectorColor(edge),
+    );
     if (connector) {
-      connectors.push(connector);
+      connectors.push({
+        ...connector,
+        label: "",
+        color: options.connectorColor(edge),
+      });
     }
   }
 
-  // Hub label once near the first connector midpoint, retaining its edge label.
-  const first = connectors[0];
-  if (first) {
-    connectors[0] = {
-      ...first,
-      label: first.label ? `complex · ${first.label}` : "complex",
-    };
-  }
+  const hub = hubBadge(connectors, anchors.gutterX, options.hubText, options.hubColor);
+  return hub ? { outlines, connectors, hub } : { outlines, connectors };
+}
 
-  return { outlines, connectors };
+/**
+ * Complex hull: one connector per ``edges`` entry with per-edge coloring.
+ * Outlines every participating source and target span.
+ */
+function planComplex(result: ResolveResult, anchors: AnchorMaps): DrawPlan {
+  const fallback = visualForRelation("complex");
+  return planGraphHull(result, anchors, {
+    fallbackColor: fallback.color,
+    connectorColor: (edge) => visualForRelation(edge.relation).color || fallback.color,
+    hubText: hubTextForComplex(result),
+    hubColor: fallback.color,
+  });
+}
+
+/** Range hull: uniform connectors and a fixed ``range`` hub badge. */
+function planRange(result: ResolveResult, anchors: AnchorMaps): DrawPlan {
+  const rangeVisual = visualForRelation("range");
+  return planGraphHull(result, anchors, {
+    fallbackColor: rangeVisual.color,
+    connectorColor: () => rangeVisual.color,
+    hubText: "range",
+    hubColor: rangeVisual.color,
+  });
 }
 
 /** Build one complex-edge connector using edge relation color/label. */
@@ -323,10 +358,7 @@ function planExclude(
     const pad = outlinePad("normal");
     const direction = srcRect.x + srcRect.width / 2 <= anchors.gutterX ? 1 : -1;
     const from = {
-      x:
-        direction > 0
-          ? srcRect.x + srcRect.width + pad
-          : srcRect.x - pad,
+      x: direction > 0 ? srcRect.x + srcRect.width + pad : srcRect.x - pad,
       y: srcRect.y + srcRect.height / 2,
     };
     connectors.push({
@@ -357,8 +389,7 @@ export function facingAnchors(
   sourcePad = 2,
   targetPad = 2,
 ): { from: { x: number; y: number }; to: { x: number; y: number } } {
-  const targetIsRight =
-    target.x + target.width / 2 >= source.x + source.width / 2;
+  const targetIsRight = target.x + target.width / 2 >= source.x + source.width / 2;
   if (targetIsRight) {
     return {
       from: {
@@ -411,6 +442,7 @@ export function expectedConnectorCount(result: ResolveResult): number {
     case "merge":
       return result.source_spans.length;
     case "complex":
+    case "range":
       return result.edges.length;
     default:
       return result.source_spans.length > 0 && result.target_spans.length > 0 ? 1 : 0;
@@ -481,6 +513,7 @@ function withPlanOpacity(plan: DrawPlan, opacity: number): DrawPlan {
   return {
     outlines: plan.outlines.map((outline) => ({ ...outline, opacity })),
     connectors: plan.connectors.map((connector) => ({ ...connector, opacity })),
+    hub: plan.hub ? { ...plan.hub, opacity } : undefined,
   };
 }
 
@@ -495,6 +528,7 @@ export function mergeDrawPlans(
   const dimOpacity = options.dimOpacity ?? 0.25;
   const dimmed: DrawPlan = { outlines: [], connectors: [] };
   const emphasized: DrawPlan = { outlines: [], connectors: [] };
+  let emphasizedHub: HubBadgePlan | undefined;
 
   for (let index = 0; index < plans.length; index += 1) {
     const plan = plans[index]!;
@@ -503,6 +537,7 @@ export function mergeDrawPlans(
     if (isEmphasized) {
       emphasized.outlines.push(...plan.outlines);
       emphasized.connectors.push(...plan.connectors);
+      emphasizedHub = plan.hub;
     } else {
       const dimPlan = withPlanOpacity(plan, dimOpacity);
       dimmed.outlines.push(...dimPlan.outlines);
@@ -513,5 +548,6 @@ export function mergeDrawPlans(
   return {
     outlines: [...dimmed.outlines, ...emphasized.outlines],
     connectors: [...dimmed.connectors, ...emphasized.connectors],
+    hub: emphasizedHub,
   };
 }

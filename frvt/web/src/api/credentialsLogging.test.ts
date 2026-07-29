@@ -39,17 +39,24 @@ describe("credentials never logged", () => {
 
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () =>
-        new Response(JSON.stringify({ ok: true }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }),
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ ok: true }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
       ),
     );
 
     await apiGet<{ ok: boolean }>("/api/health");
 
-    const allCalls = [...log.mock.calls, ...debug.mock.calls, ...info.mock.calls, ...warn.mock.calls, ...error.mock.calls]
+    const allCalls = [
+      ...log.mock.calls,
+      ...debug.mock.calls,
+      ...info.mock.calls,
+      ...warn.mock.calls,
+      ...error.mock.calls,
+    ]
       .flat()
       .map(String);
     expect(allCalls.some((msg) => /Authorization|password|Basic\s+/i.test(msg))).toBe(

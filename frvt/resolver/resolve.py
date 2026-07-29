@@ -15,16 +15,29 @@ from frvt.resolver.chains import (
     nearest_shared_translation,
     preferred_scheme_ref,
 )
-from frvt.resolver.compose import compose
-from frvt.resolver.cover import project_verse
+from frvt.resolver.compose import compose, dominant_relation
+from frvt.resolver.normalize import normalize_same_bcv
 from frvt.resolver.parse_ref import expand, format_bcv, parse_ref
+from frvt.resolver.range_hull import build_range_hull, find_range_trigger
 from frvt.resolver.types import (
     Hop,
     ResolutionDTO,
     ResolutionEdgeDTO,
-    ResolvedSpanDTO,
     SchemeRef,
     VerseId,
+)
+from frvt.resolver.walk import (
+    apply_hops_downward,
+    apply_hops_forward,
+    down_set,
+    edge_legs,
+    edge_relation,
+    is_contiguous,
+    piv_of_target,
+    sort_verses,
+    src_of_pivot,
+    to_span,
+    up_set,
 )
 
 logger = get_logger(__name__)
@@ -44,121 +57,6 @@ def _select_scheme(
     if preferred is None:
         raise LookupError(f"No preferred scheme for translation {translation_id}")
     return preferred
-
-
-def _sort_verses(verses: list[VerseId] | set[VerseId]) -> list[VerseId]:
-    """Sort verses by book, chapter, verse, then part for stable emission."""
-    return sorted(
-        verses,
-        key=lambda v: (v.book, v.chapter, v.verse, v.part or ""),
-    )
-
-
-def _to_span(verse: VerseId) -> ResolvedSpanDTO:
-    """Convert a ``VerseId`` into a resolver span DTO."""
-    return ResolvedSpanDTO(ref=format_bcv(verse), part=verse.part)
-
-
-def _is_contiguous(verses: list[VerseId]) -> bool:
-    """Return whether sorted verses form one same-book, same-chapter sequence."""
-    if len(verses) < 2:
-        return True
-    first = verses[0]
-    return all(
-        verse.book == first.book
-        and verse.chapter == first.chapter
-        and verse.verse == first.verse + index
-        for index, verse in enumerate(verses)
-    )
-
-
-def _apply_hops_forward(
-    verses: list[VerseId], hops: list[Hop]
-) -> tuple[list[VerseId], str, bool, list[VerseId]]:
-    """Apply upward hops; return (out, relation, excluded, merge_siblings)."""
-    current = list(verses)
-    relation = "one_to_one"
-    excluded = False
-    merge_siblings: list[VerseId] = []
-    for hop in hops:
-        next_verses: list[VerseId] = []
-        for verse in current:
-            projection = project_verse(verse, hop.mappings, upward=True)
-            relation = compose(relation, projection.relation)
-            if projection.excluded:
-                excluded = True
-                continue
-            next_verses.extend(projection.verses)
-            if projection.merge_siblings:
-                merge_siblings.extend(projection.merge_siblings)
-        current = _sort_verses(set(next_verses))
-        if excluded and not current:
-            break
-    return current, relation, excluded, _sort_verses(set(merge_siblings))
-
-
-def _apply_hops_downward(
-    verses: list[VerseId], hops: list[Hop]
-) -> tuple[list[VerseId], str, bool]:
-    """Apply downward (inverted) hops from ancestor numbering toward the target."""
-    current = list(verses)
-    relation = "one_to_one"
-    excluded = False
-    for hop in hops:
-        next_verses: list[VerseId] = []
-        for verse in current:
-            projection = project_verse(verse, hop.mappings, upward=False)
-            relation = compose(relation, projection.relation)
-            if projection.excluded:
-                excluded = True
-                continue
-            next_verses.extend(projection.verses)
-        current = _sort_verses(set(next_verses))
-        if excluded and not current:
-            break
-    return current, relation, excluded
-
-
-def _up_set(verse: VerseId, hops: list[Hop]) -> set[VerseId]:
-    """Pivot verses reached by walking ``verse`` upward through ``hops``."""
-    out, _, excluded, _ = _apply_hops_forward([verse], hops)
-    return set() if excluded else set(out)
-
-
-def _down_set(verse: VerseId, hops: list[Hop]) -> set[VerseId]:
-    """Target verses reached by walking ``verse`` downward through ``hops``."""
-    out, _, excluded = _apply_hops_downward([verse], hops)
-    return set() if excluded else set(out)
-
-
-def _src_of_pivot(pivot: VerseId, hops: list[Hop]) -> set[VerseId]:
-    """Source verses that map upward onto ``pivot`` (invert the upward hops)."""
-    # Invert: start from pivot, walk hops downward (base→source) in reverse.
-    inverted = list(reversed(hops))
-    return _down_set(pivot, inverted)
-
-
-def _piv_of_target(target: VerseId, hops: list[Hop]) -> set[VerseId]:
-    """Pivot verses that map downward onto ``target`` (invert the downward hops)."""
-    inverted = list(reversed(hops))
-    return _up_set(target, inverted)
-
-
-def _edge_relation(
-    source: VerseId,
-    pivot: VerseId,
-    target: VerseId,
-    src_hops: list[Hop],
-    tgt_hops: list[Hop],
-) -> str:
-    """Compose the per-connector relation for one source↔pivot↔target path."""
-    up_out, up_rel, up_ex, _ = _apply_hops_forward([source], src_hops)
-    if up_ex or pivot not in up_out:
-        up_rel = "one_to_one"
-    down_out, down_rel, down_ex = _apply_hops_downward([pivot], tgt_hops)
-    if down_ex or target not in down_out:
-        down_rel = "one_to_one"
-    return compose(up_rel, down_rel)
 
 
 def build_hull(
@@ -182,33 +80,33 @@ def build_hull(
         seen.add(key)
         if kind == "source":
             sources.add(node)
-            for pivot in _up_set(node, src_hops):
+            for pivot in up_set(node, src_hops):
                 worklist.append(("pivot", pivot))
         elif kind == "pivot":
             pivots.add(node)
-            for source in _src_of_pivot(node, src_hops):
+            for source in src_of_pivot(node, src_hops):
                 worklist.append(("source", source))
-            for target in _down_set(node, tgt_hops):
+            for target in down_set(node, tgt_hops):
                 worklist.append(("target", target))
         else:
             targets.add(node)
-            for pivot in _piv_of_target(node, tgt_hops):
+            for pivot in piv_of_target(node, tgt_hops):
                 worklist.append(("pivot", pivot))
 
-    source_list = _sort_verses(sources)
-    target_list = _sort_verses(targets)
+    source_list = sort_verses(sources)
+    target_list = sort_verses(targets)
 
     if get_settings().resolve_trace_pivots:
         logger.trace(  # type: ignore[attr-defined]
             "Hull pivots=%s sources=%s targets=%s",
-            [format_bcv(p) for p in _sort_verses(pivots)],
+            [format_bcv(p) for p in sort_verses(pivots)],
             [format_bcv(s) for s in source_list],
             [format_bcv(t) for t in target_list],
         )
 
     if not target_list:
         return ResolutionDTO(
-            source_spans=tuple(_to_span(s) for s in source_list or members),
+            source_spans=tuple(to_span(s) for s in source_list or members),
             target_spans=(),
             relation="exclude",
             edges=(),
@@ -217,62 +115,68 @@ def build_hull(
     if len(source_list) <= 1 and len(target_list) <= 1:
         rel = "one_to_one"
         if source_list and target_list and pivots:
-            rel = _edge_relation(
+            rel = edge_relation(
                 source_list[0], next(iter(pivots)), target_list[0], src_hops, tgt_hops
             )
         return ResolutionDTO(
-            source_spans=tuple(_to_span(s) for s in source_list),
-            target_spans=tuple(_to_span(t) for t in target_list),
+            source_spans=tuple(to_span(s) for s in source_list),
+            target_spans=tuple(to_span(t) for t in target_list),
             relation=rel,
             edges=(),
         )
 
-    # Atomic split / merge: keep cardinality without complex edges.
     if len(source_list) == 1 and len(target_list) > 1:
         return ResolutionDTO(
-            source_spans=tuple(_to_span(s) for s in source_list),
-            target_spans=tuple(_to_span(t) for t in target_list),
+            source_spans=tuple(to_span(s) for s in source_list),
+            target_spans=tuple(to_span(t) for t in target_list),
             relation="split",
             edges=(),
         )
     if len(source_list) > 1 and len(target_list) == 1:
         return ResolutionDTO(
-            source_spans=tuple(_to_span(s) for s in source_list),
-            target_spans=tuple(_to_span(t) for t in target_list),
+            source_spans=tuple(to_span(s) for s in source_list),
+            target_spans=tuple(to_span(t) for t in target_list),
             relation="merge",
             edges=(),
         )
 
     edges: list[ResolutionEdgeDTO] = []
+    up_rels: list[str] = []
+    down_rels: list[str] = []
     seen_edge: set[tuple[int, int]] = set()
     source_index = {v: i for i, v in enumerate(source_list)}
     target_index = {v: i for i, v in enumerate(target_list)}
     for pivot in pivots:
-        for source in _src_of_pivot(pivot, src_hops):
+        for source in src_of_pivot(pivot, src_hops):
             if source not in source_index:
                 continue
-            for target in _down_set(pivot, tgt_hops):
+            for target in down_set(pivot, tgt_hops):
                 if target not in target_index:
                     continue
                 pair = (source_index[source], target_index[target])
                 if pair in seen_edge:
                     continue
                 seen_edge.add(pair)
+                up_rel, down_rel, composed = edge_legs(
+                    source, pivot, target, src_hops, tgt_hops
+                )
+                up_rels.append(up_rel)
+                down_rels.append(down_rel)
                 edges.append(
                     ResolutionEdgeDTO(
                         source_index=pair[0],
                         target_index=pair[1],
-                        relation=_edge_relation(
-                            source, pivot, target, src_hops, tgt_hops
-                        ),
+                        relation=composed,
                     )
                 )
 
     return ResolutionDTO(
-        source_spans=tuple(_to_span(s) for s in source_list),
-        target_spans=tuple(_to_span(t) for t in target_list),
+        source_spans=tuple(to_span(s) for s in source_list),
+        target_spans=tuple(to_span(t) for t in target_list),
         relation="complex",
         edges=tuple(edges),
+        source_rel=dominant_relation(up_rels),
+        target_rel=dominant_relation(down_rels),
     )
 
 
@@ -287,14 +191,14 @@ def _atomic_result(
     member_relations: set[str] = set()
 
     for member in members:
-        pivots, up_rel, up_ex, merge_sibs = _apply_hops_forward([member], src_hops)
+        pivots, up_rel, up_ex, merge_sibs = apply_hops_forward([member], src_hops)
         member_sources = {member, *merge_sibs}
         if merge_sibs:
             all_sources.update(merge_sibs)
         if up_ex and not pivots:
             member_relations.add("exclude")
             continue
-        targets, down_rel, down_ex = _apply_hops_downward(pivots, tgt_hops)
+        targets, down_rel, down_ex = apply_hops_downward(pivots, tgt_hops)
         if down_ex and not targets:
             member_relations.add("exclude")
             continue
@@ -304,12 +208,12 @@ def _atomic_result(
             return build_hull(members, src_hops, tgt_hops)
         all_targets.update(targets)
 
-    source_list = _sort_verses(all_sources)
-    target_list = _sort_verses(all_targets)
+    source_list = sort_verses(all_sources)
+    target_list = sort_verses(all_targets)
 
     if member_relations == {"exclude"}:
         return ResolutionDTO(
-            source_spans=tuple(_to_span(s) for s in source_list),
+            source_spans=tuple(to_span(s) for s in source_list),
             target_spans=(),
             relation="exclude",
             edges=(),
@@ -317,8 +221,8 @@ def _atomic_result(
 
     if (
         len(member_relations) != 1
-        or not _is_contiguous(source_list)
-        or not _is_contiguous(target_list)
+        or not is_contiguous(source_list)
+        or not is_contiguous(target_list)
     ):
         return build_hull(members, src_hops, tgt_hops)
 
@@ -329,11 +233,29 @@ def _atomic_result(
         relation = "merge"
 
     return ResolutionDTO(
-        source_spans=tuple(_to_span(s) for s in source_list),
-        target_spans=tuple(_to_span(t) for t in target_list),
+        source_spans=tuple(to_span(s) for s in source_list),
+        target_spans=tuple(to_span(t) for t in target_list),
         relation=relation,
         edges=(),
     )
+
+
+def assemble(
+    members: list[VerseId],
+    src_hops: list[Hop],
+    tgt_hops: list[Hop],
+) -> ResolutionDTO:
+    """Resolve members and apply post-assembly normalization (single entry point)."""
+    logger.debug("Assembling resolve for %s member(s)", len(members))
+    trigger = find_range_trigger(members, src_hops, tgt_hops)
+    if trigger is not None:
+        hull = build_hull(members, src_hops, tgt_hops)
+        if hull.relation == "complex":
+            return hull
+        ranged = build_range_hull(trigger, members, src_hops, tgt_hops)
+        if ranged is not None:
+            return normalize_same_bcv(ranged)
+    return normalize_same_bcv(_atomic_result(members, src_hops, tgt_hops))
 
 
 def resolve(
@@ -374,4 +296,4 @@ def resolve(
     src_hops = hops_to_ancestor(src_chain, ancestor)
     tgt_hops = hops_from_ancestor(tgt_chain, ancestor)
 
-    return _atomic_result(members, src_hops, tgt_hops)
+    return assemble(members, src_hops, tgt_hops)

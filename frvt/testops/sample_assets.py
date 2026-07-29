@@ -20,12 +20,7 @@ def repo_root() -> Path:
 
 def primary_project_zip() -> Path:
     """Return the primary sample project zip path used by ingest happy-path cases."""
-    path = (
-        _REPO_ROOT
-        / "research"
-        / "SampleTranslations"
-        / "biblica-spanish-1.zip"
-    )
+    path = _REPO_ROOT / "research" / "SampleTranslations" / "biblica-spanish-1.zip"
     logger.debug("Primary project zip path=%s exists=%s", path, path.is_file())
     return path
 
