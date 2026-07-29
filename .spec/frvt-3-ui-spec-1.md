@@ -36,7 +36,7 @@ The UI is a React + TypeScript SPA. Vite emits built assets to `frvt/web/dist/`;
 ### 2.1 In scope
 
 - Route map for the viewer and manage screens.
-- Two-column viewer: translation selectors, BCV selectors, jump menus, scheme switcher, mapping toggle, verse list by `seq`.
+- Two-column viewer: translation selectors, searchable BCV typeaheads, jump menus, scheme switcher, mapping toggle, verse list by `seq`.
 - SVG overlay: outlines, connector topologies, relation-colored visual language, connector-to-void for exclusions.
 - Empty state that requires project upload when no translations exist.
 - Manage screens for translations and versifications; modals for upload, rename, associate, remove association, and delete confirmation.
@@ -63,7 +63,7 @@ Every POC capability the UI owns traces to a screen or component and the API sur
 | --- | --- | --- | --- | --- |
 | 1 | Side-by-side display of two translations | `ViewerPage` / `ScriptureColumn` | `GET /api/translations`, `GET /api/translations/{id}/spans` | Spans rendered by `seq`. |
 | 2 | Navigation in one column drives alignment in the other | `ViewerSession` resolve cycle | `GET /api/resolve` | Drive→from / follower→to ([§7.6](#76-resolve-request-mapping)); follower may load a new chapter before scroll ([§6.4](#64-viewer-workflow)). |
-| 3 | Per-column book/chapter/verse selector | `ColumnChrome` / BCV selectors | `GET /api/translations/{id}/navigation`, spans | Books rendered in API order (USX Bible order). Verse options from loaded chapter spans when navigation omits verse lists. |
+| 3 | Per-column book/chapter/verse selector | `ColumnChrome` / BCV typeaheads | `GET /api/translations/{id}/navigation`, spans | Searchable comboboxes (filter by value and label). Books rendered in API order (USX Bible order). Verse options from loaded chapter spans when navigation omits verse lists. |
 | 4 | Per-column jump menu | `JumpMenu` | `GET /api/resolve/deltas`, `/misalignments`, `/navigation` | Unblocked: server provides discrete `navigation_ref` / `navigation` ([§9.2](#92-required-api-reconciliation) #1). |
 | 5 | Outlines around mapped verses and partial spans | `MappingOverlay` | `GET /api/resolve` (`part`) | Partial outlines the part node only. |
 | 6 | Connector lines between mapped spans | `OverlayController` | `GET /api/resolve` (`seq`) | Topology by `relation` value; edges follow drive/follower, not left/right ([§8.4](#84-overlay-redraw-pipeline)). |
@@ -589,6 +589,7 @@ frvt/web/
       ViewerWorkspace.tsx
       ScriptureColumn.tsx
       ColumnChrome.tsx
+      TypeaheadSelect.tsx        # searchable BCV combobox (ADD-U-006)
       VerseList.tsx
       VerseSpan.tsx
       JumpMenu.tsx
@@ -739,12 +740,12 @@ Post-reconciliation modifications. Apply subsections in order (`ADD-*-001`, then
 
 ### ADD-U-003 — Book jump-difference indicators
 
-**Purpose:** Per-book indicators on each column's native book selector for translation-pair jump differences, plus a visible legend, so users see which books have jump-menu deltas or misalignments before opening Jump.
+**Purpose:** Per-book indicators on each column's book typeahead for translation-pair jump differences, plus a visible legend, so users see which books have jump-menu deltas or misalignments before opening Jump.
 
 | Mod id | Target | Action | Effective text |
 | --- | --- | --- | --- |
 | ADD-U-003a | §2.3 row 3 | REPLACE | Per-column book/chapter/verse selector: book options show a unicode suffix on books that have jump-relevant mapping differences for the current pair and schemes (via `GET /api/resolve/jump-books` for that column's from→to direction). Always-visible legend: `● Book has mapping differences`. |
-| ADD-U-003b | §10 layout (`ColumnChrome`) | ADD | Native book `<select>`: option **display text** suffixes ` ●` (U+25CF) when the book is in the jump-books set for that column; `value` stays the bare USFM code. Legend visible whenever the Book select is enabled (translation selected). Markers only when `canResolve` and summary data has loaded; unmarked labels while loading or when `!canResolve`. Prefer one visible legend element with an `id` and `aria-describedby` on the Book `<select>`. |
+| ADD-U-003b | §10 layout (`ColumnChrome`) | ADD | Book typeahead: option **display text** suffixes ` ●` (U+25CF) when the book is in the jump-books set for that column; committed **value** stays the bare USFM code. Legend visible whenever the Book control is enabled (translation selected). Markers only when `canResolve` and summary data has loaded; unmarked labels while loading or when `!canResolve`. Prefer one visible legend element with an `id` and `aria-describedby` on the Book combobox. |
 | ADD-U-003c | §7.2 | ADD | Session caches per-side jump-books: e.g. `jumpBooksFor(side): ReadonlySet<string>`. Fetch when `canResolve`; one request per column direction (left-as-from, right-as-from) with `AbortController`; clear cache on translation or versification change before new data arrives. Prefetch independently of Jump panel open state; do not block BCV selection. |
 | ADD-U-003d | §9.3 | ADD | `GET /api/resolve/jump-books` per column when both translations are resolvable. |
 | ADD-U-003e | §11.3 | ADD | Contract tests: option label suffix when book is flagged; legend visible; bare `value` preserved on selection (no marker leaked into URL book params). Do not test thin fetch wrappers. |
@@ -759,7 +760,7 @@ Post-reconciliation modifications. Apply subsections in order (`ADD-*-001`, then
 | ADD-U-004a | §6.4 (After a successful resolve) | REPLACE | Verse selection scrolls both columns. The **drive** column scrolls to its selected verse span whenever that selection changes and the span is rendered (chrome, verse click, or jump), independent of resolve success, so `exclude` results and single-translation mode still scroll the driving column. After a successful resolve, if a primary follower target exists, scroll the **follower** so that target `seq` is visible (existing rule); for `exclude` / empty targets do not invent a follower scroll target. Both use `scrollIntoView` with `block: "nearest"` and `behavior: "smooth"` under scroll-lock; targets already fully inside the scrollport neither scroll nor take the lock. |
 | ADD-U-004b | §6.4 sequence diagram note / step 3 | CLARIFY | Highlight and scroll steps cover **both** columns: drive to selected verse, follower to primary target when present. |
 | ADD-U-004c | §6.5 step 2 (scheme option labels) | REPLACE | Scheme option labels: `{name} (based on {based_on_name})` when `based_on_name` is non-null; otherwise `{name}`. Preferred association appends ` ★` after the full label. The empty option remains `Preferred (default)` with no based-on text. Join path unchanged (associations → versification catalog by `scheme_id`, or enriched `AssociationOut` if present). |
-| ADD-U-004d | §10 layout (`ColumnChrome`) / ADD-U-003b legend placement | REPLACE | Book jump legend `● Book has mapping differences` is inline on the same row as the **Book** label text (not under the `<select>`). Keep legend `id` + `aria-describedby` on the Book `<select>`. Visibility and marker rules from ADD-U-003 remain. |
+| ADD-U-004d | §10 layout (`ColumnChrome`) / ADD-U-003b legend placement | REPLACE | Book jump legend `● Book has mapping differences` is inline on the same row as the **Book** label text (not under the typeahead). Keep legend `id` + `aria-describedby` on the Book combobox. Visibility and marker rules from ADD-U-003 remain. |
 | ADD-U-004e | §5.3 / §10 layout (`ViewerWorkspace`) | ADD | When `canResolve`, show one non-interactive drive-direction indicator near the seam between the two columns at chrome-row height, offset slightly left for visual balance. Glyph points drive→follower: `→` when `drive=left`, `←` when `drive=right`. Accessible name e.g. `Drive: left → right` / `Drive: right → left`. Hidden when `!canResolve`. Does not change `drive` on click. |
 | ADD-U-004f | §3.2 / toolbar pair context | CLARIFY | Keep the textual `drive: left\|right` cue in the viewer toolbar pair-context row alongside the between-column direction arrow (ADD-U-004e). Drive-column accent bar (`is-source`) also remains. |
 | ADD-U-004g | §11.3 | ADD | Contract tests: drive + follower scroll after resolve (no resolve loop); drive scrolls on exclude; versification option text includes `(based on …)` when `based_on_name` set and omits it when null; preferred ★ after full label; legend is a sibling of the Book label text (not below the select); drive arrow visible only when `canResolve`, flips with `drive`, and is not a control that writes `drive`. |
@@ -781,3 +782,13 @@ Post-reconciliation modifications. Apply subsections in order (`ADD-*-001`, then
 | Mod id | Target | Action | Effective text |
 | --- | --- | --- | --- |
 | ADD-U-005a | §2.3 row 3 | CLARIFY | Book/chapter options come from `GET /api/translations/{id}/navigation`, which lists stored `verse_span` books/chapters only (server ADD-S-004). The UI continues to render API order as given; it does not invent scheme-only books. |
+
+### ADD-U-006 — Searchable BCV typeaheads
+
+**Purpose:** Users can select book, chapter, and verse by typing instead of scrolling long native lists.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-U-006a | §2.3 row 3 / §10 (`ColumnChrome`) | REPLACE | Book, chapter, and verse controls are searchable comboboxes (`TypeaheadSelect`), not native `<select>`. Typing filters options by case-insensitive substring match on both the option **value** and **label** (so USFM codes and display text such as `Title (0)` both match). Keyboard: ArrowUp/ArrowDown, Enter to commit, Escape to dismiss. Translation and versification controls remain native `<select>`. |
+| ADD-U-006b | ADD-U-003b / ADD-U-004d | CLARIFY | Jump-book ` ●` markers and legend/`aria-describedby` apply to the book combobox the same way they did for the native book select; committed values remain bare USFM codes. |
+| ADD-U-006c | §11.3 | ADD | Contract tests: filter narrows options; selecting a marked book commits the bare code; e2e BCV helpers drive the combobox via listbox options / `data-value`. |

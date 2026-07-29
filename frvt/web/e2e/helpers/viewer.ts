@@ -86,7 +86,9 @@ export async function openViewerSession(
   }
   // URL defaults / span load can lag behind translation selection under catalog load.
   await expect
-    .poll(async () => page.getByLabel("left book").inputValue(), { timeout: 45_000 })
+    .poll(async () => page.getByLabel("left book").getAttribute("data-value"), {
+      timeout: 45_000,
+    })
     .not.toBe("");
   await waitForVerseSpans(page);
 }
@@ -167,7 +169,45 @@ export async function clickFirstVerse(page: Page, side: "left" | "right"): Promi
 }
 
 /**
- * Select a book/chapter/verse via column chrome selects when options exist.
+ * Open a BCV typeahead and click the option with the given data-value.
+ * Returns false when that option is absent.
+ */
+export async function selectTypeaheadValue(
+  page: Page,
+  ariaLabel: string,
+  value: string,
+): Promise<boolean> {
+  const combobox = page.getByLabel(ariaLabel);
+  await combobox.click();
+  const listbox = page.getByRole("listbox", { name: ariaLabel });
+  const option = listbox.locator(`[role="option"][data-value="${value}"]`);
+  if ((await option.count()) === 0) {
+    await page.keyboard.press("Escape");
+    return false;
+  }
+  await option.click();
+  await expect(combobox).toHaveAttribute("data-value", value);
+  return true;
+}
+
+/** True when the open listbox for ``ariaLabel`` contains ``value``. */
+async function typeaheadHasValue(
+  page: Page,
+  ariaLabel: string,
+  value: string,
+): Promise<boolean> {
+  const combobox = page.getByLabel(ariaLabel);
+  await combobox.click();
+  const count = await page
+    .getByRole("listbox", { name: ariaLabel })
+    .locator(`[role="option"][data-value="${value}"]`)
+    .count();
+  await page.keyboard.press("Escape");
+  return count > 0;
+}
+
+/**
+ * Select a book/chapter/verse via column chrome typeaheads when options exist.
  * Skips redundant book reselection (which resets chapter/verse to defaults).
  * Waits for verse options after chapter changes because options come from spans.
  */
@@ -179,20 +219,18 @@ export async function trySelectBcv(
   verse?: string,
 ): Promise<boolean> {
   const bookSelect = page.getByLabel(`${side} book`);
-  const option = bookSelect.locator(`option[value="${book}"]`);
-  if ((await option.count()) === 0) {
+  if (!(await typeaheadHasValue(page, `${side} book`, book))) {
     return false;
   }
-  if ((await bookSelect.inputValue()) !== book) {
-    await bookSelect.selectOption(book);
-    await expect(bookSelect).toHaveValue(book);
+  if ((await bookSelect.getAttribute("data-value")) !== book) {
+    await selectTypeaheadValue(page, `${side} book`, book);
   }
-  const chapterSelect = page.getByLabel(`${side} chapter`);
   await expect
-    .poll(async () => chapterSelect.locator(`option[value="${chapter}"]`).count())
-    .toBeGreaterThan(0);
-  if ((await chapterSelect.inputValue()) !== chapter) {
-    await chapterSelect.selectOption(chapter);
+    .poll(async () => typeaheadHasValue(page, `${side} chapter`, chapter))
+    .toBe(true);
+  const chapterSelect = page.getByLabel(`${side} chapter`);
+  if ((await chapterSelect.getAttribute("data-value")) !== chapter) {
+    await selectTypeaheadValue(page, `${side} chapter`, chapter);
   }
   const bookKey = side === "left" ? "lb" : "rb";
   const chapterKey = side === "left" ? "lc" : "rc";
@@ -203,10 +241,11 @@ export async function trySelectBcv(
     })
     .toBe(`${book}|${chapter}`);
   if (verse !== undefined) {
-    const verseSelect = page.getByLabel(`${side} verse`);
-    const verseOption = verseSelect.locator(`option[value="${verse}|"]`);
-    await expect.poll(async () => verseOption.count()).toBeGreaterThan(0);
-    await verseSelect.selectOption(`${verse}|`);
+    const verseKey = `${verse}|`;
+    await expect
+      .poll(async () => typeaheadHasValue(page, `${side} verse`, verseKey))
+      .toBe(true);
+    await selectTypeaheadValue(page, `${side} verse`, verseKey);
   }
   await waitForVerseSpans(page);
   return true;

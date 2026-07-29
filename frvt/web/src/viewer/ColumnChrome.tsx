@@ -1,7 +1,9 @@
+import { useMemo } from "react";
 import { formatVerseLabel } from "../lib/formatRef";
 import { formatVersificationOptionLabel } from "../lib/formatVersificationOption";
 import type { DriveSide } from "./overlay/drawPlan";
 import { JumpMenu } from "./JumpMenu";
+import { TypeaheadSelect } from "./TypeaheadSelect";
 import { useViewerSession } from "./ViewerSession";
 
 /** Props for per-column translation / BCV / scheme chrome. */
@@ -13,7 +15,7 @@ export interface ColumnChromeProps {
 }
 
 /**
- * Translation selector, BCV selectors, scheme select, and jump menu.
+ * Translation selector, BCV typeaheads, scheme select, and jump menu.
  * Scheme selection writes ``lvers``/``rvers`` only — never preferred PUT.
  */
 export function ColumnChrome({ side, resolveDisabled }: ColumnChromeProps) {
@@ -29,6 +31,35 @@ export function ColumnChrome({ side, resolveDisabled }: ColumnChromeProps) {
 
   const chapters = navigation.find((book) => book.book === bcv?.book)?.chapters ?? [];
   const verses = uniqueVerses(spans);
+
+  const bookOptions = useMemo(
+    () => [
+      { value: "", label: "—" },
+      ...navigation.map((book) => ({
+        value: book.book,
+        label: jumpBooks.has(book.book) ? `${book.book} ●` : book.book,
+      })),
+    ],
+    [navigation, jumpBooks],
+  );
+
+  const chapterOptions = useMemo(
+    () =>
+      chapters.map((chapter) => ({
+        value: String(chapter),
+        label: String(chapter),
+      })),
+    [chapters],
+  );
+
+  const verseOptions = useMemo(
+    () =>
+      verses.map((v) => ({
+        value: `${v.verse}|${v.part ?? ""}`,
+        label: `${formatVerseLabel(v.verse)}${v.part ? v.part : ""}`,
+      })),
+    [verses],
+  );
 
   return (
     <div className="column-chrome">
@@ -59,16 +90,17 @@ export function ColumnChrome({ side, resolveDisabled }: ColumnChromeProps) {
             </span>
           ) : null}
         </span>
-        <select
+        <TypeaheadSelect
           value={bcv?.book ?? ""}
+          options={bookOptions}
           aria-label={`${side} book`}
           aria-describedby={translationId ? bookLegendId : undefined}
           disabled={!translationId}
-          onChange={(event) => {
-            if (!bcv && !event.target.value) {
+          placeholder="—"
+          onChange={(book) => {
+            if (!bcv && !book) {
               return;
             }
-            const book = event.target.value;
             const bookNav = navigation.find((b) => b.book === book);
             const chapter = bookNav?.chapters[0] ?? 1;
             session.setColumnBcv(side, {
@@ -78,70 +110,49 @@ export function ColumnChrome({ side, resolveDisabled }: ColumnChromeProps) {
               part: null,
             });
           }}
-        >
-          <option value="">—</option>
-          {navigation.map((book) => (
-            <option key={book.book} value={book.book}>
-              {jumpBooks.has(book.book) ? `${book.book} ●` : book.book}
-            </option>
-          ))}
-        </select>
+        />
       </label>
 
       <label>
         Chapter
-        <select
-          value={bcv?.chapter ?? ""}
+        <TypeaheadSelect
+          value={bcv ? String(bcv.chapter) : ""}
+          options={chapterOptions}
           aria-label={`${side} chapter`}
           disabled={!bcv}
-          onChange={(event) => {
+          onChange={(chapterRaw) => {
             if (!bcv) {
               return;
             }
             session.setColumnBcv(side, {
               ...bcv,
-              chapter: Number(event.target.value),
+              chapter: Number(chapterRaw),
               verse: 1,
               part: null,
             });
           }}
-        >
-          {chapters.map((chapter) => (
-            <option key={chapter} value={chapter}>
-              {chapter}
-            </option>
-          ))}
-        </select>
+        />
       </label>
 
       <label>
         Verse
-        <select
+        <TypeaheadSelect
           value={bcv ? `${bcv.verse}|${bcv.part ?? ""}` : ""}
+          options={verseOptions}
           aria-label={`${side} verse`}
           disabled={!bcv}
-          onChange={(event) => {
+          onChange={(verseKey) => {
             if (!bcv) {
               return;
             }
-            const [verseRaw, partRaw = ""] = event.target.value.split("|");
+            const [verseRaw, partRaw = ""] = verseKey.split("|");
             session.setColumnBcv(side, {
               ...bcv,
               verse: Number(verseRaw),
               part: partRaw || null,
             });
           }}
-        >
-          {verses.map((v) => (
-            <option
-              key={`${v.verse}|${v.part ?? ""}`}
-              value={`${v.verse}|${v.part ?? ""}`}
-            >
-              {formatVerseLabel(v.verse)}
-              {v.part ? v.part : ""}
-            </option>
-          ))}
-        </select>
+        />
       </label>
 
       <label>

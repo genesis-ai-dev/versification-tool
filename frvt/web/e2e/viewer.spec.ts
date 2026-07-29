@@ -451,24 +451,31 @@ test.describe("Viewer e2e", () => {
       right: pair.right.id,
     });
     const bookSelect = page.getByLabel("left book");
-    const options = await bookSelect.locator("option").allTextContents();
-    const book = options.find((o) => o && o !== "—");
+    await bookSelect.click();
+    const bookList = page.getByRole("listbox", { name: "left book" });
+    const bookOption = bookList.locator('[role="option"]:not([data-value=""])').first();
+    const book = await bookOption.getAttribute("data-value");
     expect(book).toBeTruthy();
-    await bookSelect.selectOption(book!);
+    await bookOption.click();
     await expect.poll(() => viewerParams(page).get("lb")).toBe(book);
-    const chapters = await page
-      .getByLabel("left chapter")
-      .locator("option")
-      .allTextContents();
-    expect(chapters.length).toBeGreaterThan(0);
-    await page.getByLabel("left chapter").selectOption(chapters[0]!);
-    await expect.poll(() => viewerParams(page).get("lc")).toBe(chapters[0]!);
+    await page.getByLabel("left chapter").click();
+    const chapterOption = page
+      .getByRole("listbox", { name: "left chapter" })
+      .locator('[role="option"]')
+      .first();
+    const chapter = await chapterOption.getAttribute("data-value");
+    expect(chapter).toBeTruthy();
+    await chapterOption.click();
+    await expect.poll(() => viewerParams(page).get("lc")).toBe(chapter);
     await waitForVerseSpans(page);
-    const verseOptions = page.getByLabel("left verse").locator("option");
-    const verseCount = await verseOptions.count();
-    expect(verseCount).toBeGreaterThan(0);
-    const verseValue = await verseOptions.nth(0).getAttribute("value");
-    await page.getByLabel("left verse").selectOption(verseValue!);
+    await page.getByLabel("left verse").click();
+    const verseOption = page
+      .getByRole("listbox", { name: "left verse" })
+      .locator('[role="option"]')
+      .first();
+    const verseValue = await verseOption.getAttribute("data-value");
+    expect(verseValue).toBeTruthy();
+    await verseOption.click();
     await expect.poll(() => viewerParams(page).get("lv")).toBeTruthy();
   });
 
@@ -700,7 +707,7 @@ test.describe("Viewer e2e", () => {
     });
     const leftBook = page.getByLabel("left book");
     await expect(leftBook).toHaveAttribute("aria-describedby", "left-book-jump-legend");
-    // Legend sits with the Book label (before the select), not under the dropdown.
+    // Legend sits with the Book label (before the combobox), not under the dropdown.
     const legendBeforeSelect = await leftBook.evaluate((select) => {
       const legend = document.getElementById("left-book-jump-legend");
       return Boolean(
@@ -709,10 +716,19 @@ test.describe("Viewer e2e", () => {
       );
     });
     expect(legendBeforeSelect).toBe(true);
+    await leftBook.click();
     await expect
-      .poll(async () => leftBook.locator('option[value="PSA"]').textContent())
+      .poll(async () =>
+        page
+          .getByRole("listbox", { name: "left book" })
+          .locator('[role="option"][data-value="PSA"]')
+          .textContent(),
+      )
       .toMatch(/PSA ●/);
-    await leftBook.selectOption("PSA");
+    await page
+      .getByRole("listbox", { name: "left book" })
+      .locator('[role="option"][data-value="PSA"]')
+      .click();
     await expect.poll(() => viewerParams(page).get("lb")).toBe("PSA");
   });
 

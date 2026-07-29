@@ -333,8 +333,79 @@ select:hover:not(:disabled) {
   color: var(--text-faint);
 }
 
-.column-chrome select {
+.column-chrome select,
+.column-chrome .typeahead-select {
   min-width: 5rem;
+}
+
+.typeahead-select {
+  position: relative;
+  width: 100%;
+}
+
+.typeahead-select input {
+  width: 100%;
+  height: 36px;
+  padding: 0 11px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  background-color: var(--surface-raised);
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease;
+}
+
+.typeahead-select input:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background-color: var(--surface-hover);
+}
+
+.typeahead-select input:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.typeahead-select input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.typeahead-select-list {
+  position: absolute;
+  z-index: calc(var(--z-controls) + 1);
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 14rem;
+  margin: 0;
+  padding: 4px 0;
+  overflow: auto;
+  list-style: none;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface-raised);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+}
+
+.typeahead-select-option {
+  padding: 0.35rem 0.7rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.typeahead-select-option.is-active,
+.typeahead-select-option:hover {
+  background: var(--surface-hover);
+}
+
+.typeahead-select-option[aria-selected="true"] {
+  color: var(--accent);
+}
+
+.typeahead-select-empty {
+  padding: 0.45rem 0.7rem;
+  color: var(--text-faint);
 }
 
 .column-chrome .book-chrome-label-row {

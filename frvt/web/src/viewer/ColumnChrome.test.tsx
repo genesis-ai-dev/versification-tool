@@ -83,8 +83,18 @@ vi.mock("./ViewerSession", () => ({
 
 import { useViewerSession } from "./ViewerSession";
 
+/** Open a BCV typeahead and return its listbox. */
+async function openTypeahead(
+  user: ReturnType<typeof userEvent.setup>,
+  label: string,
+) {
+  await user.click(screen.getByLabelText(label));
+  return screen.getByRole("listbox", { name: label });
+}
+
 describe("ColumnChrome book jump indicators", () => {
-  it("suffixes flagged books and shows the legend beside the Book label", () => {
+  it("suffixes flagged books and shows the legend beside the Book label", async () => {
+    const user = userEvent.setup();
     vi.mocked(useViewerSession).mockReturnValue(buildSession());
 
     const { container } = render(<ColumnChrome side="left" resolveDisabled={false} />);
@@ -98,6 +108,8 @@ describe("ColumnChrome book jump indicators", () => {
     expect(
       legend.compareDocumentPosition(bookSelect) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+
+    await openTypeahead(user, "left book");
     expect(screen.getByRole("option", { name: "PSA ●" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "GEN" })).toBeInTheDocument();
   });
@@ -122,7 +134,8 @@ describe("ColumnChrome book jump indicators", () => {
     );
 
     render(<ColumnChrome side="left" resolveDisabled={false} />);
-    await user.selectOptions(screen.getByLabelText("left book"), "PSA");
+    await openTypeahead(user, "left book");
+    await user.click(screen.getByRole("option", { name: "PSA ●" }));
 
     expect(setColumnBcv).toHaveBeenCalledWith("left", {
       book: "PSA",
@@ -133,6 +146,7 @@ describe("ColumnChrome book jump indicators", () => {
   });
 
   it("shows no markers when jump-books data is empty", async () => {
+    const user = userEvent.setup();
     vi.mocked(useViewerSession).mockReturnValue(
       buildSession({
         jumpBooksFor: () => new Set(),
@@ -141,6 +155,7 @@ describe("ColumnChrome book jump indicators", () => {
 
     render(<ColumnChrome side="left" resolveDisabled={false} />);
 
+    await openTypeahead(user, "left book");
     await waitFor(() => {
       expect(screen.queryByRole("option", { name: /●/ })).not.toBeInTheDocument();
     });
