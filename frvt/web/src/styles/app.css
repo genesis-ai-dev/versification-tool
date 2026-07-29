@@ -253,7 +253,6 @@ select:hover:not(:disabled) {
 .scripture-column[data-side="left"] .column-chrome {
   grid-column: 1;
   grid-row: 1;
-  padding-right: 2.75rem;
 }
 
 .scripture-column[data-side="left"] .verse-list,
@@ -266,7 +265,6 @@ select:hover:not(:disabled) {
 .scripture-column[data-side="right"] .column-chrome {
   grid-column: 2;
   grid-row: 1;
-  padding-left: 2.75rem;
 }
 
 .scripture-column[data-side="right"] .verse-list,
@@ -317,6 +315,7 @@ select:hover:not(:disabled) {
   display: flex;
   flex-wrap: wrap;
   align-items: end;
+  justify-content: center;
   gap: 10px;
   padding: 15px 18px 12px;
   border-bottom: 1px solid var(--border);
