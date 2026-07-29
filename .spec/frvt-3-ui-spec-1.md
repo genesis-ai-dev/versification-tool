@@ -763,3 +763,11 @@ Post-reconciliation modifications. Apply subsections in order (`ADD-*-001`, then
 | ADD-U-004e | §5.3 / §10 layout (`ViewerWorkspace`) | ADD | When `canResolve`, show one non-interactive drive-direction indicator near the seam between the two columns at chrome-row height, offset slightly left for visual balance. Glyph points drive→follower: `→` when `drive=left`, `←` when `drive=right`. Accessible name e.g. `Drive: left → right` / `Drive: right → left`. Hidden when `!canResolve`. Does not change `drive` on click. |
 | ADD-U-004f | §3.2 / toolbar pair context | CLARIFY | Keep the textual `drive: left\|right` cue in the viewer toolbar pair-context row alongside the between-column direction arrow (ADD-U-004e). Drive-column accent bar (`is-source`) also remains. |
 | ADD-U-004g | §11.3 | ADD | Contract tests: drive + follower scroll after resolve (no resolve loop); drive scrolls on exclude; versification option text includes `(based on …)` when `based_on_name` set and omits it when null; preferred ★ after full label; legend is a sibling of the Book label text (not below the select); drive arrow visible only when `canResolve`, flips with `drive`, and is not a control that writes `drive`. |
+
+### ADD-U-005 — Content-backed book/chapter navigation
+
+**Purpose:** Column BCV selectors only offer books and chapters that exist as stored content for the selected translation.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-U-005a | §2.3 row 3 | CLARIFY | Book/chapter options come from `GET /api/translations/{id}/navigation`, which lists stored `verse_span` books/chapters only (server ADD-S-004). The UI continues to render API order as given; it does not invent scheme-only books. |

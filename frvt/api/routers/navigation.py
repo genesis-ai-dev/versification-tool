@@ -346,24 +346,22 @@ def translation_navigation(
     versification: UUID | None = Query(default=None),
     session: Session = Depends(get_session),
 ) -> list[NavBook]:
-    """Return books and chapter numbers for the translation's selected scheme."""
+    """Return books and chapters that have stored verse spans for the translation.
+
+    Validates the selected scheme (override, else preferred) for the same
+    ``404``/``409`` rules as other coordinate endpoints, but builds the tree
+    from ``verse_span`` only — never from scheme ``maxVerses`` — so partial
+    translations (e.g. NT-only) do not list empty scheme books.
+    """
     logger.debug("Navigation for translation=%s", translation_id)
     require_translation(session, translation_id)
-    scheme_ref = selected_scheme_ref(session, translation_id, versification)
-    scheme = require_scheme(session, scheme_ref.scheme_id)
-    ingredient = scheme.ingredient or {}
-    max_verses = ingredient.get("maxVerses") or {}
-    books: dict[str, set[int]] = {}
-    if isinstance(max_verses, dict):
-        for book, chapters in max_verses.items():
-            if isinstance(chapters, list):
-                books[str(book)] = set(range(1, len(chapters) + 1))
-    # Merge chapters that actually have stored spans.
+    selected_scheme_ref(session, translation_id, versification)
     span_rows = session.execute(
         select(VerseSpan.book, VerseSpan.chapter)
         .where(VerseSpan.translation_id == translation_id)
         .distinct()
     ).all()
+    books: dict[str, set[int]] = {}
     for book, chapter in span_rows:
         books.setdefault(book, set()).add(int(chapter))
     return [

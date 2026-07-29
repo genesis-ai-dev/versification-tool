@@ -201,7 +201,7 @@ class NavBook(BaseModel):
 
     # USFM book id.
     book: str
-    # Chapter numbers present from maxVerses and/or stored spans.
+    # Chapter numbers present from stored verse spans for this book.
     chapters: list[int]
 
 

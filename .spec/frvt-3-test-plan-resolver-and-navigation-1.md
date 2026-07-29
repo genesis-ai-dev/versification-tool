@@ -260,15 +260,17 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ## Navigation, deltas, misalignments (`NAV`)
 
-### TC-NAV-001 — Navigation tree built from maxVerses + spans
+### TC-NAV-001 — Navigation tree built from stored spans only
 
 - **Level:** integration · **Priority:** Required · **Category:** functional · **Traces:** REQ-110
 - **Preconditions:**
   - A translation with a preferred scheme and ingested spans; authenticated client.
 - **Steps:**
   1. `GET /api/translations/{id}/navigation` (with the relevant versification).
+  2. (Subset case) Associate a full-canon scheme with a translation that has only a subset of books as spans; request navigation again.
 - **Expected result:**
-  - A `NavBook[]` structure is returned, derived from the scheme's `maxVerses` and the translation's spans.
+  - A `NavBook[]` structure is returned from distinct stored `verse_span` `(book, chapter)` only (USX order); scheme `maxVerses` does not add books or chapters.
+  - Subset case: books present in the scheme but absent from spans are omitted.
 
 ### TC-NAV-002 — Deltas are paginated and ordered by source starting BCV
 

@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
+from frvt.api.models import VerseSpan
 from frvt.api.routers.navigation import navigation_target
 from frvt.api.usx_book_order import usx_book_sort_key
 from frvt.testops.fixtures.api_setup import (
@@ -44,10 +46,10 @@ def test_navigation_target_from_range() -> None:
 
 @pytest.mark.phase5
 @pytest.mark.nav
-def test_navigation_tree_from_max_verses_and_spans(
+def test_navigation_tree_from_stored_spans(
     api_client: TestClient, eng_org: dict[str, str]
 ) -> None:
-    """TC-NAV-001: Navigation tree built from maxVerses + spans."""
+    """TC-NAV-001: Navigation tree built from stored spans only."""
     response = api_client.get(
         f"/api/translations/{eng_org['translation_id']}/navigation",
         headers=_auth(),
@@ -67,6 +69,41 @@ def test_navigation_tree_from_max_verses_and_spans(
     ):
         assert earlier in codes and later in codes
         assert codes.index(earlier) < codes.index(later)
+
+
+@pytest.mark.phase5
+@pytest.mark.nav
+def test_navigation_omits_scheme_books_without_spans(
+    api_client: TestClient, eng_org: dict[str, str], seeded_session: Session
+) -> None:
+    """TC-NAV-001 subset: full-canon scheme does not pad empty books into nav."""
+    bare = create_translation(api_client, name=f"NavSpansOnly-{uuid4().hex[:8]}")
+    associate(api_client, bare["id"], eng_org["eng_id"])
+    seeded_session.add(
+        VerseSpan(
+            translation_id=UUID(bare["id"]),
+            seq=0,
+            book="MAT",
+            chapter=1,
+            verse=1,
+            part=None,
+            content="Subset navigation fixture",
+        )
+    )
+    seeded_session.flush()
+
+    response = api_client.get(
+        f"/api/translations/{bare['id']}/navigation",
+        headers=_auth(),
+        params={"versification": eng_org["eng_id"]},
+    )
+    assert response.status_code == 200, response.text
+    books = response.json()
+    codes = [book["book"] for book in books]
+    assert codes == ["MAT"]
+    assert books[0]["chapters"] == [1]
+    assert "GEN" not in codes
+
 
 
 @pytest.mark.phase5
