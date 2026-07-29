@@ -449,8 +449,23 @@ export async function seedContrastingPair(request: APIRequestContext): Promise<{
   });
   // Confirm both rows are readable before associating (guards mid-seed wipe races).
   for (const id of [leftIngest.translation.id, rightIngest.translation.id]) {
-    const probe = await request.get(`/api/translations/${id}`);
-    await assertOk(probe, `verify seeded translation ${id}`);
+    let lastStatus = 0;
+    let lastBody = "";
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const probe = await request.get(`/api/translations/${id}`);
+      lastStatus = probe.status();
+      if (probe.ok()) {
+        break;
+      }
+      lastBody = (await probe.text()).slice(0, 300);
+      await new Promise((r) => setTimeout(r, 200 * (attempt + 1)));
+      if (attempt === 4) {
+        throw new Error(
+          `API seed failed (verify seeded translation ${id}): HTTP ${lastStatus}. ` +
+            `Is the FRVT server running at the e2e base URL with Postgres up? Body: ${lastBody}`,
+        );
+      }
+    }
   }
   const eng = await findCanonicalScheme(request, "eng");
   const org = await findCanonicalScheme(request, "org");

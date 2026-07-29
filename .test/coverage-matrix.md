@@ -133,4 +133,4 @@ Update this file whenever you implement or defer a case. Phase 12 requires no `p
 | TC-OOS-002 | Required | 10 | oos | frvt/web/e2e/viewer.spec.ts | oos-confirmed | |
 | TC-OOS-003 | Required | 10 | oos | frvt/web/e2e/auth.spec.ts | oos-confirmed | |
 
-**Row count:** 121
+**Row count:** 124

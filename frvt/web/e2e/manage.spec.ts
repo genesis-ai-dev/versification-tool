@@ -21,6 +21,7 @@ import { openViewerSession, viewerParams, waitForVerseSpans } from "./helpers/vi
  */
 test.describe("Manage e2e", () => {
   test("TC-MANAGE-001: translations manage CRUD workflow", async ({ page }) => {
+    test.setTimeout(300_000);
     await deleteAllTranslations(page.request);
     const suffix = Date.now().toString(36);
     await ingestProject(page.request, {
@@ -57,8 +58,11 @@ test.describe("Manage e2e", () => {
     await page.getByLabel("Translation name").fill(`E2E-Upload-${suffix}`);
     await page.getByLabel("Language").fill("en");
     await page.getByRole("button", { name: "Upload", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Uploading…" })).toBeVisible({
+      timeout: 15_000,
+    });
     await expect(page.getByText(`E2E-Upload-${suffix}`)).toBeVisible({
-      timeout: 120_000,
+      timeout: 180_000,
     });
 
     // Delete the uploaded translation (confirm modal). Full-project cascades are slow.

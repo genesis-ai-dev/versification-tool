@@ -84,6 +84,10 @@ export async function openViewerSession(
   if (params.right) {
     await expect(page.getByLabel("right translation")).toHaveValue(params.right);
   }
+  // URL defaults / span load can lag behind translation selection under catalog load.
+  await expect
+    .poll(async () => page.getByLabel("left book").inputValue(), { timeout: 45_000 })
+    .not.toBe("");
   await waitForVerseSpans(page);
 }
 
@@ -94,19 +98,55 @@ export function viewerParams(page: Page): URLSearchParams {
 
 /** Wait until chapter-mode mapping fetch has finished (toolbar loading hint gone). */
 export async function waitForChapterMappings(page: Page): Promise<void> {
-  await expect(page.getByText("Loading chapter mappings…")).toHaveCount(0, {
-    timeout: 45_000,
-  });
+  // Do not treat "not yet shown" as done — poll until the toolbar is idle.
+  await expect
+    .poll(
+      async () => {
+        const ctx = await page.locator(".pair-context").innerText();
+        if (
+          ctx.includes("Loading chapter mappings…") ||
+          ctx.includes("Resolving…")
+        ) {
+          return "loading";
+        }
+        return "idle";
+      },
+      { timeout: 60_000 },
+    )
+    .toBe("idle");
 }
 
-/** Wait until the overlay has painted a path or outline rect. */
+/**
+ * Wait until overlay paint is idle and connector paths meet ``minCount``.
+ * Ignores transient clears while resolve/chapter requests are in flight.
+ */
+export async function waitForConnectorCount(
+  page: Page,
+  minCount: number,
+): Promise<number> {
+  let last = 0;
+  await expect
+    .poll(
+      async () => {
+        const ctx = await page.locator(".pair-context").innerText();
+        if (
+          ctx.includes("Loading chapter mappings…") ||
+          ctx.includes("Resolving…")
+        ) {
+          return -1;
+        }
+        last = await connectorCount(page);
+        return last;
+      },
+      { timeout: 60_000 },
+    )
+    .toBeGreaterThanOrEqual(minCount);
+  return last;
+}
+
+/** Wait until the overlay has painted at least one connector path. */
 export async function waitForConnectors(page: Page): Promise<void> {
-  // Paths may be present with zero layout box; attachment is the reliable signal.
-  await expect(
-    page.locator("svg.mapping-overlay path, svg.mapping-overlay rect").first(),
-  ).toBeAttached({
-    timeout: 45_000,
-  });
+  await waitForConnectorCount(page, 1);
 }
 
 /** Count SVG connector paths currently painted in the overlay. */
@@ -121,7 +161,9 @@ export async function overlayPaintCount(page: Page): Promise<number> {
 
 /** Click the first verse span in the named column. */
 export async function clickFirstVerse(page: Page, side: "left" | "right"): Promise<void> {
-  await page.locator(`.verse-span[data-side="${side}"]`).first().click();
+  const verse = page.locator(`.verse-span[data-side="${side}"]`).first();
+  await expect(verse).toBeVisible({ timeout: 45_000 });
+  await verse.click();
 }
 
 /**

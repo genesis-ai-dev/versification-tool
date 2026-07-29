@@ -25,7 +25,7 @@ _MATRIX = _REPO_ROOT / ".test" / "coverage-matrix.md"
 _EXEC_PLAN = _REPO_ROOT / ".spec" / "frvt-3-test-execution-plan-1.md"
 
 # Expected TC count from the five area files (see coverage matrix).
-_EXPECTED_TC_COUNT = 120
+_EXPECTED_TC_COUNT = 124
 
 _TC_ROW = re.compile(r"^\| TC-[A-Z]+-\d+ \|")
 

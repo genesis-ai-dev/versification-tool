@@ -303,7 +303,7 @@ test.describe("Viewer e2e", () => {
     await expect(page.getByText("Select a second translation")).toBeVisible({
       timeout: 30_000,
     });
-    await expect(page.getByLabel("Show mapping")).toBeDisabled();
+    await expect(page.getByLabel("Mapping")).toBeDisabled();
     const jumpButtons = page.getByRole("button", { name: "Jump" });
     await expect(jumpButtons).toHaveCount(2);
   });
@@ -376,7 +376,7 @@ test.describe("Viewer e2e", () => {
     await page.goto(
       `/?left=${bare.id}&right=${withData.translation.id}&map=1&drive=left`,
     );
-    await expect(page.getByLabel("Show mapping")).toBeDisabled({ timeout: 30_000 });
+    await expect(page.getByLabel("Mapping")).toBeDisabled({ timeout: 30_000 });
     expect(await connectorCount(page)).toBe(0);
   });
 
@@ -387,13 +387,19 @@ test.describe("Viewer e2e", () => {
       left: pair.left.id,
       right: pair.right.id,
     });
-    const columns = page.locator(".scripture-column");
-    await expect(columns).toHaveCount(2);
-    const boxes = await columns.evaluateAll((nodes) =>
-      nodes.map((n) => (n as HTMLElement).getBoundingClientRect()),
-    );
-    expect(boxes[0]!.top).toBeCloseTo(boxes[1]!.top, 0);
-    expect(boxes[0]!.left).toBeLessThan(boxes[1]!.left);
+    // Column wrappers use display:contents; measure the verse panels instead.
+    const leftPanel = page.locator('.scripture-column[data-side="left"] .verse-list');
+    const rightPanel = page.locator('.scripture-column[data-side="right"] .verse-list');
+    await expect(leftPanel).toBeVisible();
+    await expect(rightPanel).toBeVisible();
+    const boxes = await Promise.all([
+      leftPanel.boundingBox(),
+      rightPanel.boundingBox(),
+    ]);
+    expect(boxes[0]).toBeTruthy();
+    expect(boxes[1]).toBeTruthy();
+    expect(boxes[0]!.y).toBeCloseTo(boxes[1]!.y, 0);
+    expect(boxes[0]!.x).toBeLessThan(boxes[1]!.x);
   });
 
   test("TC-UI-025: accessibility floor — labeled controls are keyboard reachable", async ({
@@ -406,7 +412,7 @@ test.describe("Viewer e2e", () => {
     });
     await expect(page.getByLabel("left translation")).toBeVisible();
     await expect(page.getByLabel("left book")).toBeVisible();
-    await expect(page.getByLabel("Show mapping")).toBeVisible();
+    await expect(page.getByLabel("Mapping")).toBeVisible();
     await page.getByLabel("left translation").focus();
     await expect(page.getByLabel("left translation")).toBeFocused();
     await page.keyboard.press("Tab");

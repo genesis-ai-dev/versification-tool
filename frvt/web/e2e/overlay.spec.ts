@@ -14,7 +14,7 @@ import {
   trySelectBcv,
   viewerParams,
   waitForConnectors,
-  waitForChapterMappings,
+  waitForConnectorCount,
 } from "./helpers/viewer";
 
 /**
@@ -64,7 +64,11 @@ test.describe("Overlay e2e", () => {
       map: true,
       lvers: pair.engId,
       rvers: pair.orgId,
+      lb: "PSA",
+      lc: "3",
+      lv: "1",
     });
+    await trySelectBcv(page, "left", "PSA", "3", "1");
     await clickFirstVerse(page, "left");
     await waitForConnectors(page);
     // Observable contract: at least one path connector for the current result.
@@ -277,9 +281,7 @@ test.describe("Overlay e2e", () => {
 
     await page.getByLabel("Mapping").selectOption("All (dimmed)");
     await expect.poll(() => viewerParams(page).get("map")).toBe("all");
-    await waitForChapterMappings(page);
-    await waitForConnectors(page);
-    const chapterMode = await connectorCount(page);
+    const chapterMode = await waitForConnectorCount(page, currentOnly + 1);
     expect(chapterMode).toBeGreaterThan(currentOnly);
     await expect(
       page.locator('svg.mapping-overlay g[opacity="0.25"]').first(),
@@ -302,14 +304,11 @@ test.describe("Overlay e2e", () => {
     });
     await trySelectBcv(page, "left", "GEN", "1", "1");
     await clickFirstVerse(page, "left");
-    await waitForChapterMappings(page);
-    await waitForConnectors(page);
-    const chapterPaths = await connectorCount(page);
+    const chapterPaths = await waitForConnectorCount(page, 2);
 
     await page.getByLabel("Mapping").selectOption("current");
     await expect.poll(() => viewerParams(page).get("map")).toBe("1");
-    await waitForConnectors(page);
-    const currentPaths = await connectorCount(page);
+    const currentPaths = await waitForConnectorCount(page, 1);
     expect(currentPaths).toBeGreaterThan(0);
     expect(currentPaths).toBeLessThan(chapterPaths);
   });
