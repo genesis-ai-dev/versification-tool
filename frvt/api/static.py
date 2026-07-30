@@ -31,7 +31,7 @@ class SpaStaticFiles(StaticFiles):
 
     @staticmethod
     def _with_spa_cache_policy(response: Response) -> Response:
-        """Prevent browsers from pinning an old ``index.html`` after ``npm run build``."""
+        """Prevent browsers from pinning an old ``index.html`` after a build."""
         response.headers["Cache-Control"] = "no-cache"
         return response
 

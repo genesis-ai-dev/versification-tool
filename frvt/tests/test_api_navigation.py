@@ -6,7 +6,6 @@ from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 from frvt.api.models import VerseSpan
 from frvt.api.routers.navigation import navigation_target
 from frvt.api.usx_book_order import usx_book_sort_key
@@ -19,6 +18,7 @@ from frvt.testops.fixtures.api_setup import (
 )
 from frvt.testops.fixtures.synthetic_schemes import gen_partial_ingredient
 from frvt.testops.http_client import assert_error_envelope, basic_auth_header
+from sqlalchemy.orm import Session
 
 
 def _auth() -> dict[str, str]:
@@ -103,7 +103,6 @@ def test_navigation_omits_scheme_books_without_spans(
     assert codes == ["MAT"]
     assert books[0]["chapters"] == [1]
     assert "GEN" not in codes
-
 
 
 @pytest.mark.phase5

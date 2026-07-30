@@ -740,7 +740,9 @@ def test_interior_requires_complex_target_axis_split() -> None:
     assert _interior_requires_complex(trigger, [interior])
 
 
-def test_build_range_hull_interior_target_split_escalates(seeded_session: Session) -> None:
+def test_build_range_hull_interior_target_split_escalates(
+    seeded_session: Session,
+) -> None:
     """Interior target split without corner fan-out still yields complex axis labels."""
     org_translation = seeded_session.scalar(
         select(Translation).where(Translation.name == "org")

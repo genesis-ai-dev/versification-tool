@@ -105,10 +105,7 @@ export async function waitForChapterMappings(page: Page): Promise<void> {
     .poll(
       async () => {
         const ctx = await page.locator(".pair-context").innerText();
-        if (
-          ctx.includes("Loading chapter mappings…") ||
-          ctx.includes("Resolving…")
-        ) {
+        if (ctx.includes("Loading chapter mappings…") || ctx.includes("Resolving…")) {
           return "loading";
         }
         return "idle";
@@ -131,10 +128,7 @@ export async function waitForConnectorCount(
     .poll(
       async () => {
         const ctx = await page.locator(".pair-context").innerText();
-        if (
-          ctx.includes("Loading chapter mappings…") ||
-          ctx.includes("Resolving…")
-        ) {
+        if (ctx.includes("Loading chapter mappings…") || ctx.includes("Resolving…")) {
           return -1;
         }
         last = await connectorCount(page);

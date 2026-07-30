@@ -30,10 +30,7 @@ export function layoutLabelBadge(
   const innerWidth = Math.max(width - PADDING_X * 2, CHAR_WIDTH);
   const charsPerLine = Math.max(1, Math.floor(innerWidth / CHAR_WIDTH));
   const lines = Math.max(1, Math.ceil(text.length / charsPerLine));
-  const height = Math.max(
-    LABEL_BADGE_MIN_HEIGHT,
-    PADDING_Y * 2 + lines * LINE_HEIGHT,
-  );
+  const height = Math.max(LABEL_BADGE_MIN_HEIGHT, PADDING_Y * 2 + lines * LINE_HEIGHT);
   return { width, height };
 }
 

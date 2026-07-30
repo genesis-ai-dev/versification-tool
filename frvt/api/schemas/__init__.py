@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Annotated, Generic, Literal, TypeVar
+from typing import Annotated, Any, Generic, Literal, TypeVar
 from uuid import UUID
 
 from pydantic import BaseModel, Field, StringConstraints, model_serializer
+from pydantic_core.core_schema import SerializerFunctionWrapHandler
 
 # Item type carried by the reusable paginated response envelope.
 PageItem = TypeVar("PageItem")
@@ -28,7 +29,7 @@ class RelationType(StrEnum):
     partial = "partial"
     complex = "complex"
     # Resolve-time only, like ``complex``; never stored on a mapping_record.
-    range = "range"  # type: ignore[assignment]
+    range = "range"
 
 
 class TranslationCreate(BaseModel):
@@ -193,9 +194,11 @@ class ResolveResult(BaseModel):
     target_rel: RelationType | None = None
 
     @model_serializer(mode="wrap")
-    def _omit_absent_axes(self, handler):
+    def _omit_absent_axes(
+        self, handler: SerializerFunctionWrapHandler
+    ) -> dict[str, Any]:
         """Drop axis keys entirely when unset so clients can test for presence."""
-        data = handler(self)
+        data: dict[str, Any] = handler(self)
         for key in ("source_rel", "target_rel"):
             if data.get(key) is None:
                 data.pop(key, None)

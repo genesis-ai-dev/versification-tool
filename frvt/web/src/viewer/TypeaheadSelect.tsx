@@ -1,11 +1,4 @@
-import {
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-  type KeyboardEvent,
-} from "react";
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
 /** One selectable row in a typeahead list. */
 export interface TypeaheadOption {
@@ -107,7 +100,12 @@ export function TypeaheadSelect({
       return;
     }
     setQuery("");
-    setActiveIndex(Math.max(0, options.findIndex((option) => option.value === value)));
+    setActiveIndex(
+      Math.max(
+        0,
+        options.findIndex((option) => option.value === value),
+      ),
+    );
     setOpen(true);
   }
 
@@ -146,9 +144,7 @@ export function TypeaheadSelect({
     if (event.key === "ArrowUp") {
       event.preventDefault();
       setActiveIndex((index) =>
-        filtered.length === 0
-          ? 0
-          : (index - 1 + filtered.length) % filtered.length,
+        filtered.length === 0 ? 0 : (index - 1 + filtered.length) % filtered.length,
       );
       return;
     }

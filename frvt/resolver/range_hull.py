@@ -8,7 +8,14 @@ from frvt.api.logging_config import get_logger
 from frvt.resolver.compose import compose, dominant_relation
 from frvt.resolver.cover import find_covering_record, project_verse, unequal_zip_cover
 from frvt.resolver.parse_ref import expand
-from frvt.resolver.types import Hop, RefRange, ResolutionDTO, ResolutionEdgeDTO, VerseId
+from frvt.resolver.types import (
+    Hop,
+    MappingView,
+    RefRange,
+    ResolutionDTO,
+    ResolutionEdgeDTO,
+    VerseId,
+)
 from frvt.resolver.walk import (
     apply_hops_downward,
     apply_hops_forward,
@@ -63,7 +70,7 @@ def _trigger_order(trigger: RangeTrigger) -> tuple[int, int, int, int]:
 
 
 def _candidate_from_record(
-    record,
+    record: MappingView,
     *,
     side: str,
     hop_index: int,
@@ -203,7 +210,7 @@ def _walk_has_fanout(walk: ParticipantWalk) -> bool:
 
 
 def _source_axis_only_fanout(walk: ParticipantWalk) -> bool:
-    """Return whether fan-out is confined to the source climb (single target descent)."""
+    """Return whether fan-out stays on the source climb with one target."""
     return (
         walk.up_rel in ("split", "merge")
         and len(walk.targets) == 1
@@ -215,7 +222,7 @@ def _interior_requires_complex(
     trigger: RangeTrigger,
     interior_walks: list[ParticipantWalk],
 ) -> bool:
-    """Return whether interior split/merge must surface as ``complex`` (not pure ``range``)."""
+    """Return whether interior split/merge must surface as ``complex``."""
     for walk in interior_walks:
         if not _walk_has_fanout(walk):
             continue
