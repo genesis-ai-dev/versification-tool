@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { formatVerseLabel } from "../lib/formatRef";
 import { formatVersificationOptionLabel } from "../lib/formatVersificationOption";
 import type { DriveSide } from "./overlay/drawPlan";
@@ -32,34 +31,23 @@ export function ColumnChrome({ side, resolveDisabled }: ColumnChromeProps) {
   const chapters = navigation.find((book) => book.book === bcv?.book)?.chapters ?? [];
   const verses = uniqueVerses(spans);
 
-  const bookOptions = useMemo(
-    () => [
-      { value: "", label: "—" },
-      ...navigation.map((book) => ({
-        value: book.book,
-        label: jumpBooks.has(book.book) ? `${book.book} ●` : book.book,
-      })),
-    ],
-    [navigation, jumpBooks],
-  );
+  const bookOptions = [
+    { value: "", label: "—" },
+    ...navigation.map((book) => ({
+      value: book.book,
+      label: jumpBooks.has(book.book) ? `${book.book} ●` : book.book,
+    })),
+  ];
 
-  const chapterOptions = useMemo(
-    () =>
-      chapters.map((chapter) => ({
-        value: String(chapter),
-        label: String(chapter),
-      })),
-    [chapters],
-  );
+  const chapterOptions = chapters.map((chapter) => ({
+    value: String(chapter),
+    label: String(chapter),
+  }));
 
-  const verseOptions = useMemo(
-    () =>
-      verses.map((v) => ({
-        value: `${v.verse}|${v.part ?? ""}`,
-        label: `${formatVerseLabel(v.verse)}${v.part ? v.part : ""}`,
-      })),
-    [verses],
-  );
+  const verseOptions = verses.map((v) => ({
+    value: `${v.verse}|${v.part ?? ""}`,
+    label: `${formatVerseLabel(v.verse)}${v.part ? v.part : ""}`,
+  }));
 
   return (
     <div className="column-chrome">
@@ -81,12 +69,15 @@ export function ColumnChrome({ side, resolveDisabled }: ColumnChromeProps) {
         </select>
       </label>
 
-      <label className="book-chrome-field">
+      <label className="book-chrome-field bcv-chrome-field">
         <span className="book-chrome-label-row">
           Book
           {translationId ? (
             <span className="book-jump-legend" id={bookLegendId}>
-              ● Book has mapping differences
+              <span className="book-jump-marker" aria-hidden="true">
+                ●
+              </span>
+              Book has mapping differences
             </span>
           ) : null}
         </span>
@@ -113,7 +104,7 @@ export function ColumnChrome({ side, resolveDisabled }: ColumnChromeProps) {
         />
       </label>
 
-      <label>
+      <label className="bcv-chrome-field">
         Chapter
         <TypeaheadSelect
           value={bcv ? String(bcv.chapter) : ""}
@@ -134,7 +125,7 @@ export function ColumnChrome({ side, resolveDisabled }: ColumnChromeProps) {
         />
       </label>
 
-      <label>
+      <label className="bcv-chrome-field">
         Verse
         <TypeaheadSelect
           value={bcv ? `${bcv.verse}|${bcv.part ?? ""}` : ""}

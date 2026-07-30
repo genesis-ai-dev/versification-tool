@@ -392,14 +392,87 @@ test.describe("Viewer e2e", () => {
     const rightPanel = page.locator('.scripture-column[data-side="right"] .verse-list');
     await expect(leftPanel).toBeVisible();
     await expect(rightPanel).toBeVisible();
-    const boxes = await Promise.all([
-      leftPanel.boundingBox(),
-      rightPanel.boundingBox(),
-    ]);
+    const boxes = await Promise.all([leftPanel.boundingBox(), rightPanel.boundingBox()]);
     expect(boxes[0]).toBeTruthy();
     expect(boxes[1]).toBeTruthy();
     expect(boxes[0]!.y).toBeCloseTo(boxes[1]!.y, 0);
     expect(boxes[0]!.x).toBeLessThan(boxes[1]!.x);
+  });
+
+  test("TC-UI-026: navigation controls stay compact, inline, and toolbar-aligned", async ({
+    page,
+  }) => {
+    const pair = await seedContrastingPair(page.request);
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await openViewerSession(page, {
+      left: pair.left.id,
+      right: pair.right.id,
+    });
+
+    const bcvBoxes = await Promise.all(
+      ["left book", "left chapter", "left verse"].map((label) =>
+        page.getByLabel(label).boundingBox(),
+      ),
+    );
+    expect(bcvBoxes.every(Boolean)).toBe(true);
+    const bcvWidths = bcvBoxes.map((box) => box!.width);
+    expect(Math.max(...bcvWidths) - Math.min(...bcvWidths)).toBeLessThanOrEqual(1);
+    expect(Math.max(...bcvWidths)).toBeLessThanOrEqual(112);
+
+    const leftChrome = page.locator('.scripture-column[data-side="left"] .column-chrome');
+    const rightChrome = page.locator(
+      '.scripture-column[data-side="right"] .column-chrome',
+    );
+    const [leftTranslation, leftVersification, leftJump] = await Promise.all([
+      page.getByLabel("left translation").boundingBox(),
+      page.getByLabel("left versification").boundingBox(),
+      leftChrome.getByRole("button", { name: "Jump" }).boundingBox(),
+    ]);
+    expect(leftTranslation).toBeTruthy();
+    expect(leftVersification).toBeTruthy();
+    expect(leftJump).toBeTruthy();
+    const controlTops = [
+      leftTranslation!.y,
+      ...bcvBoxes.map((box) => box!.y),
+      leftVersification!.y,
+      leftJump!.y,
+    ];
+    expect(Math.max(...controlTops) - Math.min(...controlTops)).toBeLessThan(1);
+
+    const [pairContext, mapToggle, rightJump] = await Promise.all([
+      page.locator(".pair-context").boundingBox(),
+      page.locator(".map-toggle").boundingBox(),
+      rightChrome.getByRole("button", { name: "Jump" }).boundingBox(),
+    ]);
+    expect(pairContext).toBeTruthy();
+    expect(mapToggle).toBeTruthy();
+    expect(rightJump).toBeTruthy();
+    expect(pairContext!.x).toBeCloseTo(leftTranslation!.x, 0);
+    expect(mapToggle!.x + mapToggle!.width).toBeCloseTo(
+      rightJump!.x + rightJump!.width,
+      0,
+    );
+
+    const chromeOverflow = await leftChrome.evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    }));
+    expect(chromeOverflow.scrollWidth).toBeLessThanOrEqual(chromeOverflow.clientWidth);
+
+    await page.setViewportSize({ width: 2048, height: 800 });
+    const wideBcvBoxes = await Promise.all(
+      ["left book", "left chapter", "left verse"].map((label) =>
+        page.getByLabel(label).boundingBox(),
+      ),
+    );
+    const wideLegend = await leftChrome.locator(".book-jump-legend").boundingBox();
+    expect(wideBcvBoxes.every(Boolean)).toBe(true);
+    expect(wideLegend).toBeTruthy();
+    const wideBcvWidths = wideBcvBoxes.map((box) => box!.width);
+    expect(Math.max(...wideBcvWidths) - Math.min(...wideBcvWidths)).toBeLessThanOrEqual(
+      1,
+    );
+    expect(wideLegend!.y).toBeGreaterThan(wideBcvBoxes[0]!.y + wideBcvBoxes[0]!.height);
   });
 
   test("TC-UI-025: accessibility floor — labeled controls are keyboard reachable", async ({
@@ -702,12 +775,15 @@ test.describe("Viewer e2e", () => {
       lvers: pair.engId,
       rvers: pair.orgId,
     });
-    await expect(page.getByText("● Book has mapping differences")).toHaveCount(2, {
-      timeout: 30_000,
-    });
+    const bookMarkerDescriptions = page.locator(".book-jump-legend");
+    await expect(bookMarkerDescriptions).toHaveCount(2, { timeout: 30_000 });
+    await expect(bookMarkerDescriptions.first()).toBeVisible();
+    await expect(bookMarkerDescriptions.first()).toContainText(
+      "Book has mapping differences",
+    );
     const leftBook = page.getByLabel("left book");
     await expect(leftBook).toHaveAttribute("aria-describedby", "left-book-jump-legend");
-    // Legend sits with the Book label (before the combobox), not under the dropdown.
+    // Keep the description in the Book label's DOM before the combobox.
     const legendBeforeSelect = await leftBook.evaluate((select) => {
       const legend = document.getElementById("left-book-jump-legend");
       return Boolean(

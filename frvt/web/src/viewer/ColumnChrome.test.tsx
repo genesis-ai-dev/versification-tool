@@ -84,16 +84,13 @@ vi.mock("./ViewerSession", () => ({
 import { useViewerSession } from "./ViewerSession";
 
 /** Open a BCV typeahead and return its listbox. */
-async function openTypeahead(
-  user: ReturnType<typeof userEvent.setup>,
-  label: string,
-) {
+async function openTypeahead(user: ReturnType<typeof userEvent.setup>, label: string) {
   await user.click(screen.getByLabelText(label));
   return screen.getByRole("listbox", { name: label });
 }
 
 describe("ColumnChrome book jump indicators", () => {
-  it("suffixes flagged books and shows the legend beside the Book label", async () => {
+  it("suffixes flagged books and shows a visible, described explanation", async () => {
     const user = userEvent.setup();
     vi.mocked(useViewerSession).mockReturnValue(buildSession());
 
@@ -101,13 +98,15 @@ describe("ColumnChrome book jump indicators", () => {
 
     const bookSelect = screen.getByLabelText("left book");
     expect(bookSelect).toHaveAttribute("aria-describedby", "left-book-jump-legend");
-    const legend = screen.getByText("● Book has mapping differences");
-    expect(legend).toBeInTheDocument();
+    const legend = container.querySelector("#left-book-jump-legend");
+    expect(legend).not.toHaveClass("sr-only");
     const labelRow = container.querySelector(".book-chrome-label-row");
     expect(labelRow).toContainElement(legend);
-    expect(
-      legend.compareDocumentPosition(bookSelect) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(legend).toHaveTextContent("●Book has mapping differences");
+    expect(legend?.querySelector(".book-jump-marker")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
 
     await openTypeahead(user, "left book");
     expect(screen.getByRole("option", { name: "PSA ●" })).toBeInTheDocument();
@@ -159,7 +158,9 @@ describe("ColumnChrome book jump indicators", () => {
     await waitFor(() => {
       expect(screen.queryByRole("option", { name: /●/ })).not.toBeInTheDocument();
     });
-    expect(screen.getByText("● Book has mapping differences")).toBeInTheDocument();
+    expect(document.getElementById("left-book-jump-legend")).toHaveTextContent(
+      "Book has mapping differences",
+    );
   });
 
   it("formats versification options with based-on and preferred star", () => {
