@@ -10,6 +10,7 @@ from typing import Any
 from frvt.api.logging_config import get_logger
 from frvt.ingest.burrito_validate import validate_ingredient
 from frvt.ingest.normalize import normalize_ingredient
+from frvt.ingest.metadata_parse import parse_dbl_metadata
 from frvt.ingest.project_zip import locate_project_members
 from frvt.ingest.types import IngestIssue, ParsedScheme, ProjectIngestResult
 from frvt.ingest.usx_parse import parse_usx_files
@@ -107,8 +108,15 @@ def ingest_project(archive_bytes: bytes) -> ProjectIngestResult:
     """Unzip a Paratext-style project and parse USX spans plus the required VRS."""
     logger.debug("Ingesting project archive (%s bytes)", len(archive_bytes))
     located = locate_project_members(archive_bytes)
+    metadata = (
+        parse_dbl_metadata(located.metadata_text)
+        if located.metadata_text
+        else None
+    )
     if located.issues:
-        return ProjectIngestResult(spans=(), scheme=None, issues=located.issues)
+        return ProjectIngestResult(
+            spans=(), scheme=None, metadata=metadata, issues=located.issues
+        )
 
     assert located.vrs_text is not None
     ingredient, vrs_issues = convert_vrs(located.vrs_text)
@@ -116,7 +124,9 @@ def ingest_project(archive_bytes: bytes) -> ProjectIngestResult:
     ingredient = normalize_ingredient(ingredient)
     issues.extend(validate_ingredient(ingredient))
     if issues:
-        return ProjectIngestResult(spans=(), scheme=None, issues=tuple(issues))
+        return ProjectIngestResult(
+            spans=(), scheme=None, metadata=metadata, issues=tuple(issues)
+        )
 
     try:
         spans = parse_usx_files(list(located.usx_files))
@@ -125,6 +135,7 @@ def ingest_project(archive_bytes: bytes) -> ProjectIngestResult:
         return ProjectIngestResult(
             spans=(),
             scheme=None,
+            metadata=metadata,
             issues=(
                 IngestIssue(
                     kind="invalid",
@@ -137,6 +148,7 @@ def ingest_project(archive_bytes: bytes) -> ProjectIngestResult:
         return ProjectIngestResult(
             spans=(),
             scheme=None,
+            metadata=metadata,
             issues=(
                 IngestIssue(
                     kind="invalid",
@@ -147,4 +159,9 @@ def ingest_project(archive_bytes: bytes) -> ProjectIngestResult:
         )
     vrs_name = PurePosixPath(located.vrs_path or "versification.vrs").stem
     scheme = _scheme_from_ingredient(ingredient, name=vrs_name)
-    return ProjectIngestResult(spans=tuple(spans), scheme=scheme, issues=())
+    return ProjectIngestResult(
+        spans=tuple(spans),
+        scheme=scheme,
+        metadata=metadata,
+        issues=(),
+    )

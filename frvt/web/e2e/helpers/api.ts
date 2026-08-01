@@ -13,6 +13,7 @@ export interface TranslationOut {
   id: string;
   name: string;
   language: string;
+  text_direction: "ltr" | "rtl";
   source_format: string;
 }
 
@@ -23,6 +24,7 @@ export interface VersificationOut {
   based_on_name: string | null;
   based_on_id: string | null;
   canonical: boolean;
+  associated_translation_names?: string[];
 }
 
 /** Association of a scheme with a translation. */
@@ -117,16 +119,23 @@ export async function ingestProject(
       `API seed failed (ingest project): sample zip not found at ${zipPath}`,
     );
   }
-  const response = await request.post("/api/ingest/project", {
-    multipart: {
-      file: {
-        name: path.basename(zipPath),
-        mimeType: "application/zip",
-        buffer: fs.readFileSync(zipPath),
-      },
-      name: options.name,
-      language: options.language ?? "en",
+  const multipart: {
+    file: { name: string; mimeType: string; buffer: Buffer };
+    name?: string;
+    language?: string;
+  } = {
+    file: {
+      name: path.basename(zipPath),
+      mimeType: "application/zip",
+      buffer: fs.readFileSync(zipPath),
     },
+    name: options.name,
+  };
+  if (options.language !== undefined) {
+    multipart.language = options.language;
+  }
+  const response = await request.post("/api/ingest/project", {
+    multipart,
   });
   await assertOk(response, `ingest project "${options.name}"`);
   return (await response.json()) as ProjectIngestOut;
@@ -508,6 +517,11 @@ export function visualDemoZipPath(language: "en" | "es"): string {
     "assets",
     `visual-demo-${language}.zip`,
   );
+}
+
+/** Path to the Arabic sample translation zip for RTL layout checks. */
+export function arabicSampleZipPath(): string {
+  return path.join(repoRoot, "research", "SampleTranslations", "biblica-arabic-1.zip");
 }
 
 function demoMaxVersesSubset(): Record<string, string[]> {

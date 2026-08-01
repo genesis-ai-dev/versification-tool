@@ -7,6 +7,7 @@ import {
   updateVersification,
 } from "../api/versifications";
 import { ResourceTable } from "../manage/ResourceTable";
+import { AssociatedTranslationsCell } from "../manage/AssociatedTranslationsCell";
 import { DeleteConfirmModal } from "../manage/modals/DeleteConfirmModal";
 import { RenameModal } from "../manage/modals/RenameModal";
 import { UploadVersificationModal } from "../manage/modals/UploadVersificationModal";
@@ -42,6 +43,12 @@ export function VersificationsManagePage() {
     {
       header: "Based on",
       cell: (row: VersificationOut) => row.based_on_name ?? "Root",
+    },
+    {
+      header: "Translation(s)",
+      cell: (row: VersificationOut) => (
+        <AssociatedTranslationsCell names={row.associated_translation_names} />
+      ),
     },
     {
       header: "Kind",

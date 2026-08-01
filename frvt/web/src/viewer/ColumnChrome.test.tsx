@@ -90,7 +90,7 @@ async function openTypeahead(user: ReturnType<typeof userEvent.setup>, label: st
 }
 
 describe("ColumnChrome book jump indicators", () => {
-  it("suffixes flagged books and shows a visible, described explanation", async () => {
+  it("suffixes flagged books and exposes legend via info tooltip", async () => {
     const user = userEvent.setup();
     vi.mocked(useViewerSession).mockReturnValue(buildSession());
 
@@ -98,11 +98,12 @@ describe("ColumnChrome book jump indicators", () => {
 
     const bookSelect = screen.getByLabelText("left book");
     expect(bookSelect).toHaveAttribute("aria-describedby", "left-book-jump-legend");
+    expect(
+      screen.getByRole("button", { name: "Book mapping indicator legend" }),
+    ).toBeInTheDocument();
     const legend = container.querySelector("#left-book-jump-legend");
-    expect(legend).not.toHaveClass("sr-only");
-    const labelRow = container.querySelector(".book-chrome-label-row");
-    expect(labelRow).toContainElement(legend);
-    expect(legend).toHaveTextContent("●Book has mapping differences");
+    expect(legend).toHaveClass("book-jump-info-tooltip");
+    expect(legend).toHaveTextContent("● = Book has mapping differences");
     expect(legend?.querySelector(".book-jump-marker")).toHaveAttribute(
       "aria-hidden",
       "true",
@@ -159,7 +160,7 @@ describe("ColumnChrome book jump indicators", () => {
       expect(screen.queryByRole("option", { name: /●/ })).not.toBeInTheDocument();
     });
     expect(document.getElementById("left-book-jump-legend")).toHaveTextContent(
-      "Book has mapping differences",
+      "● = Book has mapping differences",
     );
   });
 

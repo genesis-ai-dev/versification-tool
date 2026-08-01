@@ -260,6 +260,75 @@ def test_versification_list_detail_rename(api_client: TestClient) -> None:
 
 @pytest.mark.phase2
 @pytest.mark.api
+def test_versification_list_includes_associated_translation_names(
+    api_client: TestClient,
+) -> None:
+    """Listed schemes expose sorted non-anchor translation names per association."""
+    headers = _auth()
+    scheme_name = f"Scheme-{uuid4().hex[:8]}"
+    upload = api_client.post(
+        "/api/versifications/upload",
+        headers=headers,
+        files={
+            "file": (
+                "custom.json",
+                read_bytes(copenhagen_json("validated")),
+                "application/json",
+            )
+        },
+        data={"name": scheme_name},
+    )
+    assert upload.status_code == 201, upload.text
+    unassociated_id = upload.json()["id"]
+
+    project_name = f"Assoc-{uuid4().hex[:8]}"
+    ingested = ingest_primary_project(api_client, name=project_name)
+    associated_id = ingested["versification"]["id"]
+
+    second_translation = api_client.post(
+        "/api/translations",
+        headers=headers,
+        json={
+            "name": f"Second-{uuid4().hex[:8]}",
+            "language": "en",
+            "source_format": "usx",
+        },
+    )
+    assert second_translation.status_code == 201, second_translation.text
+    second_id = second_translation.json()["id"]
+    second_name = second_translation.json()["name"]
+    third_translation = api_client.post(
+        "/api/translations",
+        headers=headers,
+        json={
+            "name": f"Third-{uuid4().hex[:8]}",
+            "language": "en",
+            "source_format": "usx",
+        },
+    )
+    assert third_translation.status_code == 201, third_translation.text
+    third_id = third_translation.json()["id"]
+    third_name = third_translation.json()["name"]
+    for translation_id in (second_id, third_id):
+        linked = api_client.post(
+            f"/api/translations/{translation_id}/versifications",
+            headers=headers,
+            json={"scheme_id": unassociated_id},
+        )
+        assert linked.status_code == 201, linked.text
+
+    listing = api_client.get("/api/versifications", headers=headers)
+    assert listing.status_code == 200
+    by_id = {item["id"]: item for item in listing.json()["items"]}
+
+    assert by_id[unassociated_id]["associated_translation_names"] == sorted(
+        [second_name, third_name]
+    )
+    assert by_id[associated_id]["associated_translation_names"] == [project_name]
+
+
+@pytest.mark.phase2
+@pytest.mark.api
 def test_pagination_and_nested_arrays(api_client: TestClient) -> None:
     """TC-API-005: Pagination defaults, max, and bare nested arrays."""
     headers = _auth()

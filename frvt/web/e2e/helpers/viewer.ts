@@ -104,7 +104,7 @@ export async function waitForChapterMappings(page: Page): Promise<void> {
   await expect
     .poll(
       async () => {
-        const ctx = await page.locator(".pair-context").innerText();
+        const ctx = await page.locator(".header-viewer-status").innerText();
         if (ctx.includes("Loading chapter mappings…") || ctx.includes("Resolving…")) {
           return "loading";
         }
@@ -127,7 +127,7 @@ export async function waitForConnectorCount(
   await expect
     .poll(
       async () => {
-        const ctx = await page.locator(".pair-context").innerText();
+        const ctx = await page.locator(".header-viewer-status").innerText();
         if (ctx.includes("Loading chapter mappings…") || ctx.includes("Resolving…")) {
           return -1;
         }

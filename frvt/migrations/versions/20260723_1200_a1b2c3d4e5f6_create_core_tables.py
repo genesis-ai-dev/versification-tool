@@ -36,6 +36,12 @@ def upgrade() -> None:
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("name", sa.Text(), nullable=False),
         sa.Column("language", sa.Text(), nullable=False),
+        sa.Column(
+            "text_direction",
+            sa.Text(),
+            nullable=False,
+            server_default=sa.text("'ltr'"),
+        ),
         sa.Column("source_format", sa.Text(), nullable=False),
         sa.Column(
             "is_anchor",
@@ -58,6 +64,10 @@ def upgrade() -> None:
         sa.CheckConstraint(
             "source_format IN ('usx', 'usfm')",
             name="ck_translation_source_format",
+        ),
+        sa.CheckConstraint(
+            "text_direction IN ('ltr', 'rtl')",
+            name="ck_translation_text_direction",
         ),
     )
     op.create_index(

@@ -1,7 +1,7 @@
 import { useEffect, useRef, type RefObject } from "react";
 import type { VerseSpanOut } from "../api/types";
 import { toResolveArgs } from "../lib/bcv";
-import { formatVerseLabel } from "../lib/formatRef";
+import { formatVerseGutterLabel } from "../lib/formatRef";
 import type { DriveSide } from "./overlay/drawPlan";
 import { useViewerSession } from "./ViewerSession";
 
@@ -53,7 +53,7 @@ export function VerseSpan({ side, span, highlighted }: VerseSpanProps) {
         }
       }}
     >
-      <span className="verse-num">{formatVerseLabel(span.verse)}</span>
+      <span className="verse-num">{formatVerseGutterLabel(span.verse, span.part)}</span>
       <span className="verse-text">{span.content}</span>
     </div>
   );
@@ -64,6 +64,8 @@ export interface VerseListProps {
   side: DriveSide;
   spans: VerseSpanOut[];
   highlightKeys: Set<string>;
+  /** HTML text direction for scripture body (`ltr` or `rtl`). */
+  textDirection?: "ltr" | "rtl";
   /** Optional external ref to the scrollport (overlay + session). */
   listRef?: RefObject<HTMLDivElement | null>;
 }
@@ -72,7 +74,13 @@ export interface VerseListProps {
  * Render chapter spans in ``seq`` order with highlight membership.
  * Registers the scrollport with ViewerSession for follower scrolling.
  */
-export function VerseList({ side, spans, highlightKeys, listRef }: VerseListProps) {
+export function VerseList({
+  side,
+  spans,
+  highlightKeys,
+  textDirection = "ltr",
+  listRef,
+}: VerseListProps) {
   const { registerScrollRoot } = useViewerSession();
   const innerRef = useRef<HTMLDivElement>(null);
   const rootRef = listRef ?? innerRef;
@@ -83,7 +91,7 @@ export function VerseList({ side, spans, highlightKeys, listRef }: VerseListProp
   }, [registerScrollRoot, side, rootRef]);
 
   return (
-    <div className="verse-list" ref={rootRef}>
+    <div className="verse-list" dir={textDirection} ref={rootRef}>
       {spans.map((span) => (
         <VerseSpan
           key={`${span.id}`}

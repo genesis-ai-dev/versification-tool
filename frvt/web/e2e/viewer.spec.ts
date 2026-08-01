@@ -1,5 +1,7 @@
+import fs from "node:fs";
 import { test, expect } from "@playwright/test";
 import {
+  arabicSampleZipPath,
   createEmptyTranslation,
   deleteAllTranslations,
   deleteVersification,
@@ -153,7 +155,6 @@ test.describe("Viewer e2e", () => {
     await clickFirstVerse(page, "left");
     await expect.poll(() => viewerParams(page).get("drive")).toBe("left");
     await expect(page.getByLabel("Drive: left → right")).toBeVisible();
-    await expect(page.locator(".pair-context")).toContainText("drive: left");
     await expect.poll(async () => connectorCount(page)).toBeGreaterThan(0);
 
     // Switch drive via URL (follower auto-scroll can briefly lock click→drive).
@@ -173,7 +174,6 @@ test.describe("Viewer e2e", () => {
     });
     await expect.poll(() => viewerParams(page).get("drive")).toBe("right");
     await expect(page.getByLabel("Drive: right → left")).toBeVisible();
-    await expect(page.locator(".pair-context")).toContainText("drive: right");
     await trySelectBcv(page, "right", "PSA", "3", "2");
     const rightVerse = page.locator('.verse-span[data-side="right"]').nth(1);
     await rightVerse.click();
@@ -280,6 +280,42 @@ test.describe("Viewer e2e", () => {
     ]);
   });
 
+  test("TC-UI-011: manage round-trip retains viewer translation selection", async ({
+    page,
+  }) => {
+    const pair = await seedContrastingPair(page.request);
+    await openViewerSession(page, {
+      left: pair.left.id,
+      right: pair.right.id,
+      drive: "left",
+      map: true,
+      lvers: pair.engId,
+      rvers: pair.orgId,
+    });
+    await waitForVerseSpans(page);
+
+    await Promise.all([
+      page.waitForURL(/\/manage\/translations/),
+      page.getByRole("link", { name: "Translations" }).click(),
+    ]);
+    await expect(page.getByRole("heading", { name: "Translations" })).toBeVisible();
+    await Promise.all([
+      page.waitForURL(/\/manage\/versifications/),
+      page.getByRole("link", { name: "Versifications" }).click(),
+    ]);
+    await expect(page.getByRole("heading", { name: "Versifications" })).toBeVisible();
+    await Promise.all([
+      page.waitForURL(/\?/),
+      page.getByRole("link", { name: "Viewer" }).click(),
+    ]);
+
+    const params = viewerParams(page);
+    expect(params.get("left")).toBe(pair.left.id);
+    expect(params.get("right")).toBe(pair.right.id);
+    expect(params.get("lvers")).toBe(pair.engId);
+    expect(params.get("rvers")).toBe(pair.orgId);
+  });
+
   test("TC-UI-010: error UX mapping surfaces actionable messages", async ({ page }) => {
     // Provoke 404 via a bogus translation id in the URL; UI should show a toast/banner.
     await page.goto(
@@ -335,7 +371,7 @@ test.describe("Viewer e2e", () => {
       .poll(() => viewerParams(page).get("lv"), { timeout: 30_000 })
       .toBeTruthy();
     // Latest selection should stick; no assertion on intermediate stale highlight.
-    await expect(page.locator(".pair-context")).not.toContainText("Resolving…", {
+    await expect(page.locator(".header-viewer-status")).not.toContainText("Resolving…", {
       timeout: 30_000,
     });
   });
@@ -439,19 +475,14 @@ test.describe("Viewer e2e", () => {
     ];
     expect(Math.max(...controlTops) - Math.min(...controlTops)).toBeLessThan(1);
 
-    const [pairContext, mapToggle, rightJump] = await Promise.all([
-      page.locator(".pair-context").boundingBox(),
-      page.locator(".map-toggle").boundingBox(),
-      rightChrome.getByRole("button", { name: "Jump" }).boundingBox(),
+    const [header, mapToggle] = await Promise.all([
+      page.locator(".app-header").boundingBox(),
+      page.locator(".header-map-toggle").boundingBox(),
     ]);
-    expect(pairContext).toBeTruthy();
+    expect(header).toBeTruthy();
     expect(mapToggle).toBeTruthy();
-    expect(rightJump).toBeTruthy();
-    expect(pairContext!.x).toBeCloseTo(leftTranslation!.x, 0);
-    expect(mapToggle!.x + mapToggle!.width).toBeCloseTo(
-      rightJump!.x + rightJump!.width,
-      0,
-    );
+    expect(mapToggle!.x).toBeGreaterThan(header!.x);
+    expect(mapToggle!.x + mapToggle!.width).toBeLessThanOrEqual(header!.x + header!.width + 1);
 
     const chromeOverflow = await leftChrome.evaluate((element) => ({
       clientWidth: element.clientWidth,
@@ -465,14 +496,11 @@ test.describe("Viewer e2e", () => {
         page.getByLabel(label).boundingBox(),
       ),
     );
-    const wideLegend = await leftChrome.locator(".book-jump-legend").boundingBox();
     expect(wideBcvBoxes.every(Boolean)).toBe(true);
-    expect(wideLegend).toBeTruthy();
     const wideBcvWidths = wideBcvBoxes.map((box) => box!.width);
     expect(Math.max(...wideBcvWidths) - Math.min(...wideBcvWidths)).toBeLessThanOrEqual(
       1,
     );
-    expect(wideLegend!.y).toBeGreaterThan(wideBcvBoxes[0]!.y + wideBcvBoxes[0]!.height);
   });
 
   test("TC-UI-025: accessibility floor — labeled controls are keyboard reachable", async ({
@@ -775,23 +803,12 @@ test.describe("Viewer e2e", () => {
       lvers: pair.engId,
       rvers: pair.orgId,
     });
-    const bookMarkerDescriptions = page.locator(".book-jump-legend");
-    await expect(bookMarkerDescriptions).toHaveCount(2, { timeout: 30_000 });
-    await expect(bookMarkerDescriptions.first()).toBeVisible();
-    await expect(bookMarkerDescriptions.first()).toContainText(
-      "Book has mapping differences",
-    );
+    const bookLegendButtons = page.getByRole("button", {
+      name: "Book mapping indicator legend",
+    });
+    await expect(bookLegendButtons).toHaveCount(2, { timeout: 30_000 });
     const leftBook = page.getByLabel("left book");
     await expect(leftBook).toHaveAttribute("aria-describedby", "left-book-jump-legend");
-    // Keep the description in the Book label's DOM before the combobox.
-    const legendBeforeSelect = await leftBook.evaluate((select) => {
-      const legend = document.getElementById("left-book-jump-legend");
-      return Boolean(
-        legend &&
-        (legend.compareDocumentPosition(select) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
-      );
-    });
-    expect(legendBeforeSelect).toBe(true);
     await leftBook.click();
     await expect
       .poll(async () =>
@@ -820,7 +837,6 @@ test.describe("Viewer e2e", () => {
     await expect(page.getByLabel("Drive: left → right")).toBeVisible({
       timeout: 30_000,
     });
-    await expect(page.locator(".pair-context")).toContainText("drive: left");
 
     await openViewerSession(page, {
       left: pair.left.id,
@@ -832,7 +848,6 @@ test.describe("Viewer e2e", () => {
     await expect(page.getByLabel("Drive: right → left")).toBeVisible({
       timeout: 30_000,
     });
-    await expect(page.locator(".pair-context")).toContainText("drive: right");
 
     await deleteAllTranslations(page.request);
     const alone = await createEmptyTranslation(
@@ -891,8 +906,8 @@ test.describe("Viewer e2e", () => {
     });
 
     await page.locator('input[type="file"]').setInputFiles(primaryProjectZipPath());
-    await page.getByLabel("Translation name").fill("E2E Upload Block");
-    await page.getByLabel("Language").fill("en");
+    await page.getByLabel("Translation name (optional)").fill("E2E Upload Block");
+    await page.getByLabel("Language (optional)").fill("en");
     await page.getByRole("button", { name: "Upload", exact: true }).click();
     await expect(page.getByRole("button", { name: "Uploading…" })).toBeDisabled();
     release?.();
@@ -920,5 +935,27 @@ test.describe("Viewer e2e", () => {
       );
     });
     expect(editable).toBe(false);
+  });
+
+  test("TC-UI-040: RTL translation renders dir=rtl on verse list", async ({ page }) => {
+    const zipPath = arabicSampleZipPath();
+    test.skip(!fs.existsSync(zipPath), "Arabic sample zip not available");
+    await deleteAllTranslations(page.request);
+    const arabic = await ingestProject(page.request, {
+      name: `E2E-Arabic-${Date.now().toString(36)}`,
+      zipPath,
+    });
+    const pair = await seedContrastingPair(page.request);
+    await openViewerSession(page, {
+      left: arabic.translation.id,
+      right: pair.right.id,
+    });
+    await waitForVerseSpans(page);
+    await expect(
+      page.locator('.scripture-column[data-side="left"] .verse-list[dir="rtl"]'),
+    ).toBeVisible();
+    await expect(
+      page.locator('.scripture-column[data-side="right"] .verse-list[dir="ltr"]'),
+    ).toBeVisible();
   });
 });

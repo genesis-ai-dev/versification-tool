@@ -585,6 +585,7 @@ frvt/web/
       VersificationsManagePage.tsx
     viewer/
       ViewerSession.tsx          # URL sync + caches + resolve mapping (§7.6)
+      viewerPersistence.ts       # localStorage fallback for viewer URL state (ADD-U-008)
       ViewerToolbar.tsx
       ViewerWorkspace.tsx
       ScriptureColumn.tsx
@@ -792,3 +793,30 @@ Post-reconciliation modifications. Apply subsections in order (`ADD-*-001`, then
 | ADD-U-006a | §2.3 row 3 / §10 (`ColumnChrome`) | REPLACE | Book, chapter, and verse controls are searchable comboboxes (`TypeaheadSelect`), not native `<select>`. Typing filters options by case-insensitive substring match on both the option **value** and **label** (so USFM codes and display text such as `Title (0)` both match). Keyboard: ArrowUp/ArrowDown, Enter to commit, Escape to dismiss. Translation and versification controls remain native `<select>`. |
 | ADD-U-006b | ADD-U-003b / ADD-U-004d | CLARIFY | Jump-book ` ●` markers and legend/`aria-describedby` apply to the book combobox the same way they did for the native book select; committed values remain bare USFM codes. |
 | ADD-U-006c | §11.3 | ADD | Contract tests: filter narrows options; selecting a marked book commits the bare code; e2e BCV helpers drive the combobox via listbox options / `data-value`. |
+
+### ADD-U-007 — RTL scripture column layout and versification association display
+
+**Purpose:** Scripture columns respect each translation's stored text direction for verse layout while mapping connectors remain physically attached across columns. On the versifications manage screen, a **Translation(s)** column lists associated translation names so operators can see which translations use each scheme (including schemes created by project ingest, which are associated with the new translation at ingest time).
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-U-007a | §2.3 row 1 / §10 `VerseSpan` | ADD | Each column's verse list sets HTML `dir` from that column's translation `text_direction` (`rtl` \| `ltr`). Column chrome remains LTR. |
+| ADD-U-007b | §10 `VerseSpan` layout | ADD | RTL columns: verse numbers at inline start (grid follows `dir`); verse numbers use Western numerals with `direction: ltr` and `unicode-bidi: isolate`; gutter alignment `text-align: end`. Verse body inherits column direction. |
+| ADD-U-007c | §8 overlay | CLARIFY | Mapping connectors and anchor measurement remain **physical** (left column left edge ↔ right column right edge toward gutter); RTL text direction does not alter overlay attachment. |
+| ADD-U-007d | §6.3 upload modal | REPLACE | Project upload **Translation name** and **Language** fields are optional, labeled as such, with hint text that each is initialized from `metadata.xml` when omitted. Metadata values are authoritative when present. Ingest fails with field errors when a value cannot be resolved from metadata or the form. |
+| ADD-U-007e | §11.3 | ADD | Contract/e2e: RTL translation renders `dir="rtl"` on verse list; verse-num isolation; overlay connectors still attach across columns for LTR↔RTL pairs. |
+| ADD-U-007f | §6.1 `/manage/versifications` / `VersificationsManagePage` | ADD | The versifications table includes a **Translation(s)** column populated from `VersificationOut.associated_translation_names` (sorted translation display names). The cell shows the associated translation **name** directly when there is exactly one association; when more than one translation is associated with the scheme, the cell shows a summary and a popover listing each associated translation name. When no translations are associated, the cell shows muted **None**. |
+| ADD-U-007g | §11.3 | ADD | Contract/e2e: versifications manage **Translation(s)** shows one associated translation name inline; multiple associations use the popover listing. |
+
+### ADD-U-008 — Viewer session local persistence
+
+**Purpose:** Durable fallback for viewer URL state when the address bar has no explicit translation selection (manage-route return, post-login reload).
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-U-008a | §7.1 | ADD | The URL remains the runtime source of truth. `localStorage` key `frvt.viewerSession` stores the serialized viewer search string produced by `serializeViewerSearch` (same vocabulary as §7.1). |
+| ADD-U-008b | §7.1 | ADD | **Write:** on every `ViewerSession.updateUrl`. **Read:** on viewer mount when the URL has neither `left` nor `right`, restore the stored search before catalog defaults run. Explicit URL params always override storage. |
+| ADD-U-008c | §5.3 `AppShell` | ADD | The Viewer nav link targets `/?{storedSearch}` when storage holds a saved session, so manage → Viewer round-trips preserve the last viewer state. |
+| ADD-U-008d | §7.1 / §7.3 | ADD | After catalog load, sanitize stored translation and versification ids against `GET /api/translations` and `GET /api/versifications`; drop ids that no longer exist; apply catalog defaults only for still-missing `left`/`right` slots. |
+| ADD-U-008e | §10 layout | ADD | `viewerPersistence.ts` — `localStorage` read/write, explicit-param detection, and catalog sanitization helpers used by `ViewerSession`. |
+| ADD-U-008f | §11.3 | ADD | Contract tests: persistence round-trip and sanitize behavior; e2e `TC-UI-011` manage-route round-trip retains `left`/`right` (and per-column `lvers`/`rvers` when set). |

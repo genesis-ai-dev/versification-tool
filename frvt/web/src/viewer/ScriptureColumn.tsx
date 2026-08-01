@@ -1,4 +1,5 @@
 import { useEffect, useRef, type RefObject } from "react";
+import { textDirectionForTranslation } from "../lib/textDirection";
 import type { DriveSide } from "./overlay/drawPlan";
 import { ColumnChrome } from "./ColumnChrome";
 import { highlightKeysFor } from "./highlightKeys";
@@ -20,6 +21,9 @@ export function ScriptureColumn({ side, scrollRef }: ScriptureColumnProps) {
   const session = useViewerSession();
   const translationId = side === "left" ? session.url.left : session.url.right;
   const spans = session.spansFor(side);
+  const textDirection = textDirectionForTranslation(
+    session.translations.find((t) => t.id === translationId),
+  );
   const resolveDisabled = !session.canResolve;
   const localRef = useRef<HTMLDivElement>(null);
 
@@ -62,6 +66,7 @@ export function ScriptureColumn({ side, scrollRef }: ScriptureColumnProps) {
         side={side}
         spans={spans}
         highlightKeys={highlightKeys}
+        textDirection={textDirection}
         listRef={localRef}
       />
     </section>

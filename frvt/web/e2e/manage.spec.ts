@@ -55,8 +55,8 @@ test.describe("Manage e2e", () => {
     await expect(page.getByRole("heading", { name: "Upload project" })).toBeVisible();
     expect(new URL(page.url()).pathname).toBe("/manage/translations");
     await page.locator('input[type="file"]').setInputFiles(primaryProjectZipPath());
-    await page.getByLabel("Translation name").fill(`E2E-Upload-${suffix}`);
-    await page.getByLabel("Language").fill("en");
+    await page.getByLabel("Translation name (optional)").fill(`E2E-Upload-${suffix}`);
+    await page.getByLabel("Language (optional)").fill("en");
     await page.getByRole("button", { name: "Upload", exact: true }).click();
     await expect(page.getByRole("button", { name: "Uploading…" })).toBeVisible({
       timeout: 15_000,

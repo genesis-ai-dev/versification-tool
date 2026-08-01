@@ -10,6 +10,15 @@ export function formatVerseLabel(verse: number): string {
 }
 
 /**
+ * Format a verse gutter or selector label, appending a sub-verse part when present.
+ * Machine/API values remain separate via ``toResolveArgs``.
+ */
+export function formatVerseGutterLabel(verse: number, part?: string | null): string {
+  const base = formatVerseLabel(verse);
+  return part ? `${base}${part}` : base;
+}
+
+/**
  * Format a display label for a structured BCV (optional part suffix).
  * Machine/API values remain separate via ``toResolveArgs``.
  */

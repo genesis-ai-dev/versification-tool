@@ -256,7 +256,6 @@ test.describe("Overlay e2e", () => {
     await waitForConnectors(page);
     // Drive-right: connectors exist and between-column arrow reflects drive side.
     await expect(page.getByLabel("Drive: right → left")).toBeVisible();
-    await expect(page.locator(".pair-context")).toContainText("drive: right");
     expect(await connectorCount(page)).toBeGreaterThan(0);
   });
 

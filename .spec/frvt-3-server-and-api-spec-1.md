@@ -1060,3 +1060,24 @@ Post-reconciliation modifications. Apply subsections in order (`ADD-*-001`, then
 | ADD-S-004b | §7.2 `NavBook` | REPLACE | `chapters: list[int]` — chapter numbers present from stored `verse_span` rows for that book (not from `maxVerses`). |
 | ADD-S-004c | §7.9 navigation row | REPLACE | `GET /api/translations/{id}/navigation` — optional `versification` uuid. Books and chapter numbers **available as stored content** for the translation: distinct `(book, chapter)` from `verse_span` for that translation, ordered in USX/Paratext Bible order. Still resolves the selected scheme (override, else preferred) with the same `404`/`409` pre-checks as other coordinate endpoints, but **does not** seed or pad the tree from scheme `maxVerses`. Empty content ⇒ `[]`. Response `200` list of `NavBook`. |
 | ADD-S-004d | §10.3 | ADD | Navigation: happy path returns only books/chapters with stored spans; a translation associated with a full-canon scheme but holding a subset of spans omits scheme-only books; USX order retained; `404`/`409` scheme pre-checks unchanged. Covered by TC-NAV-001 (and span-subset case in `test_api_navigation.py`). |
+
+### ADD-S-005 — Translation language metadata and text direction
+
+**Purpose:** Project ingest reads bundle language and script direction from `metadata.xml`, persists `text_direction` on translations, and names ingested versification schemes after the project translation name.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-S-005a | §6.1.1 `translation` | ADD | Column `text_direction` `text not null`, values `ltr` \| `rtl`, default `ltr`. Set at project ingest from bundle metadata; default `ltr` for metadata-only `POST /api/translations` and bootstrap anchors. |
+| ADD-S-005b | §6.1.1 `language` | CLARIFY | Stores the resolved language tag (BCP 47 / ISO 639-3) for the translation, not a display name. |
+| ADD-S-005c | §7.7.1 | REPLACE | Form fields: `file` (zip), `name` (**optional**), `language` (**optional**). **Name** resolution: read `metadata.xml` when present — use `<identification><name>`; metadata value is **authoritative** over the form. Form value is fallback when metadata omits a name. If no name can be resolved, `400 bad_request` (field `name`). **Language** resolution: prefer `<language><ldml>`, else `<language><iso>`; metadata authoritative over the form; form fallback when metadata omits a code; `400 bad_request` (field `language`) when unresolvable. `text_direction` from `<scriptDirection>` (`RTL` → `rtl`; missing or unrecognized → `ltr`). |
+| ADD-S-005d | §7.7.1 persist | ADD | On successful project ingest with a `.vrs` present, the created `versification_scheme.name` equals the submitted translation `name` (not the VRS filename stem). Standalone versification upload naming unchanged (§7.7.2). |
+| ADD-S-005e | §7.2 `TranslationOut` | ADD | Field `text_direction: "ltr" \| "rtl"`. |
+| ADD-S-005f | §10.3 | ADD | Contract tests: metadata language authoritative; form fallback; `400` without resolvable language; `text_direction` from `scriptDirection`; ingested scheme name matches project name. |
+
+### ADD-S-006 — Viewer session local persistence (cross-spec traceability)
+
+**Purpose:** Cross-spec traceability for client-side viewer session persistence; document that the server is unchanged.
+
+**No modification rows.** The frozen main body and effective specification are unchanged. This addendum records the API boundary for implementers and reviewers.
+
+Viewer session persistence is **client-only** (`localStorage` in the web app, ADD-U-008). No new endpoints, cookies, or server session store are introduced. Stored translation and versification ids are opaque UUIDs already exposed by existing list endpoints (`GET /api/translations`, `GET /api/versifications`). Invalid ids are dropped client-side after catalog load; the server continues to return `404` for unknown ids when referenced directly.

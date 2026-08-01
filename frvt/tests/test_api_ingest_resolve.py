@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import io
+import zipfile
 from uuid import uuid4
 
 import pytest
@@ -16,9 +18,37 @@ from frvt.testops.fixtures.malformed_zips import (
     zip_usfm_only,
 )
 from frvt.testops.http_client import assert_error_envelope, basic_auth_header
-from frvt.testops.sample_assets import copenhagen_json, paratext_vrs, read_bytes
+from frvt.testops.sample_assets import (
+    copenhagen_json,
+    paratext_vrs,
+    primary_project_zip,
+    read_bytes,
+    repo_root,
+)
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
+
+_METADATA_EN = (
+    "<DBLMetadata><identification><name>Metadata English Project</name></identification>"
+    "<language><iso>eng</iso><ldml>en</ldml>"
+    "<scriptDirection>LTR</scriptDirection></language></DBLMetadata>"
+)
+_MINIMAL_USX = (
+    "<usx version='3.0'><book code='GEN'/><chapter number='1'/>"
+    "<verse number='1' sid='GEN 1:1'/>In the beginning.<verse eid='GEN 1:1'/>"
+    "</usx>"
+)
+
+
+def _minimal_project_zip(*, metadata_xml: str | None = None) -> bytes:
+    """Build a tiny ingestable project zip with optional metadata."""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        if metadata_xml is not None:
+            archive.writestr("metadata.xml", metadata_xml)
+        archive.writestr("release/USX_1/GEN.usx", _MINIMAL_USX)
+        archive.writestr("release/versification.vrs", "GEN 1:31\n")
+    return buffer.getvalue()
 
 
 def _auth() -> dict[str, str]:
@@ -232,14 +262,170 @@ def test_usfm_only_project_fail_closed(
 
 @pytest.mark.phase3
 @pytest.mark.ingest
-def test_project_blank_metadata_422(api_client: TestClient) -> None:
-    """Whitespace-only project metadata is rejected before persistence."""
+def test_project_missing_name_and_language_400(api_client: TestClient) -> None:
+    """Ingest without metadata or form name/language returns 400."""
     response = api_client.post(
         "/api/ingest/project",
         headers=_auth(),
-        data={"name": "   ", "language": "\t"},
-        files={"file": ("project.zip", b"not-needed", "application/zip")},
+        files={
+            "file": (
+                "project.zip",
+                _minimal_project_zip(metadata_xml=None),
+                "application/zip",
+            )
+        },
     )
-    assert response.status_code == 422
-    assert_error_envelope(response.json(), code="validation_failed")
-    assert response.json().get("errors")
+    assert response.status_code == 400
+    body = response.json()
+    assert_error_envelope(body, code="bad_request")
+    fields = {error["field"] for error in body.get("errors", [])}
+    assert "name" in fields
+    assert "language" in fields
+
+
+@pytest.mark.phase3
+@pytest.mark.ingest
+def test_project_metadata_name_authoritative(api_client: TestClient) -> None:
+    """Metadata translation name overrides the form when both are present."""
+    response = api_client.post(
+        "/api/ingest/project",
+        headers=_auth(),
+        data={"name": "Form Override", "language": "en"},
+        files={
+            "file": (
+                "project.zip",
+                _minimal_project_zip(metadata_xml=_METADATA_EN),
+                "application/zip",
+            )
+        },
+    )
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["translation"]["name"] == "Metadata English Project"
+    assert body["versification"]["name"] == "Metadata English Project"
+
+
+@pytest.mark.phase3
+@pytest.mark.ingest
+def test_project_metadata_name_from_zip_only(api_client: TestClient) -> None:
+    """Metadata supplies translation name when the form omits it."""
+    response = api_client.post(
+        "/api/ingest/project",
+        headers=_auth(),
+        files={
+            "file": (
+                "project.zip",
+                _minimal_project_zip(metadata_xml=_METADATA_EN),
+                "application/zip",
+            )
+        },
+    )
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["translation"]["name"] == "Metadata English Project"
+    assert body["translation"]["language"] == "en"
+
+
+@pytest.mark.phase3
+@pytest.mark.ingest
+def test_project_metadata_language_authoritative(api_client: TestClient) -> None:
+    """Metadata language overrides the form when both are present."""
+    name = f"MetaLang-{uuid4().hex[:8]}"
+    response = api_client.post(
+        "/api/ingest/project",
+        headers=_auth(),
+        data={"name": name, "language": "es"},
+        files={
+            "file": (
+                "project.zip",
+                _minimal_project_zip(metadata_xml=_METADATA_EN),
+                "application/zip",
+            )
+        },
+    )
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["translation"]["language"] == "en"
+    assert body["translation"]["text_direction"] == "ltr"
+    assert body["versification"]["name"] == name
+
+
+@pytest.mark.phase3
+@pytest.mark.ingest
+def test_project_form_language_fallback(api_client: TestClient) -> None:
+    """Form language is used when metadata omits a language code."""
+    name = f"FormLang-{uuid4().hex[:8]}"
+    response = api_client.post(
+        "/api/ingest/project",
+        headers=_auth(),
+        data={"name": name, "language": "fr"},
+        files={
+            "file": (
+                "project.zip",
+                _minimal_project_zip(metadata_xml=None),
+                "application/zip",
+            )
+        },
+    )
+    assert response.status_code == 201, response.text
+    assert response.json()["translation"]["language"] == "fr"
+
+
+@pytest.mark.phase3
+@pytest.mark.ingest
+def test_project_missing_language_400(api_client: TestClient) -> None:
+    """Ingest without metadata language or form language returns 400."""
+    response = api_client.post(
+        "/api/ingest/project",
+        headers=_auth(),
+        data={"name": f"NoLang-{uuid4().hex[:8]}"},
+        files={
+            "file": (
+                "project.zip",
+                _minimal_project_zip(metadata_xml=None),
+                "application/zip",
+            )
+        },
+    )
+    assert response.status_code == 400
+    assert_error_envelope(response.json(), code="bad_request")
+
+
+@pytest.mark.phase3
+@pytest.mark.ingest
+def test_project_arabic_sample_rtl(api_client: TestClient) -> None:
+    """Arabic sample zip persists rtl text_direction from metadata."""
+    zip_path = repo_root() / "research" / "SampleTranslations" / "biblica-arabic-1.zip"
+    if not zip_path.is_file():
+        pytest.skip("Arabic sample zip not available")
+    name = f"Arabic-{uuid4().hex[:8]}"
+    with zip_path.open("rb") as handle:
+        response = api_client.post(
+            "/api/ingest/project",
+            headers=_auth(),
+            data={"name": name},
+            files={"file": (zip_path.name, handle, "application/zip")},
+        )
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["translation"]["text_direction"] == "rtl"
+    assert body["translation"]["language"] == "arb"
+    assert body["versification"]["name"] == name
+
+
+@pytest.mark.phase3
+@pytest.mark.ingest
+def test_project_scheme_name_matches_translation_name(api_client: TestClient) -> None:
+    """Ingested versification scheme uses the project translation name."""
+    name = f"SchemeName-{uuid4().hex[:8]}"
+    with primary_project_zip().open("rb") as handle:
+        response = api_client.post(
+            "/api/ingest/project",
+            headers=_auth(),
+            data={"name": name},
+            files={"file": (primary_project_zip().name, handle, "application/zip")},
+        )
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["versification"]["name"] == name
+    assert body["versification"]["name"] != "versification"

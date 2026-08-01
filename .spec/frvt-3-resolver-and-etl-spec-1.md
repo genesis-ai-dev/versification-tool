@@ -777,3 +777,21 @@ UI book indicators (ADD-U-003) consume the jump-books endpoint; that behavior do
 | ADD-R-004d | §6.6 | ADD | After assembly, a result with exactly one source and one target span sharing book/chapter/verse/part is emitted as `one_to_one`; skip when the top-level relation is already `one_to_one`, `merge`, `split`, `complex`, `range`, `exclude`, or `partial`, or when either side has more than one span; per-connector `edges[].relation` is never rewritten. |
 | ADD-R-004e | §6.8 | ADD | Each connector carries a source leg and a target leg; a composed hull reports the dominant non-identity relation per axis using the §3.3 composition priority, omitted when an axis is all-identity. |
 | ADD-R-004f | §6.8 | ADD | Precedence: a hull that qualifies as `complex` always wins over `range`. |
+
+### ADD-R-005 — Project metadata extraction
+
+**Purpose:** Project ingest optionally extracts language and script direction from bundle metadata for API persist to store on the translation and to name ingested schemes consistently.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-R-005a | §8.2 step 1 | ADD | Optionally read root `metadata.xml`. Extract translation name (`<identification><name>`), language (`ldml` then `iso`), and `scriptDirection` when parseable; omit silently on absence or malformed XML (not a blocking ingest issue by itself). |
+| ADD-R-005b | §8.5 | ADD | API persist resolves `translation.name` and `translation.language` from extracted metadata (authoritative) with optional form fallbacks; fails closed with `400` when either is unresolvable. Persists `text_direction` (`rtl` when `scriptDirection` is `RTL`, else `ltr`). Names ingested scheme after translation `name` when project `.vrs` is present. |
+| ADD-R-005c | §11 / §10.3 | ADD | Unit tests for metadata parser and ingest language/direction resolution. |
+
+### ADD-R-006 — Viewer session local persistence (cross-spec traceability)
+
+**Purpose:** Cross-spec traceability for client-side viewer session persistence; document that the resolver package is unchanged.
+
+**No modification rows.** The frozen main body and effective specification are unchanged. This addendum records the API↔resolver boundary for implementers and reviewers.
+
+Viewer session persistence (ADD-U-008, ADD-S-006) is a web-client concern. The `frvt.resolver` package, `ResolutionDTO` shape, and resolution algorithms (§§5–8) are **unchanged**. Ingest and `mapping_record` derivation are unchanged.

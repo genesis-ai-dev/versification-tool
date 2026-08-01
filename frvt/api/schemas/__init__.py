@@ -59,8 +59,10 @@ class TranslationOut(BaseModel):
     id: UUID
     # Display name.
     name: str
-    # Language label.
+    # Language tag (BCP 47 / ISO 639-3).
     language: str
+    # Scripture column text direction for the viewer.
+    text_direction: Literal["ltr", "rtl"]
     # Provenance format (``usx`` or ``usfm``).
     source_format: str
     # Creation timestamp (UTC).
@@ -109,6 +111,8 @@ class VersificationOut(BaseModel):
     created_at: datetime
     # Last-update timestamp (UTC).
     updated_at: datetime
+    # Non-anchor translation names linked via associations; populated on list.
+    associated_translation_names: list[str] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
 

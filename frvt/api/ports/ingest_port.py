@@ -21,6 +21,7 @@ from frvt.api.models import (
 from frvt.api.schemas import ProjectIngestOut, TranslationOut, VersificationOut
 from frvt.ingest.derive_mappings import derive_mapping_records
 from frvt.ingest.ingest_api import ingest_project, ingest_versification
+from frvt.ingest.metadata_parse import ProjectMetadata, resolve_text_direction
 from frvt.ingest.project_zip import locate_project_members
 from frvt.ingest.types import IngestIssue, ParsedScheme
 
@@ -146,31 +147,103 @@ def persist_versification(
     return VersificationOut.model_validate(row)
 
 
+def _resolve_project_name(
+    metadata_name: str | None,
+    form_name: str | None,
+) -> str | None:
+    """Return translation name from metadata (authoritative) or form fallback."""
+    if metadata_name and metadata_name.strip():
+        return metadata_name.strip()
+    if form_name and form_name.strip():
+        return form_name.strip()
+    return None
+
+
+def _resolve_project_language(
+    metadata_language: str | None,
+    form_language: str | None,
+) -> str | None:
+    """Return language from metadata (authoritative) or form fallback."""
+    if metadata_language and metadata_language.strip():
+        return metadata_language.strip()
+    if form_language and form_language.strip():
+        return form_language.strip()
+    return None
+
+
+def _require_resolved_project_fields(
+    metadata: ProjectMetadata | None,
+    name: str | None,
+    language: str | None,
+) -> tuple[str, str]:
+    """Resolve name and language together so missing fields surface in one response."""
+    resolved_name = _resolve_project_name(
+        metadata.translation_name if metadata is not None else None,
+        name,
+    )
+    resolved_language = _resolve_project_language(
+        metadata.language_code if metadata is not None else None,
+        language,
+    )
+    errors: list[FieldError] = []
+    if resolved_name is None:
+        errors.append(
+            FieldError(
+                field="name",
+                message="Provide translation name in metadata.xml or the upload form.",
+            )
+        )
+    if resolved_language is None:
+        errors.append(
+            FieldError(
+                field="language",
+                message="Provide language in metadata.xml or the upload form.",
+            )
+        )
+    if errors:
+        raise AppError(
+            400,
+            "Project metadata could not be resolved from the zip or form.",
+            code="bad_request",
+            errors=errors,
+        )
+    assert resolved_name is not None
+    assert resolved_language is not None
+    return resolved_name, resolved_language
+
+
 def persist_project(
     session: Session,
     archive_bytes: bytes,
-    name: str,
-    language: str,
+    name: str | None,
+    language: str | None,
 ) -> ProjectIngestOut:
     """Parse a project zip and persist translation, spans, scheme, preferred assoc."""
-    name = _require_nonblank(name, "name")
-    language = _require_nonblank(language, "language")
-    logger.debug("Persisting project ingest name=%s", name)
-    clash = session.scalar(
-        select(Translation).where(func.lower(Translation.name) == name.lower())
-    )
-    if clash is not None:
-        raise AppError(409, "Translation name already exists.", code="conflict")
-
+    logger.debug("Persisting project ingest")
     result = ingest_project(archive_bytes)
     _raise_for_issues(result.issues)
     if result.scheme is None:
         raise AppError(422, "Ingest validation failed.", code="validation_failed")
 
+    metadata = result.metadata
+    resolved_name, resolved_language = _require_resolved_project_fields(
+        metadata,
+        name,
+        language,
+    )
+    text_direction = resolve_text_direction(metadata)
+
+    clash = session.scalar(
+        select(Translation).where(func.lower(Translation.name) == resolved_name.lower())
+    )
+    if clash is not None:
+        raise AppError(409, "Translation name already exists.", code="conflict")
+
     source_format = _infer_source_format(archive_bytes)
     translation = Translation(
-        name=name,
-        language=language,
+        name=resolved_name,
+        language=resolved_language,
+        text_direction=text_direction,
         source_format=source_format,
         is_anchor=False,
     )
@@ -192,7 +265,7 @@ def persist_project(
 
     base = _lookup_base(session, result.scheme.based_on)
     scheme_row = VersificationScheme(
-        name=result.scheme.name,
+        name=resolved_name,
         based_on_name=result.scheme.based_on or "org",
         based_on_id=base.id,
         canonical=False,

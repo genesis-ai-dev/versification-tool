@@ -1,6 +1,5 @@
 import type { ResolveResult } from "../../api/types";
 import type { ConnectorPlan } from "./drawPlan";
-import { LABEL_BADGE_MIN_HEIGHT, layoutLabelBadge } from "./labelBadge";
 
 /** Gutter hub badge placed once per composed alignment hull. */
 export interface HubBadgePlan {
@@ -54,11 +53,3 @@ export function hubBadge(
     color,
   };
 }
-
-/** Approximate badge width from label text (jsdom has no text metrics). */
-export function hubBadgeWidth(text: string): number {
-  return layoutLabelBadge(text).width;
-}
-
-/** Fixed badge height for gutter hub labels (minimum; wrapping may grow). */
-export const HUB_BADGE_HEIGHT = LABEL_BADGE_MIN_HEIGHT;

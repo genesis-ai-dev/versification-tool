@@ -27,6 +27,8 @@ class ProjectArchiveContents:
     vrs_path: str | None
     # UTF-8 text of the chosen ``.vrs`` file when present.
     vrs_text: str | None
+    # UTF-8 text of root ``metadata.xml`` when present in the archive.
+    metadata_text: str | None
     # Blocking location issues (missing USX tree and/or missing ``.vrs``).
     issues: tuple[IngestIssue, ...]
 
@@ -79,10 +81,15 @@ def locate_project_members(archive_bytes: bytes) -> ProjectArchiveContents:
             for path in usx_paths:
                 usx_files.append((path, archive.read(path).decode("utf-8-sig")))
 
+            metadata_text: str | None = None
+            if "metadata.xml" in names:
+                metadata_text = archive.read("metadata.xml").decode("utf-8-sig")
+
             return ProjectArchiveContents(
                 usx_files=tuple(usx_files),
                 vrs_path=vrs_path,
                 vrs_text=vrs_text,
+                metadata_text=metadata_text,
                 issues=tuple(issues),
             )
     except (UnicodeDecodeError, RuntimeError, zipfile.BadZipFile):
@@ -93,6 +100,7 @@ def locate_project_members(archive_bytes: bytes) -> ProjectArchiveContents:
             usx_files=(),
             vrs_path=None,
             vrs_text=None,
+            metadata_text=None,
             issues=(
                 IngestIssue(
                     kind="invalid",

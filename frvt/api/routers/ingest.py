@@ -28,8 +28,8 @@ async def _read_upload(upload: UploadFile, max_bytes: int) -> bytes:
 @router.post("/api/ingest/project", response_model=ProjectIngestOut, status_code=201)
 async def ingest_project_endpoint(
     file: UploadFile = File(...),
-    name: str = Form(...),
-    language: str = Form(...),
+    name: str | None = Form(default=None),
+    language: str | None = Form(default=None),
     session: Session = Depends(get_session),
 ) -> ProjectIngestOut:
     """Ingest a zipped Paratext-style project (USX + required ``.vrs``)."""

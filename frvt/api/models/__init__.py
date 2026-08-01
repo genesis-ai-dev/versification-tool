@@ -56,6 +56,10 @@ class Translation(Base):
             "source_format IN ('usx', 'usfm')",
             name="ck_translation_source_format",
         ),
+        CheckConstraint(
+            "text_direction IN ('ltr', 'rtl')",
+            name="ck_translation_text_direction",
+        ),
     )
 
     # Server-generated primary key for the translation row.
@@ -64,8 +68,12 @@ class Translation(Base):
     )
     # Display name; uniqueness is enforced case-insensitively via index.
     name: Mapped[str] = mapped_column(Text, nullable=False)
-    # Free-text language label shown to operators and the UI.
+    # Resolved language tag (BCP 47 / ISO 639-3) for layout and catalog display.
     language: Mapped[str] = mapped_column(Text, nullable=False)
+    # Scripture column text direction for the viewer (`ltr` or `rtl`).
+    text_direction: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default="ltr"
+    )
     # Original upload format (``usx`` or ``usfm``); content is always stored as spans.
     source_format: Mapped[str] = mapped_column(Text, nullable=False)
     # True for bootstrapped canonical numbering-space anchors excluded from listings.

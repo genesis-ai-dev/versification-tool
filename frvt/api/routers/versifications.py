@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from frvt.api.db import get_session
 from frvt.api.errors import AppError
 from frvt.api.logging_config import get_logger
-from frvt.api.models import TranslationVersification, VersificationScheme
+from frvt.api.models import Translation, TranslationVersification, VersificationScheme
 from frvt.api.schemas import (
     Page,
     VersificationDetailOut,
@@ -24,6 +24,27 @@ from frvt.api.scheme_select import clamp_page, require_scheme
 logger = get_logger(__name__)
 
 router = APIRouter(tags=["versifications"])
+
+
+def _translation_names_by_scheme(
+    session: Session, scheme_ids: list[UUID]
+) -> dict[UUID, list[str]]:
+    """Return sorted non-anchor translation names grouped by associated scheme id."""
+    if not scheme_ids:
+        return {}
+    rows = session.execute(
+        select(TranslationVersification.scheme_id, Translation.name)
+        .join(Translation, TranslationVersification.translation_id == Translation.id)
+        .where(
+            TranslationVersification.scheme_id.in_(scheme_ids),
+            Translation.is_anchor.is_(False),
+        )
+        .order_by(TranslationVersification.scheme_id, Translation.name)
+    ).all()
+    grouped: dict[UUID, list[str]] = {}
+    for scheme_id, name in rows:
+        grouped.setdefault(scheme_id, []).append(name)
+    return grouped
 
 
 @router.get("/api/versifications", response_model=Page[VersificationOut])
@@ -45,8 +66,16 @@ def list_versifications(
     rows = session.scalars(
         stmt.order_by(VersificationScheme.name).limit(page_limit).offset(page_offset)
     ).all()
+    names_by_scheme = _translation_names_by_scheme(session, [row.id for row in rows])
     return Page[VersificationOut](
-        items=[VersificationOut.model_validate(row) for row in rows],
+        items=[
+            VersificationOut.model_validate(row).model_copy(
+                update={
+                    "associated_translation_names": names_by_scheme.get(row.id, []),
+                }
+            )
+            for row in rows
+        ],
         total=int(total or 0),
     )
 

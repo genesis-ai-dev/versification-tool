@@ -1,6 +1,6 @@
 import { EmptyStateUpload } from "../viewer/EmptyStateUpload";
+import { ViewerHeaderControls } from "../viewer/ViewerHeaderControls";
 import { ViewerSessionProvider, useViewerSession } from "../viewer/ViewerSession";
-import { ViewerToolbar } from "../viewer/ViewerToolbar";
 import { ViewerWorkspace } from "../viewer/ViewerWorkspace";
 
 /** Viewer route with URL-owned session state. */
@@ -35,7 +35,7 @@ function ViewerContent() {
         <EmptyStateUpload onUploaded={() => void session.refreshCatalogs()} />
       ) : (
         <>
-          <ViewerToolbar />
+          <ViewerHeaderControls />
           <ViewerWorkspace />
         </>
       )}

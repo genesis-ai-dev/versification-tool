@@ -1,5 +1,5 @@
 import { createCubicMappingPath, type DrawPlan } from "./drawPlan";
-import { appendLabelBadge } from "./labelBadge";
+import { appendLabelBadge, syncAllLabelBadges } from "./labelBadge";
 
 /** Remove all painted children from the overlay SVG. */
 export function clearSvg(svg: SVGSVGElement): void {
@@ -136,6 +136,8 @@ export function paintPlan(svg: SVGSVGElement, plan: DrawPlan): void {
     });
     svg.appendChild(hubGroup);
   }
+
+  syncAllLabelBadges(svg);
 }
 
 /** Reuse one arrow marker definition per connector color. */

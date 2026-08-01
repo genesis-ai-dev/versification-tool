@@ -28,7 +28,10 @@ export function UploadProjectModal({ onClose, onSuccess }: UploadProjectModalPro
             if (!file) {
               throw new Error("Choose a project zip file");
             }
-            await ingestProject(file, name.trim(), language.trim());
+            await ingestProject(file, {
+              name: name.trim() || undefined,
+              language: language.trim() || undefined,
+            });
             onSuccess();
           })
         }
@@ -42,20 +45,24 @@ export function UploadProjectModal({ onClose, onSuccess }: UploadProjectModalPro
           />
         </label>
         <label>
-          Translation name
+          Translation name (optional)
+          <span className="muted field-hint">
+            Initialized from metadata.xml when omitted
+          </span>
           <input
             type="text"
             value={name}
-            required
             onChange={(event) => setName(event.target.value)}
           />
         </label>
         <label>
-          Language
+          Language (optional)
+          <span className="muted field-hint">
+            Initialized from metadata.xml when omitted
+          </span>
           <input
             type="text"
             value={language}
-            required
             onChange={(event) => setLanguage(event.target.value)}
           />
         </label>
@@ -68,7 +75,7 @@ export function UploadProjectModal({ onClose, onSuccess }: UploadProjectModalPro
           <button
             type="submit"
             className="btn primary"
-            disabled={submitting || !file || !name.trim() || !language.trim()}
+            disabled={submitting || !file}
           >
             {submitting ? "Uploading…" : "Upload"}
           </button>

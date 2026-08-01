@@ -13,6 +13,10 @@ from sqlalchemy.orm import Session
 from frvt.api.db import get_session
 from frvt.api.jump_books import jump_difference_books
 from frvt.api.jump_cancel import JumpCancelContext, filter_canceling_jump_rows
+from frvt.api.jump_target_content import (
+    filter_unreachable_jump_rows,
+    translation_books_with_content,
+)
 from frvt.api.logging_config import get_logger
 from frvt.api.models import MappingRecord, VerseSpan
 from frvt.api.schemas import (
@@ -302,6 +306,13 @@ def _cancel_filtered_jump_mappings(
     kept = filter_canceling_jump_rows(
         rows,
         cancel_context,
+        jump_navigation_ref,
+    )
+    target_books = translation_books_with_content(session, to_translation)
+    kept = filter_unreachable_jump_rows(
+        kept,
+        cancel_context,
+        target_books,
         jump_navigation_ref,
     )
     return sorted(kept, key=jump_source_bcv_sort_key)

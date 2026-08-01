@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatBcvLabel, formatVerseLabel } from "../lib/formatRef";
+import { formatBcvLabel, formatVerseGutterLabel, formatVerseLabel } from "../lib/formatRef";
 import { columnToResolveArgs, toResolveArgs } from "../lib/bcv";
 import { navigationToBcv } from "../viewer/jumpNavigation";
 
@@ -13,6 +13,14 @@ describe("formatVerseLabel", () => {
   it("formats structured BCV labels without parsing ranges", () => {
     expect(formatBcvLabel("GEN", 1, 1)).toBe("GEN 1:1");
     expect(formatBcvLabel("SIR", 36, 13, "a")).toBe("SIR 36:13a");
+  });
+});
+
+describe("formatVerseGutterLabel", () => {
+  it("appends part suffix for partial verse rows", () => {
+    expect(formatVerseGutterLabel(13, "a")).toBe("13a");
+    expect(formatVerseGutterLabel(13, null)).toBe("13");
+    expect(formatVerseGutterLabel(0, "a")).toBe("Title (0)a");
   });
 });
 

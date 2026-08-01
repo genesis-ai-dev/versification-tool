@@ -20,6 +20,7 @@ export interface TranslationOut {
   id: string;
   name: string;
   language: string;
+  text_direction: "ltr" | "rtl";
   source_format: string;
   created_at: string;
   updated_at: string;
@@ -45,6 +46,8 @@ export interface VersificationOut {
   canonical: boolean;
   created_at: string;
   updated_at: string;
+  /** Non-anchor translations associated with this scheme; populated on list. */
+  associated_translation_names: string[];
 }
 
 /** Scheme detail including the stored Copenhagen ingredient. */

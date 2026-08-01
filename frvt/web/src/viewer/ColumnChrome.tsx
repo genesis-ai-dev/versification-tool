@@ -1,4 +1,5 @@
-import { formatVerseLabel } from "../lib/formatRef";
+import { BookJumpLegendInfo } from "./BookJumpLegendInfo";
+import { formatVerseGutterLabel } from "../lib/formatRef";
 import { formatVersificationOptionLabel } from "../lib/formatVersificationOption";
 import type { DriveSide } from "./overlay/drawPlan";
 import { JumpMenu } from "./JumpMenu";
@@ -46,7 +47,7 @@ export function ColumnChrome({ side, resolveDisabled }: ColumnChromeProps) {
 
   const verseOptions = verses.map((v) => ({
     value: `${v.verse}|${v.part ?? ""}`,
-    label: `${formatVerseLabel(v.verse)}${v.part ? v.part : ""}`,
+    label: formatVerseGutterLabel(v.verse, v.part),
   }));
 
   return (
@@ -73,12 +74,7 @@ export function ColumnChrome({ side, resolveDisabled }: ColumnChromeProps) {
         <span className="book-chrome-label-row">
           Book
           {translationId ? (
-            <span className="book-jump-legend" id={bookLegendId}>
-              <span className="book-jump-marker" aria-hidden="true">
-                ●
-              </span>
-              Book has mapping differences
-            </span>
+            <BookJumpLegendInfo id={bookLegendId} side={side} />
           ) : null}
         </span>
         <TypeaheadSelect

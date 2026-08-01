@@ -6,6 +6,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -46,6 +47,12 @@ import {
   type NavCache,
   type SpanCache,
 } from "./viewerCache";
+import {
+  hasExplicitViewerParams,
+  loadViewerSearch,
+  saveViewerSearch,
+  sanitizeViewerSearch,
+} from "./viewerPersistence";
 
 /** Public session API consumed by viewer chrome and columns. */
 export interface ViewerSessionValue {
@@ -154,10 +161,26 @@ export function ViewerSessionProvider({ children }: ViewerSessionProviderProps) 
   const updateUrl = useCallback(
     (patch: Partial<ViewerUrlState>) => {
       const next = patchViewerUrl(url, patch);
-      setSearchParams(serializeViewerSearch(next), { replace: true });
+      const serialized = serializeViewerSearch(next);
+      saveViewerSearch(serialized);
+      setSearchParams(serialized, { replace: true });
     },
     [setSearchParams, url],
   );
+
+  useLayoutEffect(() => {
+    const current = searchParams.toString();
+    if (hasExplicitViewerParams(current)) {
+      return;
+    }
+    const stored = loadViewerSearch();
+    if (!stored) {
+      return;
+    }
+    setSearchParams(stored, { replace: true });
+    // Restore persisted session before catalog defaults on bare `/` navigation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleApiFailure = useCallback((error: unknown) => {
     if (!(error instanceof ApiError)) {
@@ -184,11 +207,26 @@ export function ViewerSessionProvider({ children }: ViewerSessionProviderProps) 
       setTranslations(tPage.items);
       setTranslationTotal(tPage.total);
       setVersifications(vPage.items);
-      applyCatalogDefaults(tPage.items, url, updateUrl);
+
+      const currentSearch = searchParams.toString();
+      const sanitized = sanitizeViewerSearch(currentSearch, {
+        translationIds: new Set(tPage.items.map((item) => item.id)),
+        versificationIds: new Set(vPage.items.map((item) => item.id)),
+      });
+      let effective = parseViewerSearch(sanitized);
+      const defaultsPatch = catalogDefaultPatch(tPage.items, effective);
+      if (Object.keys(defaultsPatch).length > 0) {
+        effective = patchViewerUrl(effective, defaultsPatch);
+      }
+      const serialized = serializeViewerSearch(effective);
+      if (serialized !== currentSearch) {
+        saveViewerSearch(serialized);
+        setSearchParams(serialized, { replace: true });
+      }
     } catch (error) {
       handleApiFailure(error);
     }
-  }, [handleApiFailure, updateUrl, url]);
+  }, [handleApiFailure, searchParams, setSearchParams]);
 
   useEffect(() => {
     void refreshCatalogs();
@@ -717,14 +755,13 @@ export function useViewerSession(): ViewerSessionValue {
   return ctx;
 }
 
-/** Seed left/right defaults from the catalog when URL ids are missing. */
-function applyCatalogDefaults(
+/** Patch missing left/right translation ids from the catalog list order. */
+function catalogDefaultPatch(
   items: TranslationOut[],
   url: ViewerUrlState,
-  updateUrl: (patch: Partial<ViewerUrlState>) => void,
-): void {
+): Partial<ViewerUrlState> {
   if (items.length === 0) {
-    return;
+    return {};
   }
   const patch: Partial<ViewerUrlState> = {};
   if (!url.left && items[0]) {
@@ -733,7 +770,5 @@ function applyCatalogDefaults(
   if (!url.right && items.length >= 2 && items[1]) {
     patch.right = items[1].id;
   }
-  if (Object.keys(patch).length > 0) {
-    updateUrl(patch);
-  }
+  return patch;
 }

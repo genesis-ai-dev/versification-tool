@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, describeApiError } from "../api/errors";
 import { loadJumpMenu } from "../api/resolve";
 import type { DeltaEntry, MisalignmentEntry, NavRef } from "../api/types";
@@ -40,6 +40,7 @@ function isAbortError(err: unknown): boolean {
  */
 export function JumpMenu({ side, disabled = false }: JumpMenuProps) {
   const session = useViewerSession();
+  const rootRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [deltas, setDeltas] = useState<DeltaEntry[]>([]);
   const [misalignments, setMisalignments] = useState<MisalignmentEntry[]>([]);
@@ -130,13 +131,35 @@ export function JumpMenu({ side, disabled = false }: JumpMenuProps) {
     setMappedLoading(true);
   }, [open]);
 
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const onPointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
   function navigateTo(nav: NavRef): void {
     session.setColumnBcv(side, navigationToBcv(nav));
     setOpen(false);
   }
 
   return (
-    <div className="jump-menu">
+    <div className="jump-menu" ref={rootRef}>
       <button
         type="button"
         className="btn"

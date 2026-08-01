@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from frvt.ingest.metadata_parse import ProjectMetadata
+
 
 @dataclass(frozen=True)
 class ParsedSpan:
@@ -58,6 +60,8 @@ class ProjectIngestResult:
     spans: tuple[ParsedSpan, ...]
     # Scheme parsed from the required ``.vrs`` (placeholder when issues block).
     scheme: ParsedScheme | None
+    # Optional bundle metadata from ``metadata.xml`` when parseable.
+    metadata: ProjectMetadata | None
     # Blocking issues; any non-empty tuple means reject and persist nothing.
     issues: tuple[IngestIssue, ...]
 
