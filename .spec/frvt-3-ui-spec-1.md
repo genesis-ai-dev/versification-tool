@@ -820,3 +820,21 @@ Post-reconciliation modifications. Apply subsections in order (`ADD-*-001`, then
 | ADD-U-008d | §7.1 / §7.3 | ADD | After catalog load, sanitize stored translation and versification ids against `GET /api/translations` and `GET /api/versifications`; drop ids that no longer exist; apply catalog defaults only for still-missing `left`/`right` slots. |
 | ADD-U-008e | §10 layout | ADD | `viewerPersistence.ts` — `localStorage` read/write, explicit-param detection, and catalog sanitization helpers used by `ViewerSession`. |
 | ADD-U-008f | §11.3 | ADD | Contract tests: persistence round-trip and sanitize behavior; e2e `TC-UI-011` manage-route round-trip retains `left`/`right` (and per-column `lvers`/`rvers` when set). |
+
+### ADD-U-009 — Combined milestone display and navigation
+
+**Purpose:** Columns with USX combined milestones show one row and one verse-selector option per stored span (e.g. gutter label `1,2`), scroll to covering spans for programmatic BCVs inside a combined range, and rely on resolve/hull topology from scheme mappings — not client-invented merge/split siblings.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-U-009a | §2.3 row 3 | REPLACE | Per-column verse selector: options built from **loaded chapter spans** (one option per `verse_span` row), not from expanded integer verse lists or scheme `maxVerses`. Option **label** uses `verse_label` when present (USX display, e.g. `1,2` / `1-2`); otherwise formatted anchor verse (and part). Option **value** remains canonical stored coordinates (`verse` + `part`). Covered verse numbers inside a combined milestone are not separate selectable options. |
+| ADD-U-009b | §10 `VerseSpan` / gutter | ADD | Verse gutter displays `verse_label` when set (append `part` when present); otherwise existing numeric/`Title (0)` formatting. Combined labels use tabular numerals (`font-variant-numeric: tabular-nums` on `.verse-num`). |
+| ADD-U-009c | §6.4 scroll / §7.1 URL | ADD | Column scroll-to-verse matches a BCV to a stored span by exact coordinates or by `verse_range` coverage (same chapter/book): programmatic `JHN 4:2` on a translation whose only stored row is a combined `1,2` span at anchor `4:1` scrolls to that row. Optional: when URL BCV matches only via coverage, canonicalize URL state to the anchor verse so the verse selector value matches an option. |
+| ADD-U-009d | §2.3 row 2 / §8 overlay | CLARIFY | Mapping overlay topology for combined milestones comes from `GET /api/resolve` / chapter batch after resolver hull escalation (ADD-R-007f) and server port enrichment (ADD-S-007d). The UI does not synthesize merge/split sibling lists from `verse_range` alone. |
+| ADD-U-009e | §11.3 | ADD | Contract/unit tests: verse selector shows `1,2` not separate `1` and `2`; gutter label; scroll/coverage for BCV inside combined range. E2e optional for FI/CM sample chapters after re-ingest. |
+
+### ADD-U-010 — Coupled preferred scheme on translation delete (cross-spec traceability)
+
+**Purpose:** Cross-spec traceability for server ADD-S-008; no additional client logic beyond existing delete flows.
+
+**No modification rows.** The frozen main body and effective specification are unchanged. Manage Translations delete actions call `DELETE /api/translations/{id}`; when the server removes a coupled preferred scheme, the versification list refresh after delete reflects the scheme's absence. No UI branch is required beyond normal catalog reload.

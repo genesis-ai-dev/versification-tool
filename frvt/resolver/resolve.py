@@ -204,6 +204,8 @@ def _atomic_result(
             continue
         member_relation = compose(up_rel, down_rel)
         member_relations.add(member_relation)
+        if up_rel in ("split", "merge") or down_rel in ("split", "merge"):
+            return build_hull(members, src_hops, tgt_hops)
         if len(member_sources) > 1 and len(targets) > 1:
             return build_hull(members, src_hops, tgt_hops)
         all_targets.update(targets)

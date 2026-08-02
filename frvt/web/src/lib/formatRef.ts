@@ -11,10 +11,16 @@ export function formatVerseLabel(verse: number): string {
 
 /**
  * Format a verse gutter or selector label, appending a sub-verse part when present.
+ * When ``verseLabel`` is set (combined USX milestone), it is shown instead of the anchor verse.
  * Machine/API values remain separate via ``toResolveArgs``.
  */
-export function formatVerseGutterLabel(verse: number, part?: string | null): string {
-  const base = formatVerseLabel(verse);
+export function formatVerseGutterLabel(
+  verse: number,
+  part?: string | null,
+  verseLabel?: string | null,
+): string {
+  const base =
+    verseLabel && verseLabel.length > 0 ? verseLabel : formatVerseLabel(verse);
   return part ? `${base}${part}` : base;
 }
 

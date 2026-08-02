@@ -207,6 +207,27 @@ def validate_ingredient(ingredient: dict[str, Any]) -> tuple[IngestIssue, ...]:
                         )
                     )
 
+    split = ingredient.get("splitVerses")
+    if split is not None:
+        if not isinstance(split, list):
+            issues.append(
+                IngestIssue(
+                    kind="invalid",
+                    field="splitVerses",
+                    message="splitVerses must be an array",
+                )
+            )
+        else:
+            for ref in split:
+                if not _valid_ref(ref, allow_range=False):
+                    issues.append(
+                        IngestIssue(
+                            kind="invalid",
+                            field="splitVerses",
+                            message=f"Invalid splitVerses entry {ref!r}",
+                        )
+                    )
+
     partials = ingredient.get("partialVerses")
     if partials is not None:
         if not isinstance(partials, dict):

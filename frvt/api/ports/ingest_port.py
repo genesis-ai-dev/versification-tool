@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from frvt.api.errors import AppError, FieldError
@@ -19,11 +19,12 @@ from frvt.api.models import (
     VersificationScheme,
 )
 from frvt.api.schemas import ProjectIngestOut, TranslationOut, VersificationOut
+from frvt.ingest.derive_combined_milestones import apply_combined_milestone_splits
 from frvt.ingest.derive_mappings import derive_mapping_records
 from frvt.ingest.ingest_api import ingest_project, ingest_versification
 from frvt.ingest.metadata_parse import ProjectMetadata, resolve_text_direction
 from frvt.ingest.project_zip import locate_project_members
-from frvt.ingest.types import IngestIssue, ParsedScheme
+from frvt.ingest.types import IngestIssue, ParsedScheme, ParsedSpan
 
 logger = get_logger(__name__)
 
@@ -259,21 +260,35 @@ def persist_project(
                 chapter=span.chapter,
                 verse=span.verse,
                 part=span.part,
+                verse_label=span.verse_label,
+                verse_range=span.verse_range,
                 content=span.content,
             )
         )
 
     base = _lookup_base(session, result.scheme.based_on)
+    ingredient = apply_combined_milestone_splits(
+        result.scheme.ingredient,
+        result.spans,
+        session=session,
+        based_on_translation_id=base.id,
+    )
     scheme_row = VersificationScheme(
         name=resolved_name,
         based_on_name=result.scheme.based_on or "org",
         based_on_id=base.id,
         canonical=False,
-        ingredient=result.scheme.ingredient,
+        ingredient=ingredient,
     )
     session.add(scheme_row)
     session.flush()
-    _insert_mapping_rows(session, scheme_row.id, result.scheme)
+    ingest_scheme = ParsedScheme(
+        name=resolved_name,
+        based_on=result.scheme.based_on,
+        canonical=False,
+        ingredient=ingredient,
+    )
+    _insert_mapping_rows(session, scheme_row.id, ingest_scheme)
     session.add(
         TranslationVersification(
             translation_id=translation.id,
@@ -286,3 +301,74 @@ def persist_project(
         translation=TranslationOut.model_validate(translation),
         versification=VersificationOut.model_validate(scheme_row),
     )
+
+
+def refresh_combined_milestone_splits(
+    session: Session,
+    translation_id: UUID,
+) -> bool:
+    """Re-apply implied ``splitVerses`` on the translation's preferred scheme.
+
+    Reads combined-milestone spans already stored on the translation, updates the
+    scheme ingredient when splits are newly implied (for example after anchor
+    basedOn handling), and rebuilds ``mapping_record`` rows from the full
+    ingredient. Returns whether the scheme was updated.
+    """
+    logger.debug(
+        "Refreshing combined milestone splits for translation=%s",
+        translation_id,
+    )
+    assoc = session.scalar(
+        select(TranslationVersification).where(
+            TranslationVersification.translation_id == translation_id,
+            TranslationVersification.preferred.is_(True),
+        )
+    )
+    if assoc is None:
+        raise LookupError(f"No preferred scheme for translation {translation_id}")
+    scheme = session.get(VersificationScheme, assoc.scheme_id)
+    if scheme is None or scheme.based_on_id is None:
+        return False
+    rows = session.scalars(
+        select(VerseSpan).where(
+            VerseSpan.translation_id == translation_id,
+            VerseSpan.verse_range.is_not(None),
+        )
+    ).all()
+    if not rows:
+        return False
+    spans = tuple(
+        ParsedSpan(
+            seq=row.seq,
+            book=row.book,
+            chapter=row.chapter,
+            verse=row.verse,
+            part=row.part,
+            content=row.content,
+            verse_label=row.verse_label,
+            verse_range=row.verse_range,
+        )
+        for row in rows
+    )
+    updated = apply_combined_milestone_splits(
+        scheme.ingredient,
+        spans,
+        session=session,
+        based_on_translation_id=scheme.based_on_id,
+    )
+    if updated is scheme.ingredient:
+        return False
+    scheme.ingredient = updated
+    session.execute(
+        delete(MappingRecord).where(MappingRecord.scheme_id == scheme.id)
+    )
+    ingest_scheme = ParsedScheme(
+        name=scheme.name,
+        based_on=scheme.based_on_name,
+        canonical=scheme.canonical,
+        ingredient=updated,
+    )
+    _insert_mapping_rows(session, scheme.id, ingest_scheme)
+    session.flush()
+    logger.debug("Refreshed combined milestone splits on scheme=%s", scheme.id)
+    return True

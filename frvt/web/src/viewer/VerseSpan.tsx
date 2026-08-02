@@ -53,7 +53,9 @@ export function VerseSpan({ side, span, highlighted }: VerseSpanProps) {
         }
       }}
     >
-      <span className="verse-num">{formatVerseGutterLabel(span.verse, span.part)}</span>
+      <span className="verse-num">
+        {formatVerseGutterLabel(span.verse, span.part, span.verse_label)}
+      </span>
       <span className="verse-text">{span.content}</span>
     </div>
   );

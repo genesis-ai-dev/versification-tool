@@ -1,33 +1,22 @@
 import type { ColumnBcv } from "../lib/bcv";
+import {
+  type CoverageSpan,
+  seqForBcvWithCoverage,
+} from "../lib/spanCoverage";
 
 /** Span fields needed to match a column BCV to a scroll target. */
-export interface ScrollableSpan {
-  book: string;
-  chapter: number;
-  verse: number;
-  part: string | null;
-  seq: number;
-}
+export interface ScrollableSpan extends CoverageSpan {}
 
 /**
  * Find the first span matching a structured BCV and return its ``seq``.
+ * Matches exact coordinates first, then combined-milestone ``verse_range`` coverage.
  * Returns null when no span matches (chapter not loaded or verse absent).
  */
 export function seqForBcv(
   spans: readonly ScrollableSpan[],
   bcv: ColumnBcv | null | undefined,
 ): number | null {
-  if (!bcv) {
-    return null;
-  }
-  const match = spans.find(
-    (span) =>
-      span.book === bcv.book &&
-      span.chapter === bcv.chapter &&
-      span.verse === bcv.verse &&
-      (span.part ?? "") === (bcv.part ?? ""),
-  );
-  return match?.seq ?? null;
+  return seqForBcvWithCoverage(spans, bcv);
 }
 
 /**

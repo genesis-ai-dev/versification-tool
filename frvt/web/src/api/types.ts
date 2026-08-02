@@ -34,6 +34,8 @@ export interface VerseSpanOut {
   chapter: number;
   verse: number;
   part: string | null;
+  verse_label: string | null;
+  verse_range: string | null;
   content: string;
 }
 
@@ -71,6 +73,8 @@ export interface ResolvedSpan {
   verse: number;
   seq: number | null;
   part: string | null;
+  verse_label?: string | null;
+  verse_range?: string | null;
 }
 
 /** One connector for a ``complex`` resolve result. */

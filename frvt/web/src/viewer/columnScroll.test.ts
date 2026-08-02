@@ -23,6 +23,21 @@ describe("seqForBcv", () => {
       seqForBcv(spans, { book: "EXO", chapter: 1, verse: 1, part: null }),
     ).toBeNull();
   });
+
+  it("matches combined-milestone coverage by verse_range", () => {
+    const combined = [
+      {
+        book: "JHN",
+        chapter: 4,
+        verse: 1,
+        part: null,
+        seq: 10,
+        verse_label: "1,2",
+        verse_range: "JHN 4:1-2",
+      },
+    ];
+    expect(seqForBcv(combined, { book: "JHN", chapter: 4, verse: 2, part: null })).toBe(10);
+  });
 });
 
 describe("scrollColumnToSeq", () => {

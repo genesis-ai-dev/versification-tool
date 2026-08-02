@@ -24,6 +24,10 @@ class ParsedSpan:
     part: str | None
     # Verse text for this span (notes stripped).
     content: str
+    # USX display label for combined milestones (``1,2`` / ``1-2``); null for simple verses.
+    verse_label: str | None = None
+    # Normalized ``parse_ref`` range for combined milestones; null for simple verses.
+    verse_range: str | None = None
 
 
 @dataclass(frozen=True)

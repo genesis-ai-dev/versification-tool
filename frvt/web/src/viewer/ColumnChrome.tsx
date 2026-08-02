@@ -30,7 +30,11 @@ export function ColumnChrome({ side, resolveDisabled }: ColumnChromeProps) {
   const bookLegendId = `${side}-book-jump-legend`;
 
   const chapters = navigation.find((book) => book.book === bcv?.book)?.chapters ?? [];
-  const verses = uniqueVerses(spans);
+
+  const verseOptions = spans.map((span) => ({
+    value: `${span.verse}|${span.part ?? ""}`,
+    label: formatVerseGutterLabel(span.verse, span.part, span.verse_label),
+  }));
 
   const bookOptions = [
     { value: "", label: "—" },
@@ -43,11 +47,6 @@ export function ColumnChrome({ side, resolveDisabled }: ColumnChromeProps) {
   const chapterOptions = chapters.map((chapter) => ({
     value: String(chapter),
     label: String(chapter),
-  }));
-
-  const verseOptions = verses.map((v) => ({
-    value: `${v.verse}|${v.part ?? ""}`,
-    label: formatVerseGutterLabel(v.verse, v.part),
   }));
 
   return (
@@ -172,21 +171,4 @@ export function ColumnChrome({ side, resolveDisabled }: ColumnChromeProps) {
       <JumpMenu side={side} disabled={resolveDisabled} />
     </div>
   );
-}
-
-/** Unique verse/part options from loaded chapter spans. */
-function uniqueVerses(
-  spans: { verse: number; part: string | null }[],
-): { verse: number; part: string | null }[] {
-  const seen = new Set<string>();
-  const out: { verse: number; part: string | null }[] = [];
-  for (const span of spans) {
-    const key = `${span.verse}|${span.part ?? ""}`;
-    if (seen.has(key)) {
-      continue;
-    }
-    seen.add(key);
-    out.push({ verse: span.verse, part: span.part });
-  }
-  return out;
 }

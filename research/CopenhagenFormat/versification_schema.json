@@ -83,6 +83,13 @@
             },
             "additionalItems": false
         },
+        "splitVerses": {
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/bcv"
+            },
+            "additionalItems": false
+        },
         "partialVerses": {
             "type": "object",
             "propertyNames": {

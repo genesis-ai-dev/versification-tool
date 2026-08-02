@@ -416,6 +416,103 @@ def test_delete_associated_scheme_blocked(api_client: TestClient) -> None:
 
 @pytest.mark.phase2
 @pytest.mark.api
+def test_delete_translation_removes_coupled_preferred_scheme(
+    api_client: TestClient,
+) -> None:
+    """TC-API-018: Ingested project delete removes same-named preferred scheme."""
+    headers = _auth()
+    body = ingest_primary_project(api_client)
+    translation_id = body["translation"]["id"]
+    scheme_id = body["versification"]["id"]
+    assert body["translation"]["name"].lower() == body["versification"]["name"].lower()
+
+    response = api_client.delete(
+        f"/api/translations/{translation_id}", headers=headers
+    )
+    assert response.status_code == 204
+    assert (
+        api_client.get(f"/api/translations/{translation_id}", headers=headers).status_code
+        == 404
+    )
+    assert (
+        api_client.get(f"/api/versifications/{scheme_id}", headers=headers).status_code
+        == 404
+    )
+
+
+@pytest.mark.phase2
+@pytest.mark.api
+def test_delete_translation_preserves_differently_named_preferred_scheme(
+    api_client: TestClient,
+) -> None:
+    """TC-API-019: Preferred scheme survives when translation name differs."""
+    headers = _auth()
+    body = ingest_primary_project(api_client)
+    translation_id = body["translation"]["id"]
+    scheme_id = body["versification"]["id"]
+    renamed = api_client.patch(
+        f"/api/translations/{translation_id}",
+        headers=headers,
+        json={"name": f"Renamed-{uuid4().hex[:8]}"},
+    )
+    assert renamed.status_code == 200
+
+    response = api_client.delete(
+        f"/api/translations/{translation_id}", headers=headers
+    )
+    assert response.status_code == 204
+    assert (
+        api_client.get(f"/api/versifications/{scheme_id}", headers=headers).status_code
+        == 200
+    )
+    api_client.delete(f"/api/versifications/{scheme_id}", headers=headers)
+
+
+@pytest.mark.phase2
+@pytest.mark.api
+def test_delete_translation_preserves_shared_preferred_scheme(
+    api_client: TestClient,
+) -> None:
+    """TC-API-020: Coupled scheme survives when another translation references it."""
+    label = f"Shared-{uuid4().hex[:8]}"
+    headers = _auth()
+    body = ingest_primary_project(api_client, name=label)
+    translation_a_id = body["translation"]["id"]
+    scheme_id = body["versification"]["id"]
+
+    other = api_client.post(
+        "/api/translations",
+        headers=headers,
+        json={
+            "name": f"Other-{uuid4().hex[:8]}",
+            "language": "en",
+            "source_format": "usx",
+        },
+    )
+    assert other.status_code == 201
+    translation_b_id = other.json()["id"]
+    assoc = api_client.post(
+        f"/api/translations/{translation_b_id}/versifications",
+        headers=headers,
+        json={"scheme_id": scheme_id},
+    )
+    assert assoc.status_code == 201
+
+    response = api_client.delete(
+        f"/api/translations/{translation_a_id}", headers=headers
+    )
+    assert response.status_code == 204
+    assert (
+        api_client.get(f"/api/versifications/{scheme_id}", headers=headers).status_code
+        == 200
+    )
+
+    api_client.delete(f"/api/translations/{translation_b_id}", headers=headers)
+    api_client.delete(f"/api/versifications/{scheme_id}", headers=headers)
+
+
+@pytest.mark.phase2
+@pytest.mark.api
 def test_error_envelope_vocabulary_sample(api_client: TestClient) -> None:
     """TC-API-010: Error envelope vocabulary and status mapping (sample)."""
     missing = api_client.get(f"/api/translations/{uuid4()}", headers=_auth())

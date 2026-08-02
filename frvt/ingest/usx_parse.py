@@ -8,11 +8,9 @@ from collections.abc import Iterable
 
 from frvt.api.logging_config import get_logger
 from frvt.ingest.types import ParsedSpan
+from frvt.ingest.usx_verse_number import milestone_label_and_range, parse_usx_verse_number
 
 logger = get_logger(__name__)
-
-# Verse numbers may be a single integer or a comma-separated list (``6,7``).
-_VERSE_NUMBERS = re.compile(r"^\d+(?:,\d+)*$")
 
 
 def _local(tag: str) -> str:
@@ -58,27 +56,37 @@ def parse_usx(usx_text: str, *, start_seq: int = 0) -> list[ParsedSpan]:
     open_order: list[str] = []
 
     def close_verse(number: str) -> None:
-        """Emit span(s) for a completed verse milestone and clear its buffer."""
+        """Emit one span for a completed verse milestone and clear its buffer."""
         nonlocal seq
         chunks = open_verses.pop(number, None)
         if chunks is None:
             return
         if number in open_order:
             open_order.remove(number)
+        verses = parse_usx_verse_number(number)
+        if verses is None:
+            logger.debug("Skipping close for unsupported verse number %s", number)
+            return
         content = _normalize_whitespace("".join(chunks))
-        numbers = [int(part) for part in number.split(",")]
-        for index, verse_number in enumerate(numbers):
-            spans.append(
-                ParsedSpan(
-                    seq=seq,
-                    book=book,
-                    chapter=chapter,
-                    verse=verse_number,
-                    part=None,
-                    content=content if index == 0 else "",
-                )
+        verse_label, verse_range = milestone_label_and_range(
+            number,
+            verses,
+            book=book,
+            chapter=chapter,
+        )
+        spans.append(
+            ParsedSpan(
+                seq=seq,
+                book=book,
+                chapter=chapter,
+                verse=min(verses),
+                part=None,
+                verse_label=verse_label,
+                verse_range=verse_range,
+                content=content,
             )
-            seq += 1
+        )
+        seq += 1
 
     def walk(node: ET.Element) -> None:
         """Depth-first walk that tracks book/chapter and verse milestones."""
@@ -96,7 +104,7 @@ def parse_usx(usx_text: str, *, start_seq: int = 0) -> list[ParsedSpan]:
             eid = node.attrib.get("eid")
             number = node.attrib.get("number")
             if sid is not None and number is not None:
-                if not _VERSE_NUMBERS.match(number):
+                if parse_usx_verse_number(number) is None:
                     logger.debug("Skipping unsupported verse number %s", number)
                 else:
                     open_verses[number] = []
@@ -156,12 +164,16 @@ def collapse_duplicate_spans(spans: list[ParsedSpan]) -> list[ParsedSpan]:
             content = span.content
         elif content and span.content and span.content not in content:
             content = f"{content} {span.content}".strip()
+        verse_label = existing.verse_label or span.verse_label
+        verse_range = existing.verse_range or span.verse_range
         merged[key] = ParsedSpan(
             seq=existing.seq,
             book=existing.book,
             chapter=existing.chapter,
             verse=existing.verse,
             part=existing.part,
+            verse_label=verse_label,
+            verse_range=verse_range,
             content=content,
         )
     return [
@@ -171,6 +183,8 @@ def collapse_duplicate_spans(spans: list[ParsedSpan]) -> list[ParsedSpan]:
             chapter=merged[key].chapter,
             verse=merged[key].verse,
             part=merged[key].part,
+            verse_label=merged[key].verse_label,
+            verse_range=merged[key].verse_range,
             content=merged[key].content,
         )
         for index, key in enumerate(order)

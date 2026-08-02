@@ -27,6 +27,7 @@ import type {
   VersificationOut,
 } from "../api/types";
 import { columnToResolveArgs, type ColumnBcv } from "../lib/bcv";
+import { canonicalBcvFromSpans } from "../lib/spanCoverage";
 import { scrollColumnToSeq, seqForBcv } from "./columnScroll";
 import { ensureFollowerChapter } from "./followerChapter";
 import type { DriveSide } from "./overlay/drawPlan";
@@ -573,6 +574,34 @@ export function ViewerSessionProvider({ children }: ViewerSessionProviderProps) 
       rightController.abort();
     };
   }, [canResolve, url.left, url.right, url.leftVers, url.rightVers, handleApiFailure]);
+
+  // Canonicalize column BCV to combined-milestone anchors once spans are loaded.
+  useEffect(() => {
+    const sides: DriveSide[] = ["left", "right"];
+    for (const side of sides) {
+      const translationId = side === "left" ? url.left : url.right;
+      const bcv = side === "left" ? url.leftBcv : url.rightBcv;
+      if (!translationId || !bcv) {
+        continue;
+      }
+      const spans =
+        spanCache.current.get(spanCacheKey(translationId, bcv.book, bcv.chapter)) ?? [];
+      const canonical = canonicalBcvFromSpans(spans, bcv);
+      if (!canonical) {
+        continue;
+      }
+      if (
+        canonical.verse !== bcv.verse ||
+        (canonical.part ?? "") !== (bcv.part ?? "")
+      ) {
+        if (side === "left") {
+          updateUrl({ leftBcv: canonical });
+        } else {
+          updateUrl({ rightBcv: canonical });
+        }
+      }
+    }
+  }, [spanTick, url.left, url.right, url.leftBcv, url.rightBcv, updateUrl]);
 
   // Bring the selected verse of the driving column into view (chrome, click, or jump).
   useEffect(() => {

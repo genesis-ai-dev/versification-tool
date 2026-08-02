@@ -42,14 +42,19 @@ def derive_mapping_records(scheme: ParsedScheme) -> tuple[MappingRecordDTO, ...]
 
     mapped = ingredient.get("mappedVerses") or {}
     merged_list = ingredient.get("mergedVerses") or []
-    # Keys listed in ``mergedVerses`` are emitted only as ``merge`` rows below;
-    # skipping them here avoids a duplicate renumber/shift row for the same ref.
+    split_list = ingredient.get("splitVerses") or []
+    # Keys listed in ``mergedVerses`` / ``splitVerses`` are emitted only below;
+    # skipping them here avoids duplicate classify rows for the same ref.
     merged_keys = (
         {str(ref) for ref in merged_list} if isinstance(merged_list, list) else set()
     )
+    split_keys = (
+        {str(ref) for ref in split_list} if isinstance(split_list, list) else set()
+    )
     if isinstance(mapped, dict):
         for key, value in mapped.items():
-            if str(key) in merged_keys:
+            key_s = str(key)
+            if key_s in merged_keys or key_s in split_keys:
                 continue
             try:
                 relation = classify_mapped(str(key), str(value))
@@ -105,6 +110,28 @@ def derive_mapping_records(scheme: ParsedScheme) -> tuple[MappingRecordDTO, ...]
                     base_ref=str(base) if base is not None else None,
                     part=None,
                     relation="merge",
+                    ordinal=ordinal,
+                )
+            )
+            ordinal += 1
+
+    if isinstance(split_list, list):
+        for ref in split_list:
+            ref_s = str(ref)
+            base = mapped.get(ref_s) if isinstance(mapped, dict) else None
+            if base is None:
+                logger.error(
+                    "splitVerses entry %s missing mappedVerses pair",
+                    ref_s,
+                    exc_info=True,
+                )
+                continue
+            rows.append(
+                MappingRecordDTO(
+                    source_ref=ref_s,
+                    base_ref=str(base),
+                    part=None,
+                    relation="split",
                     ordinal=ordinal,
                 )
             )

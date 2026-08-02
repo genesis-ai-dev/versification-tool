@@ -127,7 +127,7 @@ def test_etl_functions_are_pure_no_db() -> None:
 @pytest.mark.phase6
 @pytest.mark.ingest
 def test_usx_comma_separated_verses() -> None:
-    """TC-INGEST-014: USX comma-separated verses (Interim binding)."""
+    """TC-INGEST-014: USX comma-separated milestones become one labeled span."""
     usx = (
         '<?xml version="1.0"?><usx version="3.0"><book code="GEN"/>'
         '<chapter number="1" style="c"/>'
@@ -135,11 +135,78 @@ def test_usx_comma_separated_verses() -> None:
         '<verse eid="GEN 1:6"/></usx>'
     )
     spans = parse_usx(usx)
-    assert len(spans) == 2
+    assert len(spans) == 1
     assert spans[0].verse == 6
+    assert spans[0].verse_label == "6,7"
+    assert spans[0].verse_range == "GEN 1:6-7"
     assert spans[0].content == "Shared text"
-    assert spans[1].verse == 7
-    assert spans[1].content == ""
+
+
+@pytest.mark.phase6
+@pytest.mark.ingest
+def test_usx_hyphen_range_milestone() -> None:
+    """TC-INGEST-014b: USX hyphen ranges (Chinese Mandarin style) parse as one span."""
+    usx = (
+        '<?xml version="1.0"?><usx version="3.0"><book code="PSA"/>'
+        '<chapter number="1" style="c"/>'
+        '<para style="q1">'
+        '<verse number="1-2" style="v" sid="PSA 1:1-2"/>不从恶人的计谋，</para>'
+        '<para style="q1" vid="PSA 1:1-2">不与罪人为伍，</para>'
+        '<para style="q1" vid="PSA 1:1-2">这样的人有福了！'
+        '<verse eid="PSA 1:1-2"/></para>'
+        '<para style="q1">'
+        '<verse number="3" style="v" sid="PSA 1:3"/>他就像栽在溪畔的树木，'
+        '<verse eid="PSA 1:3"/></para>'
+        "</usx>"
+    )
+    spans = parse_usx(usx)
+    ch1 = [span for span in spans if span.chapter == 1]
+    assert len(ch1) == 2
+    combined = ch1[0]
+    assert combined.verse == 1
+    assert combined.verse_label == "1-2"
+    assert combined.verse_range == "PSA 1:1-2"
+    assert "不从恶人的计谋" in combined.content
+    assert "不与罪人为伍" in combined.content
+    assert "这样的人有福了" in combined.content
+    assert ch1[1].verse == 3
+    assert ch1[1].verse_label is None
+    assert "栽在溪畔" in ch1[1].content
+
+
+@pytest.mark.phase6
+@pytest.mark.ingest
+def test_derive_split_verses_from_ingredient() -> None:
+    """Combined-milestone split rows emit from splitVerses + mappedVerses."""
+    ingredient = {
+        "maxVerses": {"JHN": ["54"]},
+        "mappedVerses": {"JHN 4:1": "JHN 4:1-2"},
+        "splitVerses": ["JHN 4:1"],
+    }
+    scheme = ParsedScheme(
+        name="fi", based_on="org", canonical=False, ingredient=ingredient
+    )
+    rows = derive_mapping_records(scheme)
+    split = next(row for row in rows if row.relation == "split")
+    assert split.source_ref == "JHN 4:1"
+    assert split.base_ref == "JHN 4:1-2"
+    assert split.part is None
+
+
+@pytest.mark.phase6
+@pytest.mark.ingest
+def test_combined_split_accepts_anchor_based_on() -> None:
+    """Implied splits are allowed when basedOn is a numbering-space anchor."""
+    from unittest.mock import MagicMock
+    from uuid import uuid4
+
+    from frvt.ingest.derive_combined_milestones import _based_on_has_discrete_spans
+    from frvt.resolver.parse_ref import parse_ref
+
+    org_id = uuid4()
+    session = MagicMock()
+    session.get.return_value = MagicMock(is_anchor=True)
+    assert _based_on_has_discrete_spans(session, org_id, parse_ref("JHN 4:1-2")) is True
 
 
 @pytest.mark.phase6

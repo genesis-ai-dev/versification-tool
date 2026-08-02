@@ -4,42 +4,53 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from frvt.api.errors import AppError
 from frvt.api.logging_config import get_logger
 from frvt.api.models import VerseSpan
+from frvt.api.ports.span_lookup import find_stored_span
 from frvt.api.schemas import RelationType, ResolvedSpan, ResolveEdge, ResolveResult
 from frvt.api.scheme_select import require_translation, selected_scheme_ref
 from frvt.resolver import resolve as resolve_coords
-from frvt.resolver.parse_ref import parse_ref
-from frvt.resolver.types import ResolutionDTO, ResolvedSpanDTO, SchemeRef
+from frvt.resolver.parse_ref import format_bcv, parse_ref
+from frvt.resolver.types import ResolutionDTO, ResolvedSpanDTO, SchemeRef, VerseId
 
 logger = get_logger(__name__)
 
 
-def _lookup_verse_span(
-    session: Session,
-    translation_id: UUID,
+def _resolved_from_stored(
+    span: VerseSpan | None,
     *,
     book: str,
     chapter: int,
     verse: int,
     part: str | None,
-) -> VerseSpan | None:
-    """Return the stored verse span for the given BCV and optional part."""
-    filters = [
-        VerseSpan.translation_id == translation_id,
-        VerseSpan.book == book,
-        VerseSpan.chapter == chapter,
-        VerseSpan.verse == verse,
-    ]
-    if part is None:
-        filters.append(VerseSpan.part.is_(None))
-    else:
-        filters.append(VerseSpan.part == part)
-    return session.scalar(select(VerseSpan).where(*filters))
+) -> ResolvedSpan:
+    """Build a ``ResolvedSpan`` from a stored row or bare coordinates."""
+    if span is None:
+        ref = format_bcv(VerseId(book=book, chapter=chapter, verse=verse, part=part))
+        return ResolvedSpan(
+            ref=ref,
+            book=book,
+            chapter=chapter,
+            verse=verse,
+            seq=None,
+            part=part,
+        )
+    ref = format_bcv(
+        VerseId(book=span.book, chapter=span.chapter, verse=span.verse, part=part)
+    )
+    return ResolvedSpan(
+        ref=ref,
+        book=span.book,
+        chapter=span.chapter,
+        verse=span.verse,
+        seq=span.seq,
+        part=part,
+        verse_label=span.verse_label,
+        verse_range=span.verse_range,
+    )
 
 
 def _enrich_span(
@@ -47,17 +58,12 @@ def _enrich_span(
     translation_id: UUID,
     dto: ResolvedSpanDTO,
 ) -> ResolvedSpan:
-    """Parse structured coords from ``dto.ref`` and attach ``seq`` when present.
-
-    When a part-bearing resolve span has no matching ``verse_span`` row (typical
-    for USX whole-verse rows with ``part`` null), fall back to the whole-verse
-    row so the UI can still anchor overlays and highlights.
-    """
+    """Map resolver coordinates onto stored spans (including combined-milestone coverage)."""
     ref_range = parse_ref(dto.ref)
     book = ref_range.book
     chapter = ref_range.chapter
     verse = ref_range.verse_start
-    span = _lookup_verse_span(
+    span = find_stored_span(
         session,
         translation_id,
         book=book,
@@ -65,28 +71,99 @@ def _enrich_span(
         verse=verse,
         part=dto.part,
     )
-    if span is None and dto.part is not None:
-        logger.debug(
-            "Part span missing; falling back to whole verse ref=%s part=%s",
-            dto.ref,
-            dto.part,
-        )
-        span = _lookup_verse_span(
-            session,
-            translation_id,
-            book=book,
-            chapter=chapter,
-            verse=verse,
-            part=None,
-        )
-    return ResolvedSpan(
-        ref=dto.ref,
+    return _resolved_from_stored(
+        span,
         book=book,
         chapter=chapter,
-        verse=verse,
-        seq=span.seq if span is not None else None,
+        verse=verse if span is None else span.verse,
         part=dto.part,
     )
+
+
+def _span_dedupe_key(span: ResolvedSpan) -> tuple[int | None, str, int, int, str | None]:
+    """Return a stable key for deduplicating enriched spans by stored identity."""
+    return (span.seq, span.book, span.chapter, span.verse, span.part)
+
+
+def _dedupe_enriched(spans: list[ResolvedSpan]) -> list[ResolvedSpan]:
+    """Drop duplicate enriched spans that collapse onto the same stored row."""
+    seen: set[tuple[int | None, str, int, int, str | None]] = set()
+    out: list[ResolvedSpan] = []
+    for span in spans:
+        key = _span_dedupe_key(span)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(span)
+    return out
+
+
+def _relation_after_dedupe(
+    source_spans: list[ResolvedSpan],
+    target_spans: list[ResolvedSpan],
+    relation: RelationType,
+) -> RelationType:
+    """Recompute top-level relation from post-dedupe cardinalities when not complex."""
+    if relation == RelationType.complex:
+        return relation
+    if not target_spans:
+        return RelationType.exclude
+    if len(source_spans) == 1 and len(target_spans) == 1:
+        if (
+            source_spans[0].book == target_spans[0].book
+            and source_spans[0].chapter == target_spans[0].chapter
+            and source_spans[0].verse == target_spans[0].verse
+            and (source_spans[0].part or "") == (target_spans[0].part or "")
+        ):
+            return RelationType.one_to_one
+        return relation
+    if len(source_spans) > 1 and len(target_spans) == 1:
+        return RelationType.merge
+    if len(source_spans) == 1 and len(target_spans) > 1:
+        return RelationType.split
+    return relation
+
+
+def _canonicalize_query_ref(
+    session: Session,
+    translation_id: UUID,
+    ref: str,
+    part: str | None,
+) -> tuple[str, str | None]:
+    """Rewrite a query ref to a combined-milestone anchor when coverage applies.
+
+    Does not expand to ``verse_range``: multi-verse correspondence is carried by
+    explicit ``split`` mapping rows on the source scheme (ingest ``splitVerses``),
+    not by inventing per-verse query members that lack stored source spans.
+    """
+    ref_range = parse_ref(ref)
+    if ref_range.verse_start != ref_range.verse_end:
+        return ref, part
+    span = find_stored_span(
+        session,
+        translation_id,
+        book=ref_range.book,
+        chapter=ref_range.chapter,
+        verse=ref_range.verse_start,
+        part=part,
+    )
+    if span is None or span.verse == ref_range.verse_start:
+        return ref, part
+    canonical = format_bcv(
+        VerseId(
+            book=span.book,
+            chapter=span.chapter,
+            verse=span.verse,
+            part=None,
+        )
+    )
+    logger.debug(
+        "Canonicalized resolve query %s -> %s for translation=%s",
+        ref,
+        canonical,
+        translation_id,
+    )
+    return canonical, part
 
 
 def _to_result(
@@ -98,14 +175,21 @@ def _to_result(
     """Map a resolver DTO onto the HTTP ``ResolveResult`` contract."""
     source_rel = RelationType(dto.source_rel) if dto.source_rel is not None else None
     target_rel = RelationType(dto.target_rel) if dto.target_rel is not None else None
+    source_spans = _dedupe_enriched(
+        [_enrich_span(session, source_translation, s) for s in dto.source_spans]
+    )
+    target_spans = _dedupe_enriched(
+        [_enrich_span(session, target_translation, t) for t in dto.target_spans]
+    )
+    relation = _relation_after_dedupe(
+        source_spans,
+        target_spans,
+        RelationType(dto.relation),
+    )
     return ResolveResult(
-        source_spans=[
-            _enrich_span(session, source_translation, s) for s in dto.source_spans
-        ],
-        target_spans=[
-            _enrich_span(session, target_translation, t) for t in dto.target_spans
-        ],
-        relation=RelationType(dto.relation),
+        source_spans=source_spans,
+        target_spans=target_spans,
+        relation=relation,
         edges=[
             ResolveEdge(
                 source_index=e.source_index,
@@ -136,15 +220,22 @@ def resolve_single_with_schemes(
         logger.error("Invalid resolve reference", exc_info=True)
         raise AppError(400, str(exc), code="bad_request") from exc
 
+    resolve_ref, resolve_part = _canonicalize_query_ref(
+        session,
+        from_translation,
+        ref,
+        part,
+    )
+
     try:
         dto = resolve_coords(
             session,
-            ref,
+            resolve_ref,
             source_scheme=source_scheme,
             target_scheme=target_scheme,
             source_translation=from_translation,
             target_translation=to_translation,
-            part=part,
+            part=resolve_part,
         )
     except ReferenceError as exc:
         logger.error("Resolver ReferenceError", exc_info=True)

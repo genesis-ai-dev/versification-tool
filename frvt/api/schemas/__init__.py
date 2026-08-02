@@ -88,6 +88,10 @@ class VerseSpanOut(BaseModel):
     verse: int
     # Sub-verse part when present.
     part: str | None
+    # USX display label for combined milestones.
+    verse_label: str | None = None
+    # Normalized ``parse_ref`` range for combined milestones.
+    verse_range: str | None = None
     # Verse text for display.
     content: str
 
@@ -168,6 +172,10 @@ class ResolvedSpan(BaseModel):
     seq: int | None = None
     # Sub-verse part when present.
     part: str | None = None
+    # USX display label when this span represents a combined milestone.
+    verse_label: str | None = None
+    # Normalized ``parse_ref`` range for combined milestones.
+    verse_range: str | None = None
 
 
 class ResolveEdge(BaseModel):

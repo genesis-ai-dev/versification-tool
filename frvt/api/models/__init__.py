@@ -152,6 +152,10 @@ class VerseSpan(Base):
     verse: Mapped[int] = mapped_column(Integer, nullable=False)
     # Sub-verse part id when the span is partial; null for whole verses.
     part: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # USX display label for combined milestones (``1,2`` / ``1-2``); null for simple verses.
+    verse_label: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Normalized ``parse_ref`` range for combined milestones; null for simple verses.
+    verse_range: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Scripture text for this span (required for UI display).
     content: Mapped[str] = mapped_column(Text, nullable=False)
 

@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from frvt.api.coupled_scheme_delete import coupled_preferred_scheme_id
 from frvt.api.db import get_session
 from frvt.api.errors import AppError
 from frvt.api.logging_config import get_logger
@@ -121,7 +122,13 @@ def delete_translation(
     translation_id: UUID,
     session: Session = Depends(get_session),
 ) -> None:
-    """Delete a translation unless it is still referenced as a scheme base."""
+    """Delete a translation unless it is still referenced as a scheme base.
+
+    When the preferred versification scheme shares the translation name and is
+    not associated with any other translation, that scheme and its mapping rows
+    are deleted as well. Non-preferred schemes and shared or differently named
+    preferred schemes are left unchanged.
+    """
     from sqlalchemy import delete
 
     from frvt.api.models import TranslationVersification, VerseSpan
@@ -139,6 +146,7 @@ def delete_translation(
             "Translation is still referenced as a versification base.",
             code="conflict",
         )
+    coupled_scheme_id = coupled_preferred_scheme_id(session, row)
     # Bulk-delete children first so large projects do not ORM-load every span.
     session.execute(delete(VerseSpan).where(VerseSpan.translation_id == translation_id))
     session.execute(
@@ -146,5 +154,14 @@ def delete_translation(
             TranslationVersification.translation_id == translation_id
         )
     )
+    if coupled_scheme_id is not None:
+        scheme = session.get(VersificationScheme, coupled_scheme_id)
+        if scheme is not None:
+            logger.debug(
+                "Deleting coupled preferred scheme id=%s name=%s",
+                scheme.id,
+                scheme.name,
+            )
+            session.delete(scheme)
     session.delete(row)
     session.flush()

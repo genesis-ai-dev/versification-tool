@@ -1081,3 +1081,27 @@ Post-reconciliation modifications. Apply subsections in order (`ADD-*-001`, then
 **No modification rows.** The frozen main body and effective specification are unchanged. This addendum records the API boundary for implementers and reviewers.
 
 Viewer session persistence is **client-only** (`localStorage` in the web app, ADD-U-008). No new endpoints, cookies, or server session store are introduced. Stored translation and versification ids are opaque UUIDs already exposed by existing list endpoints (`GET /api/translations`, `GET /api/versifications`). Invalid ids are dropped client-side after catalog load; the server continues to return `404` for unknown ids when referenced directly.
+
+### ADD-S-007 — Combined USX milestones (persistence, API, resolver port)
+
+**Purpose:** Persist combined-milestone display metadata on `verse_span`, expose it on span/resolve DTOs, augment persisted scheme ingredients with implied `splitVerses` mappings at project ingest, and enrich resolve results by canonicalizing onto stored spans without inventing cross-translation topology.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-S-007a | §6.1.2 `verse_span` | ADD | Nullable columns `verse_label` (`text`) and `verse_range` (`text`). `verse_label` holds USX display text for combined milestones (`1,2` vs `1-2`). `verse_range` holds a normalized `parse_ref` range string for the milestone's local verse correspondence (null for simple verses). Unique constraints unchanged; anchor `verse` remains the first USX integer. |
+| ADD-S-007b | §7.2 `VerseSpanOut` | ADD | Fields `verse_label: str \| None` and `verse_range: str \| None`. |
+| ADD-S-007c | §7.2 `ResolvedSpan` | ADD | Optional fields `verse_label: str \| None` and `verse_range: str \| None` when the enriched stored span carries them. |
+| ADD-S-007d | §8.1 resolver port | ADD | Before calling `resolve()`, when the query coordinate falls inside a stored combined-milestone span (exact row or `verse_range` coverage via shared span lookup), rewrite the query ref to the stored **anchor** verse so split `source_ref` rows match. After `resolve()`, enrich each span through the same lookup (attach `seq`, `verse_label`, canonical `verse`); dedupe source/target lists by stored span identity when virtual coordinates collapse; recompute top-level `relation` from post-dedupe cardinalities when not already `complex`. Do **not** expand topology by copying `verse_range` integers onto the other translation. |
+| ADD-S-007e | §8.2 / §7.7.1 persist | ADD | Project ingest: after spans are persisted, apply combined-milestone split augmentation to the scheme ingredient (`mappedVerses` + `splitVerses` per resolver ADD-R-007d), store the **updated** ingredient on `versification_scheme`, then derive and insert **all** `mapping_record` rows from that full ingredient (not from the pre-augmentation parse). |
+| ADD-S-007f | §10.3 | ADD | Contract tests: `VerseSpanOut` labels; resolve EN→FI merge with FI combined span; query canonicalize FI `4:2` → anchor; ingredient export includes `splitVerses`; mapping rows match augmented ingredient. Lives alongside existing ingest/resolve tests. |
+| ADD-S-007g | §3.1 sources | CLARIFY | Copenhagen schema (`versification_schema.json`) gains optional `splitVerses` (resolver ADD-R-007e); packaged copy under `frvt/resources/` must stay in sync. |
+
+### ADD-S-008 — Coupled preferred scheme on translation delete
+
+**Purpose:** When a translation is deleted, also delete its preferred `versification_scheme` only when that scheme is tightly coupled to the translation (same name, sole association). Non-preferred schemes and shared or differently named preferred schemes are unchanged.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-S-008a | §6.1.1 `translation` delete | REPLACE | Deleting a translation cascades to its verse spans and its association rows. Additionally, when the translation's **preferred** association points to a scheme whose `name` matches the translation `name` (case-insensitive) and that scheme has **no** other `translation_versification` rows, delete that scheme as well (cascading its `mapping_record` rows). If the preferred scheme has a different name, or is still associated with another translation, leave the scheme unchanged; translation deletion still proceeds. Non-preferred associations never trigger scheme deletion. Deleting a translation referenced as `versification_scheme.based_on_id` remains rejected (`409 conflict`). |
+| ADD-S-008b | §7.3 `DELETE /api/translations/{id}` | REPLACE | `204` deletes the translation, its spans, and its associations; may also delete the coupled preferred scheme per ADD-S-008a. Does not delete non-preferred schemes or shared/differently named preferred schemes. |
+| ADD-S-008c | §10.3 | ADD | Contract tests: ingest project (same-named translation and preferred scheme) → delete translation → scheme `404`; rename translation before delete → scheme survives; second translation associated to same scheme → delete first translation → scheme survives. |

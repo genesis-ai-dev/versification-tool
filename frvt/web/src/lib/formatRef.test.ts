@@ -22,6 +22,11 @@ describe("formatVerseGutterLabel", () => {
     expect(formatVerseGutterLabel(13, null)).toBe("13");
     expect(formatVerseGutterLabel(0, "a")).toBe("Title (0)a");
   });
+
+  it("prefers verseLabel for combined milestones", () => {
+    expect(formatVerseGutterLabel(1, null, "1,2")).toBe("1,2");
+    expect(formatVerseGutterLabel(1, "a", "1-2")).toBe("1-2a");
+  });
 });
 
 describe("toResolveArgs", () => {
