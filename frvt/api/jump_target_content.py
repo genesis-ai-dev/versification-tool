@@ -9,7 +9,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from frvt.api.jump_cancel import JumpCancelContext
+from frvt.api.jump_cancel import JumpCancelContext, resolve_navigation_dto
 from frvt.api.logging_config import get_logger
 from frvt.api.models import VerseSpan
 from frvt.resolver.parse_ref import parse_ref
@@ -59,14 +59,8 @@ def is_unreachable_jump_entry(
     Entries with no target spans (for example ``exclude``) are kept. Resolve
     failures fail open so the entry stays visible, matching cancel filtering.
     """
-    try:
-        dto = context._resolve_navigation(navigation_ref, part)
-    except (ReferenceError, LookupError, ValueError) as exc:
-        logger.debug(
-            "Target-content check resolve failed for ref=%s: %s",
-            navigation_ref,
-            exc,
-        )
+    dto = resolve_navigation_dto(context, navigation_ref, part)
+    if dto is None:
         return False
     resolved_targets = target_books_from_resolution(dto)
     if not resolved_targets:

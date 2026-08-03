@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   listAssociations,
   removeAssociation,
@@ -12,6 +12,7 @@ import {
 } from "../api/translations";
 import { listVersifications } from "../api/versifications";
 import type { AssociationOut, TranslationOut, VersificationOut } from "../api/types";
+import { createLatestAsyncGuard } from "../lib/latestAsyncGuard";
 import { ResourceTable } from "../manage/ResourceTable";
 import { AssociateModal } from "../manage/modals/AssociateModal";
 import { DeleteConfirmModal } from "../manage/modals/DeleteConfirmModal";
@@ -46,23 +47,31 @@ export function TranslationsManagePage() {
   const [schemes, setSchemes] = useState<VersificationOut[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [modal, setModal] = useState<ModalState>(null);
+  const reloadGuard = useRef(createLatestAsyncGuard());
 
   const reload = useCallback(async () => {
+    const requestId = reloadGuard.current.start();
     try {
       const [tPage, vPage] = await Promise.all([
         listTranslations(),
         listVersifications(),
       ]);
-      setSchemes(vPage.items);
       const withAssoc = await Promise.all(
         tPage.items.map(async (translation) => ({
           translation,
           associations: await listAssociations(translation.id),
         })),
       );
+      if (!reloadGuard.current.isLatest(requestId)) {
+        return;
+      }
+      setSchemes(vPage.items);
       setRows(withAssoc);
       setError(null);
     } catch (err) {
+      if (!reloadGuard.current.isLatest(requestId)) {
+        return;
+      }
       setError(err instanceof ApiError ? describeApiError(err) : "Failed to load");
     }
   }, []);
@@ -189,9 +198,9 @@ export function TranslationsManagePage() {
       {modal?.kind === "upload" && (
         <UploadProjectModal
           onClose={() => setModal(null)}
-          onSuccess={() => {
+          onSuccess={async () => {
             setModal(null);
-            void reload();
+            await reload();
           }}
         />
       )}
@@ -212,7 +221,9 @@ export function TranslationsManagePage() {
           translationName={modal.row.translation.name}
           existingSchemeIds={modal.row.associations.map((a) => a.scheme_id)}
           onClose={() => setModal(null)}
-          onSuccess={() => void reload()}
+          onSuccess={async () => {
+            await reload();
+          }}
         />
       )}
       {modal?.kind === "delete" && (

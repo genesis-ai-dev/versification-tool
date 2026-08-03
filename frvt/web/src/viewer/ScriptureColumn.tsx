@@ -2,7 +2,7 @@ import { useEffect, useRef, type RefObject } from "react";
 import { textDirectionForTranslation } from "../lib/textDirection";
 import type { DriveSide } from "./overlay/drawPlan";
 import { ColumnChrome } from "./ColumnChrome";
-import { highlightKeysFor } from "./highlightKeys";
+import { columnHighlightKeys } from "./columnHighlights";
 import { VerseList } from "./VerseSpan";
 import { useViewerSession } from "./ViewerSession";
 
@@ -37,13 +37,21 @@ export function ScriptureColumn({ side, scrollRef }: ScriptureColumnProps) {
     };
   });
 
-  const highlightSpans =
-    session.resolveResult == null
-      ? []
-      : session.url.drive === side
-        ? session.resolveResult.source_spans
-        : session.resolveResult.target_spans;
-  const highlightKeys = highlightKeysFor(highlightSpans);
+  const columnBcv = side === "left" ? session.url.leftBcv : session.url.rightBcv;
+  const driveBcv =
+    session.url.drive === "left" ? session.url.leftBcv : session.url.rightBcv;
+  const selectionSettled =
+    !session.selectionPending && !session.resolveLoading;
+  const highlightKeys = columnHighlightKeys(
+    side,
+    session.url.drive,
+    columnBcv,
+    driveBcv,
+    spans,
+    session.resolveResult,
+    session.resolveDriveSide,
+    selectionSettled,
+  );
 
   const columnClass =
     session.url.drive === side ? "scripture-column is-source" : "scripture-column";

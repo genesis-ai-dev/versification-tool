@@ -50,6 +50,12 @@ class JumpCancelContext:
         repr=False,
         compare=False,
     )
+    # Memoized pair-resolve results keyed by ``(navigation_ref, part)``.
+    _resolution_cache: dict[tuple[str, str | None], ResolutionDTO | None] = field(
+        default_factory=dict,
+        repr=False,
+        compare=False,
+    )
     # Hop lists reused for every cancel check in this request.
     _src_hops: list[Hop] | None = field(default=None, repr=False, compare=False)
     _tgt_hops: list[Hop] | None = field(default=None, repr=False, compare=False)
@@ -90,6 +96,56 @@ class JumpCancelContext:
         return assemble(members, src_hops, tgt_hops)
 
 
+def resolve_navigation_dto(
+    context: JumpCancelContext,
+    navigation_ref: str,
+    part: str | None = None,
+) -> ResolutionDTO | None:
+    """Return a memoized pair resolve for one jump navigation target.
+
+    On resolve failure, caches and returns ``None`` so callers fail open.
+    """
+    cache_key = (navigation_ref, part)
+    if cache_key in context._resolution_cache:
+        return context._resolution_cache[cache_key]
+    try:
+        dto = context._resolve_navigation(navigation_ref, part)
+    except (ReferenceError, LookupError, ValueError) as exc:
+        logger.debug(
+            "Pair resolve failed for navigation_ref=%s: %s",
+            navigation_ref,
+            exc,
+        )
+        context._resolution_cache[cache_key] = None
+        return None
+    context._resolution_cache[cache_key] = dto
+    return dto
+
+
+def resolved_target_ref_from_dto(dto: ResolutionDTO) -> str | None:
+    """Format the to-translation BCV label(s) from a resolve result."""
+    if not dto.target_spans:
+        return None
+    refs = [span.ref for span in dto.target_spans]
+    return refs[0] if len(refs) == 1 else ", ".join(refs)
+
+
+def resolved_target_ref_for_jump(
+    context: JumpCancelContext,
+    navigation_ref: str,
+    part: str | None = None,
+) -> str | None:
+    """Return the to-translation BCV label for a jump row's navigation target.
+
+    Uses the same coordinate resolve path as cancel filtering so jump-menu
+    labels match overlay connectors for the selected translation pair.
+    """
+    dto = resolve_navigation_dto(context, navigation_ref, part)
+    if dto is None:
+        return None
+    return resolved_target_ref_from_dto(dto)
+
+
 def is_canceling_resolution(dto: ResolutionDTO) -> bool:
     """Return whether a coordinate resolve result cancels for jump-menu purposes.
 
@@ -126,16 +182,11 @@ def is_canceling_jump_entry(
     if process_cached is not None:
         context._cancel_cache[cache_key] = process_cached
         return process_cached
-    try:
-        dto = context._resolve_navigation(navigation_ref, part)
-        result = is_canceling_resolution(dto)
-    except (ReferenceError, LookupError, ValueError) as exc:
-        logger.debug(
-            "Cancel check resolve failed for ref=%s: %s",
-            navigation_ref,
-            exc,
-        )
+    dto = resolve_navigation_dto(context, navigation_ref, part)
+    if dto is None:
         result = False
+    else:
+        result = is_canceling_resolution(dto)
     context._cancel_cache[cache_key] = result
     if len(_PROCESS_CANCEL_CACHE) >= _PROCESS_CANCEL_CACHE_MAX:
         _PROCESS_CANCEL_CACHE.clear()

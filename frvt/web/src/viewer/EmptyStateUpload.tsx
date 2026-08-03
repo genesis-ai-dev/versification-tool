@@ -5,7 +5,7 @@ import { UploadProjectModal } from "../manage/modals/UploadProjectModal";
 /** Props for the empty-state upload CTA panel. */
 export interface EmptyStateUploadProps {
   /** Invoked after a successful project ingest so the session can reload. */
-  onUploaded: () => void;
+  onUploaded: () => void | Promise<void>;
 }
 
 /**
@@ -33,9 +33,9 @@ export function EmptyStateUpload({ onUploaded }: EmptyStateUploadProps) {
       {open && (
         <UploadProjectModal
           onClose={() => setOpen(false)}
-          onSuccess={() => {
+          onSuccess={async () => {
             setOpen(false);
-            onUploaded();
+            await onUploaded();
           }}
         />
       )}

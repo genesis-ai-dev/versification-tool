@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, describeApiError } from "../api/errors";
 import type { VersificationOut } from "../api/types";
 import {
@@ -6,6 +6,7 @@ import {
   listVersifications,
   updateVersification,
 } from "../api/versifications";
+import { createLatestAsyncGuard } from "../lib/latestAsyncGuard";
 import { ResourceTable } from "../manage/ResourceTable";
 import { AssociatedTranslationsCell } from "../manage/AssociatedTranslationsCell";
 import { DeleteConfirmModal } from "../manage/modals/DeleteConfirmModal";
@@ -23,13 +24,21 @@ export function VersificationsManagePage() {
   const [schemes, setSchemes] = useState<VersificationOut[]>([]);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [error, setError] = useState<string | null>(null);
+  const loadGuard = useRef(createLatestAsyncGuard());
 
   const load = useCallback(async () => {
+    const requestId = loadGuard.current.start();
     try {
       const page = await listVersifications();
+      if (!loadGuard.current.isLatest(requestId)) {
+        return;
+      }
       setSchemes(page.items);
       setError(null);
     } catch (caught) {
+      if (!loadGuard.current.isLatest(requestId)) {
+        return;
+      }
       setError(toMessage(caught));
     }
   }, []);
@@ -97,7 +106,10 @@ export function VersificationsManagePage() {
       {dialog?.kind === "upload" && (
         <UploadVersificationModal
           onClose={() => setDialog(null)}
-          onSuccess={() => void load().then(() => setDialog(null))}
+          onSuccess={async () => {
+            await load();
+            setDialog(null);
+          }}
         />
       )}
       {dialog?.kind === "rename" && (

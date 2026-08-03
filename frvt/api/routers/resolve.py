@@ -35,7 +35,7 @@ def resolve_endpoint(
         from_translation,
         to_translation,
     )
-    return resolve_reference(
+    result = resolve_reference(
         session,
         from_translation=from_translation,
         to_translation=to_translation,
@@ -44,6 +44,7 @@ def resolve_endpoint(
         from_versification=from_versification,
         to_versification=to_versification,
     )
+    return result
 
 
 @router.get("/api/resolve/chapter", response_model=ChapterResolveOut)

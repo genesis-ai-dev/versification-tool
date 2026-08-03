@@ -1,5 +1,6 @@
 import { useMemo, useRef } from "react";
 import { DriveDirectionIndicator } from "./DriveDirectionIndicator";
+import { resolveResultApplies } from "./columnHighlights";
 import { MappingOverlay } from "./overlay/MappingOverlay";
 import { ScriptureColumn } from "./ScriptureColumn";
 import { useViewerSession } from "./ViewerSession";
@@ -41,6 +42,30 @@ export function ViewerWorkspace() {
     [driveBcv],
   );
 
+  const overlayResult = useMemo(() => {
+    const selectionSettled =
+      !session.selectionPending && !session.resolveLoading;
+    if (
+      !selectionSettled ||
+      !resolveResultApplies(
+        session.resolveResult,
+        session.resolveDriveSide,
+        session.url.drive,
+        overlayDriveBcv,
+      )
+    ) {
+      return null;
+    }
+    return session.resolveResult;
+  }, [
+    session.resolveResult,
+    session.resolveDriveSide,
+    session.url.drive,
+    session.selectionPending,
+    session.resolveLoading,
+    overlayDriveBcv,
+  ]);
+
   return (
     <div className="viewer-workspace" ref={workspaceRef}>
       <div className="workspace-columns">
@@ -52,7 +77,7 @@ export function ViewerWorkspace() {
         workspaceRef={workspaceRef}
         leftColumnRef={leftColumnRef}
         rightColumnRef={rightColumnRef}
-        result={session.resolveResult}
+        result={overlayResult}
         chapterResults={session.chapterResolveItems}
         mapMode={session.url.mapMode}
         driveSide={session.url.drive}

@@ -75,7 +75,10 @@ export class OverlayController {
 
   /** Coalesce redraw triggers into a single animation frame. */
   scheduleRedraw(): void {
-    if (this.disposed || this.rafId !== 0) {
+    if (this.disposed) {
+      return;
+    }
+    if (this.rafId !== 0) {
       return;
     }
     this.rafId = requestAnimationFrame(() => {
@@ -125,7 +128,8 @@ export class OverlayController {
         this.model.driveBcv !== null
           ? indexOfDriveAlignment(chapterItems, this.model.driveBcv)
           : null;
-      paintPlan(this.svg, mergeDrawPlans(plans, { emphasizeIndex }));
+      const merged = mergeDrawPlans(plans, { emphasizeIndex });
+      paintPlan(this.svg, merged);
       return;
     }
 
@@ -181,12 +185,19 @@ function unionSpans(
   return spans;
 }
 
-/** Measure participating spans within a column root. */
+/** Measure participating spans within a column root, clipped to the scrollport. */
 function measureColumn(
   root: HTMLElement,
   origin: DOMRect,
   spans: ResolvedSpan[],
 ): Map<string, import("./drawPlan").Rect> {
+  const rootRect = root.getBoundingClientRect();
+  const clipBounds = {
+    x: rootRect.left - origin.left,
+    y: rootRect.top - origin.top,
+    width: rootRect.width,
+    height: rootRect.height,
+  };
   const map = new Map<string, import("./drawPlan").Rect>();
   for (const span of spans) {
     const el = findAnchor(root, span);
@@ -195,14 +206,34 @@ function measureColumn(
       continue;
     }
     const box = el.getBoundingClientRect();
-    map.set(anchorKey(span), {
+    const localRect = {
       x: box.left - origin.left,
       y: box.top - origin.top,
       width: box.width,
       height: box.height,
-    });
+    };
+    const clipped = intersectRect(localRect, clipBounds);
+    if (!clipped) {
+      continue;
+    }
+    map.set(anchorKey(span), clipped);
   }
   return map;
+}
+
+/** Intersect two axis-aligned rects; returns null when they do not overlap. */
+function intersectRect(
+  rect: import("./drawPlan").Rect,
+  bounds: import("./drawPlan").Rect,
+): import("./drawPlan").Rect | null {
+  const x1 = Math.max(rect.x, bounds.x);
+  const y1 = Math.max(rect.y, bounds.y);
+  const x2 = Math.min(rect.x + rect.width, bounds.x + bounds.width);
+  const y2 = Math.min(rect.y + rect.height, bounds.y + bounds.height);
+  if (x2 <= x1 || y2 <= y1) {
+    return null;
+  }
+  return { x: x1, y: y1, width: x2 - x1, height: y2 - y1 };
 }
 
 /**

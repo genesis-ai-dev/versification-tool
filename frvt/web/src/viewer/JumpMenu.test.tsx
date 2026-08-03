@@ -21,9 +21,11 @@ function buildSession(overrides: Partial<ViewerSessionValue> = {}): ViewerSessio
     translationTotal: 2,
     versifications: [],
     resolveResult: null,
+    resolveDriveSide: null,
     chapterResolveItems: null,
     chapterResolveLoading: false,
     resolveLoading: false,
+    selectionPending: false,
     errorBanner: null,
     authRequired: false,
     spansFor: () => [

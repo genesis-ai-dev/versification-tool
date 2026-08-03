@@ -32,7 +32,7 @@ function ViewerContent() {
         </div>
       )}
       {session.translationTotal === 0 ? (
-        <EmptyStateUpload onUploaded={() => void session.refreshCatalogs()} />
+        <EmptyStateUpload onUploaded={() => session.refreshCatalogs()} />
       ) : (
         <>
           <ViewerHeaderControls />

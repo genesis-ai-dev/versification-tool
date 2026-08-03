@@ -6,8 +6,8 @@ import { FieldErrorList, useModalSubmit } from "./modalHelpers";
 /** Props for the project-zip upload dialog. */
 export interface UploadProjectModalProps {
   onClose: () => void;
-  /** Called after a successful ``201`` ingest. */
-  onSuccess: () => void;
+  /** Called after a successful ``201`` ingest; may be async (e.g. catalog reload). */
+  onSuccess: () => void | Promise<void>;
 }
 
 /**
@@ -32,7 +32,7 @@ export function UploadProjectModal({ onClose, onSuccess }: UploadProjectModalPro
               name: name.trim() || undefined,
               language: language.trim() || undefined,
             });
-            onSuccess();
+            await onSuccess();
           })
         }
       >
