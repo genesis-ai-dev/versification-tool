@@ -138,6 +138,78 @@ def test_identity_jhn(seeded_session: Session) -> None:
     assert "-" not in result.source_spans[0].ref
 
 
+def test_combined_milestone_split_under_vrs_renumber(seeded_session: Session) -> None:
+    """Combined ROM 14:24-25 splits to org 16:25-26 under a VRS renumber row."""
+    org = seeded_session.scalar(select(Translation).where(Translation.name == "org"))
+    assert org is not None
+    mari = Translation(
+        name=f"mari-rom-{uuid4().hex[:8]}",
+        language="chm",
+        source_format="usx",
+        is_anchor=False,
+    )
+    seeded_session.add(mari)
+    seeded_session.flush()
+    ingredient = {
+        "basedOn": "org",
+        "maxVerses": {"ROM": ["26"] * 14 + ["24"]},
+        "mappedVerses": {
+            "ROM 14:24": "ROM 16:25-26",
+            "ROM 14:24-26": "ROM 16:25-27",
+        },
+        "splitVerses": ["ROM 14:24"],
+        "mergedVerses": [],
+        "excludedVerses": [],
+        "partialVerses": {},
+    }
+    scheme = VersificationScheme(
+        name=f"mari-scheme-{uuid4().hex[:8]}",
+        based_on_name="org",
+        based_on_id=org.id,
+        canonical=False,
+        ingredient=ingredient,
+    )
+    seeded_session.add(scheme)
+    seeded_session.flush()
+    seeded_session.add(
+        MappingRecord(
+            scheme_id=scheme.id,
+            source_ref="ROM 14:24",
+            base_ref="ROM 16:25-26",
+            part=None,
+            relation=RelationType.split,
+            ordinal=0,
+        ),
+        MappingRecord(
+            scheme_id=scheme.id,
+            source_ref="ROM 14:24-26",
+            base_ref="ROM 16:25-27",
+            part=None,
+            relation=RelationType.renumber,
+            ordinal=1,
+        ),
+    )
+    seeded_session.add(
+        TranslationVersification(
+            translation_id=mari.id,
+            scheme_id=scheme.id,
+            preferred=True,
+        )
+    )
+    seeded_session.flush()
+    mari_scheme = SchemeRef(scheme.id, org.id, "org")
+    org_scheme = _scheme(seeded_session, "org")
+    result = resolve(
+        seeded_session,
+        "ROM 14:24",
+        source_scheme=mari_scheme,
+        target_scheme=org_scheme,
+    )
+    assert result.relation == "split"
+    assert [span.ref for span in result.source_spans] == ["ROM 14:24"]
+    assert [span.ref for span in result.target_spans] == ["ROM 16:25", "ROM 16:26"]
+
+
 def test_shift_psa(seeded_session: Session) -> None:
     """Psalm title shift maps PSA 3:1 in eng to PSA 3:2 in org."""
     eng = _scheme(seeded_session, "eng")

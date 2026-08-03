@@ -195,6 +195,55 @@ def test_derive_split_verses_from_ingredient() -> None:
 
 @pytest.mark.phase6
 @pytest.mark.ingest
+def test_combined_split_projects_through_covering_vrs_range() -> None:
+    """Combined milestone under a VRS renumber row zips onto the basedOn span."""
+    from unittest.mock import MagicMock
+    from uuid import uuid4
+
+    from frvt.ingest.derive_combined_milestones import apply_combined_milestone_splits
+    from frvt.ingest.types import ParsedSpan
+
+    spans = (
+        ParsedSpan(
+            seq=0,
+            book="ROM",
+            chapter=14,
+            verse=24,
+            part=None,
+            verse_label="24-25",
+            verse_range="ROM 14:24-25",
+            content="doxology",
+        ),
+    )
+    ingredient = {
+        "basedOn": "org",
+        "maxVerses": {"ROM": ["26"] * 14 + ["24"]},
+        "mappedVerses": {"ROM 14:24-26": "ROM 16:25-27"},
+        "splitVerses": [],
+        "mergedVerses": [],
+        "excludedVerses": [],
+        "partialVerses": {},
+    }
+    session = MagicMock()
+    session.get.return_value = MagicMock(is_anchor=True)
+    updated = apply_combined_milestone_splits(
+        ingredient,
+        spans,
+        session=session,
+        based_on_translation_id=uuid4(),
+    )
+    assert updated["splitVerses"] == ["ROM 14:24"]
+    assert updated["mappedVerses"]["ROM 14:24"] == "ROM 16:25-26"
+    scheme = ParsedScheme(
+        name="mari", based_on="org", canonical=False, ingredient=updated
+    )
+    split = next(row for row in derive_mapping_records(scheme) if row.relation == "split")
+    assert split.source_ref == "ROM 14:24"
+    assert split.base_ref == "ROM 16:25-26"
+
+
+@pytest.mark.phase6
+@pytest.mark.ingest
 def test_combined_split_accepts_anchor_based_on() -> None:
     """Implied splits are allowed when basedOn is a numbering-space anchor."""
     from unittest.mock import MagicMock
