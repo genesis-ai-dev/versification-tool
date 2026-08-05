@@ -239,16 +239,16 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 > Optional automation may additionally assert cache-key shapes (`(translationId,book,chapter)` for spans; scheme in nav keys; `fromVers`/`toVers` in resolve keys). That is not required for human verification.
 
-### TC-UI-034 — Follower auto-scroll does not loop resolve
+### TC-UI-034 — Drive and follower auto-scroll does not loop resolve
 
 - **Level:** e2e · **Priority:** Required · **Category:** concurrency · **Traces:** REQ-184
 - **Preconditions:**
   - A cross-chapter mapping that causes the follower to scroll to a target verse after resolve.
 - **Steps:**
-  1. Drive a resolve that lands in a different chapter in the follower.
-  2. Watch the follower settle (scroll + highlight) for a few seconds.
+  1. Drive a resolve that lands in a different chapter in the follower (e.g. via chrome verse selection while scrolled away).
+  2. Watch both columns settle (scroll + highlight) for a few seconds.
 - **Expected result:**
-  - The follower scrolls once to the target and the alignment settles.
+  - The **drive** column scrolls to the selected verse and the **follower** scrolls once to the primary target; the alignment settles.
   - The UI does not enter a visible loop (repeated chapter reloads, flickering highlights, or oscillating BCV).
 
 ### TC-UI-035 — Scheme control options and "Preferred (default)" clear
@@ -260,7 +260,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
   1. Open a column's scheme control and inspect the options.
   2. Select the "Preferred (default)" option.
 - **Expected result:**
-  - Options are built from associations joined with versifications (showing name / canonical / based_on), with the preferred scheme marked.
+  - Options are built from associations joined with versifications: `{name} (based on {based_on_name})` when `based_on_name` is set, otherwise bare `{name}`; preferred schemes append ` ★` after the full label.
   - Selecting "Preferred (default)" clears the `*vers` override.
 
 ### TC-UI-036 — Column scheme override affects resolve, jumps, and navigation
@@ -288,19 +288,44 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
   - `toResolveArgs` builds a single-verse ref only; no range parser is invoked.
   - The jump path uses the structured `navigation` object rather than parsing the label.
 
+### TC-UI-038 — Book jump legend sits beside the Book label
+
+- **Level:** e2e · **Priority:** Required · **Category:** functional · **Traces:** ADD-U-004
+- **Preconditions:**
+  - Viewer with at least one translation selected per column (legends visible).
+- **Steps:**
+  1. Inspect each column's Book control.
+- **Expected result:**
+  - `● Book has mapping differences` appears on the same row as the **Book** label text (before the `<select>`), not under the dropdown.
+  - The Book `<select>` has `aria-describedby` pointing at the legend.
+
+### TC-UI-039 — Drive-direction arrow between columns
+
+- **Level:** e2e · **Priority:** Required · **Category:** functional · **Traces:** ADD-U-004
+- **Preconditions:**
+  - Two resolvable translations in the viewer.
+- **Steps:**
+  1. Open the viewer with `drive=left` and confirm both translations can resolve.
+  2. Switch drive to the right column (verse click or URL).
+  3. Optionally clear the counterpart translation so `!canResolve`.
+- **Expected result:**
+  - When `canResolve`, a between-column indicator shows `→` with accessible name `Drive: left → right` (or `←` / `Drive: right → left` when right drives).
+  - The toolbar pair-context row shows textual `drive: left` / `drive: right` consistent with the indicator.
+  - When `!canResolve`, the indicator is absent.
+
 ---
 
 ## Overlay (`OVERLAY`)
 
-### TC-OVERLAY-001 — Map toggle draws the current result only
+### TC-OVERLAY-001 — Mapping modes: hidden and current
 
 - **Level:** e2e · **Priority:** Required · **Category:** functional · **Traces:** REQ-140
 - **Preconditions:**
   - Viewer with a current alignment for the selected verse.
 - **Steps:**
-  1. Set `map=0`, then `map=1`.
+  1. Select **Hidden** (`map=0`), then **Current** (`map=1`).
 - **Expected result:**
-  - Connectors clear when `map=0`, then draw for the **current** resolve result only when `map=1` (never chapter-wide).
+  - Connectors clear when hidden, then draw for the **current** resolve result only when current (not chapter-wide).
 
 ### TC-OVERLAY-002 — Topologies for one-to-one, split, and merge
 
@@ -347,15 +372,15 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 - **Expected result:**
   - The part-bearing verse is outlined and shows a visible part label (e.g. `part a`).
 
-### TC-OVERLAY-006 — Text highlight is independent of map connectors
+### TC-OVERLAY-006 — Text highlight is independent of Mapping select
 
 - **Level:** e2e · **Priority:** Required · **Category:** functional · **Traces:** REQ-145
 - **Preconditions:**
   - A ready resolve result.
 - **Steps:**
-  1. Toggle the map on and off.
+  1. Cycle Mapping through Hidden, Current, and All (dimmed).
 - **Expected result:**
-  - Highlight spans remain on regardless of `map`; only the connectors follow the map toggle.
+  - Highlight spans remain on in all three modes; only connectors follow the Mapping select.
 
 ### TC-OVERLAY-007 — Redraw coalescing and listener cleanup
 
@@ -388,12 +413,23 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 - **Expected result:**
   - Connectors originate from the right (drive) column and terminate on the left follower; exits are mirrored vs `drive=left` (covered in TC-UI-005).
 
-### TC-OVERLAY-012 — Chapter-wide overlay is absent (POC behavior superseded)
+### TC-OVERLAY-012 — Chapter mode draws unique dimmed connectors
 
-- **Level:** e2e/out-of-scope-confirmation · **Priority:** Required · **Category:** out-of-scope-confirmation · **Traces:** REQ-140, REQ-160
+- **Level:** e2e · **Priority:** Required · **Category:** functional · **Traces:** REQ-140
 - **Preconditions:**
-  - A chapter with many deltas.
+  - Two associated translations; a chapter with multiple stored verses and alignments.
 - **Steps:**
-  1. Enable `map` without changing the current verse.
+  1. Select **Current** (`map=1`), note connector count.
+  2. Select **All (dimmed)** (`map=all`).
 - **Expected result:**
-  - Only the current alignment's connectors are drawn — not all chapter deltas (the POC chapter-wide toggle is out of scope).
+  - Chapter mode draws more connectors than current-only; non-current paths use reduced opacity (`0.25`); current alignment stays full opacity. `map=1` remains current-only.
+
+### TC-OVERLAY-013 — Chapter mode does not stack duplicate hulls
+
+- **Level:** e2e · **Priority:** Required · **Category:** functional · **Traces:** REQ-140
+- **Preconditions:**
+  - A chapter containing a multi-span merge or complex hull.
+- **Steps:**
+  1. Enable **All (dimmed)** and step through member verses of the hull.
+- **Expected result:**
+  - The API returns one item per unique hull (emit-once); the SVG does not stack identical connector sets for each member verse.

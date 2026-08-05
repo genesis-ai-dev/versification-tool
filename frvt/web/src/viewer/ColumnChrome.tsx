@@ -1,0 +1,174 @@
+import { BookJumpLegendInfo } from "./BookJumpLegendInfo";
+import { formatVerseGutterLabel } from "../lib/formatRef";
+import { formatVersificationOptionLabel } from "../lib/formatVersificationOption";
+import type { DriveSide } from "./overlay/drawPlan";
+import { JumpMenu } from "./JumpMenu";
+import { TypeaheadSelect } from "./TypeaheadSelect";
+import { useViewerSession } from "./ViewerSession";
+
+/** Props for per-column translation / BCV / scheme chrome. */
+export interface ColumnChromeProps {
+  /** Physical column this chrome controls. */
+  side: DriveSide;
+  /** Disable jump/resolve-dependent controls when counterpart missing. */
+  resolveDisabled: boolean;
+}
+
+/**
+ * Translation selector, BCV typeaheads, scheme select, and jump menu.
+ * Scheme selection writes ``lvers``/``rvers`` only — never preferred PUT.
+ */
+export function ColumnChrome({ side, resolveDisabled }: ColumnChromeProps) {
+  const session = useViewerSession();
+  const translationId = side === "left" ? session.url.left : session.url.right;
+  const bcv = side === "left" ? session.url.leftBcv : session.url.rightBcv;
+  const selectedVers = side === "left" ? session.url.leftVers : session.url.rightVers;
+  const navigation = session.navigationFor(side);
+  const associations = session.associationsFor(side);
+  const spans = session.spansFor(side);
+  const jumpBooks = session.jumpBooksFor(side);
+  const bookLegendId = `${side}-book-jump-legend`;
+
+  const chapters = navigation.find((book) => book.book === bcv?.book)?.chapters ?? [];
+
+  const verseOptions = spans.map((span) => ({
+    value: `${span.verse}|${span.part ?? ""}`,
+    label: formatVerseGutterLabel(span.verse, span.part, span.verse_label),
+  }));
+
+  const bookOptions = [
+    { value: "", label: "—" },
+    ...navigation.map((book) => ({
+      value: book.book,
+      label: jumpBooks.has(book.book) ? `${book.book} ●` : book.book,
+    })),
+  ];
+
+  const chapterOptions = chapters.map((chapter) => ({
+    value: String(chapter),
+    label: String(chapter),
+  }));
+
+  return (
+    <div className="column-chrome">
+      <label>
+        Translation
+        <select
+          value={translationId ?? ""}
+          aria-label={`${side} translation`}
+          onChange={(event) =>
+            session.setColumnTranslation(side, event.target.value || null)
+          }
+        >
+          <option value="">Select…</option>
+          {session.translations.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="book-chrome-field bcv-chrome-field">
+        <span className="book-chrome-label-row">
+          Book
+          {translationId ? (
+            <BookJumpLegendInfo id={bookLegendId} side={side} />
+          ) : null}
+        </span>
+        <TypeaheadSelect
+          value={bcv?.book ?? ""}
+          options={bookOptions}
+          aria-label={`${side} book`}
+          aria-describedby={translationId ? bookLegendId : undefined}
+          disabled={!translationId}
+          placeholder="—"
+          onChange={(book) => {
+            if (!bcv && !book) {
+              return;
+            }
+            const bookNav = navigation.find((b) => b.book === book);
+            const chapter = bookNav?.chapters[0] ?? 1;
+            session.setColumnBcv(side, {
+              book,
+              chapter,
+              verse: 1,
+              part: null,
+            });
+          }}
+        />
+      </label>
+
+      <label className="bcv-chrome-field">
+        Chapter
+        <TypeaheadSelect
+          value={bcv ? String(bcv.chapter) : ""}
+          options={chapterOptions}
+          aria-label={`${side} chapter`}
+          disabled={!bcv}
+          onChange={(chapterRaw) => {
+            if (!bcv) {
+              return;
+            }
+            session.setColumnBcv(side, {
+              ...bcv,
+              chapter: Number(chapterRaw),
+              verse: 1,
+              part: null,
+            });
+          }}
+        />
+      </label>
+
+      <label className="bcv-chrome-field">
+        Verse
+        <TypeaheadSelect
+          value={bcv ? `${bcv.verse}|${bcv.part ?? ""}` : ""}
+          options={verseOptions}
+          aria-label={`${side} verse`}
+          disabled={!bcv}
+          onChange={(verseKey) => {
+            if (!bcv) {
+              return;
+            }
+            const [verseRaw, partRaw = ""] = verseKey.split("|");
+            session.setColumnBcv(side, {
+              ...bcv,
+              verse: Number(verseRaw),
+              part: partRaw || null,
+            });
+          }}
+        />
+      </label>
+
+      <label>
+        Versification
+        <select
+          value={selectedVers ?? ""}
+          aria-label={`${side} versification`}
+          disabled={!translationId || associations.length === 0}
+          onChange={(event) =>
+            session.setColumnVersification(side, event.target.value || null)
+          }
+        >
+          <option value="">Preferred (default)</option>
+          {associations.map((assoc) => {
+            const scheme = session.versifications.find((v) => v.id === assoc.scheme_id);
+            const name = scheme?.name ?? assoc.scheme_id.slice(0, 8);
+            return (
+              <option key={assoc.scheme_id} value={assoc.scheme_id}>
+                {formatVersificationOptionLabel({
+                  name,
+                  basedOnName: scheme?.based_on_name ?? null,
+                  preferred: assoc.preferred,
+                })}
+              </option>
+            );
+          })}
+        </select>
+      </label>
+
+      <JumpMenu side={side} disabled={resolveDisabled} />
+    </div>
+  );
+}

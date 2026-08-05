@@ -1,0 +1,971 @@
+/* eslint-disable react-refresh/only-export-components -- provider and paired context hook */
+
+import {
+  createContext,
+  createElement,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { useSearchParams } from "react-router-dom";
+import { listAssociations } from "../api/associations";
+import { ApiError, describeApiError } from "../api/errors";
+import { resolveMapping, resolveChapter, listJumpBooks } from "../api/resolve";
+import { listTranslations } from "../api/translations";
+import { listVersifications } from "../api/versifications";
+import type {
+  AssociationOut,
+  NavBook,
+  ResolveResult,
+  TranslationOut,
+  VerseSpanOut,
+  VersificationOut,
+} from "../api/types";
+import { columnToResolveArgs, type ColumnBcv } from "../lib/bcv";
+import { createLatestAsyncGuard } from "../lib/latestAsyncGuard";
+import { canonicalBcvFromSpans } from "../lib/spanCoverage";
+import { resolveResultApplies } from "./columnHighlights";
+import { scrollColumnToSeq, seqForBcv } from "./columnScroll";
+import { ensureFollowerChapter } from "./followerChapter";
+import type { DriveSide } from "./overlay/drawPlan";
+import {
+  buildSelectionUrlPatch,
+  loadCanonicalColumnBcv,
+  selectionUrlPatchDiffers,
+} from "./selectionCommit";
+import {
+  parseViewerSearch,
+  patchViewerUrl,
+  serializeViewerSearch,
+  type MapMode,
+  type ViewerUrlState,
+} from "./viewerUrl";
+import {
+  ensureColumnChapter,
+  loadNavigation,
+  loadSpansCached,
+  navCacheKey,
+  spanCacheKey,
+  type AssocCache,
+  type NavCache,
+  type SpanCache,
+} from "./viewerCache";
+import {
+  hasExplicitViewerParams,
+  loadViewerSearch,
+  saveViewerSearch,
+  sanitizeViewerSearch,
+} from "./viewerPersistence";
+
+/** Public session API consumed by viewer chrome and columns. */
+export interface ViewerSessionValue {
+  /** Parsed URL-owned viewer state. */
+  url: ViewerUrlState;
+  /** Translation catalog from ``GET /api/translations``. */
+  translations: TranslationOut[];
+  /** Total translation count (drives empty / one-translation states). */
+  translationTotal: number;
+  /** Scheme catalog for scheme-switcher labels. */
+  versifications: VersificationOut[];
+  /** Latest resolve result for the current alignment. */
+  resolveResult: ResolveResult | null;
+  /** Drive side that produced ``resolveResult``; null when cleared. */
+  resolveDriveSide: DriveSide | null;
+  /** Chapter-mode alignments from ``GET /api/resolve/chapter``; null before first load. */
+  chapterResolveItems: ResolveResult[] | null;
+  /** True while a chapter resolve request is in flight. */
+  chapterResolveLoading: boolean;
+  /** True while a resolve request is in flight. */
+  resolveLoading: boolean;
+  /** True while a user verse click awaits resolve before URL commit. */
+  selectionPending: boolean;
+  /** Banner-level error message when present. */
+  errorBanner: string | null;
+  /** True after repeated 401s post-challenge. */
+  authRequired: boolean;
+  /** Spans for a column's current book/chapter (empty when unloaded). */
+  spansFor(side: DriveSide): VerseSpanOut[];
+  /** Navigation books for a column's selected scheme. */
+  navigationFor(side: DriveSide): NavBook[];
+  /** Associations for a column's translation. */
+  associationsFor(side: DriveSide): AssociationOut[];
+  /** Whether both columns can resolve (ids + associations present). */
+  canResolve: boolean;
+  /** Books flagged with jump differences for one column's from→to direction. */
+  jumpBooksFor(side: DriveSide): ReadonlySet<string>;
+  /** Replace URL state and let effects reload derived data. */
+  updateUrl(patch: Partial<ViewerUrlState>): void;
+  /** Set a column's structured BCV and mark it as the drive side. */
+  setColumnBcv(side: DriveSide, bcv: ColumnBcv): void;
+  /** Set a column's translation id (clears BCV when switching). */
+  setColumnTranslation(side: DriveSide, translationId: string | null): void;
+  /** Set or clear a column's per-request versification selection. */
+  setColumnVersification(side: DriveSide, schemeId: string | null): void;
+  /** Set the mapping overlay visibility mode (URL ``map`` param). */
+  setMapMode(mode: MapMode): void;
+  /** Scrollport refs registered by ScriptureColumn for follower scroll. */
+  registerScrollRoot(side: DriveSide, el: HTMLElement | null): void;
+  /** Reload translation/versification catalogs after manage/ingest mutations. */
+  refreshCatalogs(): Promise<void>;
+}
+
+const ViewerSessionContext = createContext<ViewerSessionValue | null>(null);
+
+/** Props for the session provider wrapping ViewerPage. */
+export interface ViewerSessionProviderProps {
+  children: ReactNode;
+}
+
+/**
+ * Own URL sync, span/nav/association caches, resolve cycle, and scroll-lock.
+ * Mount once around the viewer workspace; do not use on manage routes.
+ */
+export function ViewerSessionProvider({ children }: ViewerSessionProviderProps) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const url = useMemo(() => parseViewerSearch(searchParams.toString()), [searchParams]);
+
+  const [translations, setTranslations] = useState<TranslationOut[]>([]);
+  const [translationTotal, setTranslationTotal] = useState(0);
+  const [versifications, setVersifications] = useState<VersificationOut[]>([]);
+  const [resolveResult, setResolveResult] = useState<ResolveResult | null>(null);
+  const [resolveDriveSide, setResolveDriveSide] = useState<DriveSide | null>(null);
+  const pendingSelectionRef = useRef<{
+    drive: DriveSide;
+    driveBcv: ColumnBcv;
+  } | null>(null);
+  const [selectionPending, setSelectionPending] = useState(false);
+  const [selectionRequestId, setSelectionRequestId] = useState(0);
+  const [chapterResolveItems, setChapterResolveItems] = useState<ResolveResult[] | null>(
+    null,
+  );
+  const [chapterResolveLoading, setChapterResolveLoading] = useState(false);
+  const [leftJumpBooks, setLeftJumpBooks] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const [rightJumpBooks, setRightJumpBooks] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const [jumpBooksTick, setJumpBooksTick] = useState(0);
+  const [resolveLoading, setResolveLoading] = useState(false);
+  const [errorBanner, setErrorBanner] = useState<string | null>(null);
+  const [authRequired, setAuthRequired] = useState(false);
+  const [spanTick, setSpanTick] = useState(0);
+  const [followerScrollTick, setFollowerScrollTick] = useState(0);
+  const [navTick, setNavTick] = useState(0);
+  const [assocTick, setAssocTick] = useState(0);
+
+  const spanCache = useRef<SpanCache>(new Map());
+  const assocCache = useRef<AssocCache>(new Map());
+  const navCache = useRef<NavCache>(new Map());
+  const scrollRoots = useRef<{ left: HTMLElement | null; right: HTMLElement | null }>({
+    left: null,
+    right: null,
+  });
+  const scrollLock = useRef(false);
+  const resolveAbort = useRef<AbortController | null>(null);
+  const chapterAbort = useRef<AbortController | null>(null);
+  const jumpBooksAbort = useRef<{
+    left: AbortController | null;
+    right: AbortController | null;
+  }>({ left: null, right: null });
+  const unauthorizedCount = useRef(0);
+  const catalogGuard = useRef(createLatestAsyncGuard());
+  const resolveGuard = useRef(createLatestAsyncGuard());
+  const singleColumnGuard = useRef(createLatestAsyncGuard());
+  /** Follower seq awaiting scroll once the resolved chapter is rendered. */
+  const pendingFollowerScroll = useRef<{ side: DriveSide; seq: number } | null>(null);
+
+  const updateUrl = useCallback(
+    (patch: Partial<ViewerUrlState>) => {
+      const next = patchViewerUrl(url, patch);
+      const serialized = serializeViewerSearch(next);
+      saveViewerSearch(serialized);
+      setSearchParams(serialized, { replace: true });
+    },
+    [setSearchParams, url],
+  );
+
+  useLayoutEffect(() => {
+    const current = searchParams.toString();
+    if (hasExplicitViewerParams(current)) {
+      return;
+    }
+    const stored = loadViewerSearch();
+    if (!stored) {
+      return;
+    }
+    setSearchParams(stored, { replace: true });
+    // Restore persisted session before catalog defaults on bare `/` navigation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleApiFailure = useCallback((error: unknown) => {
+    if (!(error instanceof ApiError)) {
+      setErrorBanner("Unexpected error");
+      console.error("viewer session error", error);
+      return;
+    }
+    console.error("viewer session api error", error.status, error.code, error.message);
+    if (error.status === 401) {
+      unauthorizedCount.current += 1;
+      if (unauthorizedCount.current >= 2) {
+        setAuthRequired(true);
+      }
+    }
+    setErrorBanner(describeApiError(error));
+  }, []);
+
+  const refreshCatalogs = useCallback(async () => {
+    const requestId = catalogGuard.current.start();
+    try {
+      const [tPage, vPage] = await Promise.all([
+        listTranslations(),
+        listVersifications(),
+      ]);
+      if (!catalogGuard.current.isLatest(requestId)) {
+        return;
+      }
+      setTranslations(tPage.items);
+      setTranslationTotal(tPage.total);
+      setVersifications(vPage.items);
+
+      const currentSearch = searchParams.toString();
+      const sanitized = sanitizeViewerSearch(currentSearch, {
+        translationIds: new Set(tPage.items.map((item) => item.id)),
+        versificationIds: new Set(vPage.items.map((item) => item.id)),
+      });
+      let effective = parseViewerSearch(sanitized);
+      const defaultsPatch = catalogDefaultPatch(tPage.items, effective);
+      if (Object.keys(defaultsPatch).length > 0) {
+        effective = patchViewerUrl(effective, defaultsPatch);
+      }
+      const serialized = serializeViewerSearch(effective);
+      if (serialized !== currentSearch) {
+        saveViewerSearch(serialized);
+        setSearchParams(serialized, { replace: true });
+      }
+    } catch (error) {
+      if (!catalogGuard.current.isLatest(requestId)) {
+        return;
+      }
+      handleApiFailure(error);
+    }
+  }, [handleApiFailure, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    void refreshCatalogs();
+    // Initial catalog load only; subsequent refreshes are explicit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Load associations when translation ids change.
+  useEffect(() => {
+    const ids = [
+      ...new Set([url.left, url.right].filter((id): id is string => Boolean(id))),
+    ];
+    let cancelled = false;
+    void Promise.all(
+      ids.map(async (id) => {
+        const cached = assocCache.current.get(id);
+        if (cached) {
+          return [id, cached] as const;
+        }
+        const items = await listAssociations(id);
+        assocCache.current.set(id, items);
+        return [id, items] as const;
+      }),
+    )
+      .then((entries) => {
+        if (cancelled) {
+          return;
+        }
+        if (entries.length > 0) {
+          setAssocTick((n) => n + 1);
+        }
+        const byTranslation = new Map(entries);
+        const patch: Partial<ViewerUrlState> = {};
+        if (
+          url.left &&
+          url.leftVers &&
+          !byTranslation
+            .get(url.left)
+            ?.some((association) => association.scheme_id === url.leftVers)
+        ) {
+          patch.leftVers = null;
+        }
+        if (
+          url.right &&
+          url.rightVers &&
+          !byTranslation
+            .get(url.right)
+            ?.some((association) => association.scheme_id === url.rightVers)
+        ) {
+          patch.rightVers = null;
+        }
+        if (Object.keys(patch).length > 0) {
+          updateUrl(patch);
+        }
+      })
+      .catch(handleApiFailure);
+    return () => {
+      cancelled = true;
+    };
+  }, [url.left, url.right, url.leftVers, url.rightVers, updateUrl, handleApiFailure]);
+
+  // Load navigation when translation or selected scheme changes.
+  useEffect(() => {
+    loadNavigation(url.left, url.leftVers, navCache.current, () =>
+      setNavTick((n) => n + 1),
+    ).catch(handleApiFailure);
+    loadNavigation(url.right, url.rightVers, navCache.current, () =>
+      setNavTick((n) => n + 1),
+    ).catch(handleApiFailure);
+  }, [url.left, url.right, url.leftVers, url.rightVers, handleApiFailure]);
+
+  // Load spans for each column's book/chapter; seed BCV defaults when missing.
+  useEffect(() => {
+    void ensureColumnChapter(url, "left", spanCache.current, navCache.current, updateUrl)
+      .then(() => setSpanTick((n) => n + 1))
+      .catch(handleApiFailure);
+    void ensureColumnChapter(url, "right", spanCache.current, navCache.current, updateUrl)
+      .then(() => setSpanTick((n) => n + 1))
+      .catch(handleApiFailure);
+  }, [url, updateUrl, handleApiFailure, navTick]);
+
+  const associationsFor = useCallback(
+    (side: DriveSide): AssociationOut[] => {
+      void assocTick;
+      const id = side === "left" ? url.left : url.right;
+      return id ? (assocCache.current.get(id) ?? []) : [];
+    },
+    [assocTick, url.left, url.right],
+  );
+
+  const canResolve =
+    Boolean(url.left) &&
+    Boolean(url.right) &&
+    (assocCache.current.get(url.left ?? "") ?? []).length > 0 &&
+    (assocCache.current.get(url.right ?? "") ?? []).length > 0;
+  void assocTick;
+
+  // Resolve cycle: drive→from / follower→to; commit URL only after resolve settles.
+  useEffect(() => {
+    if (!canResolve) {
+      setResolveResult(null);
+      setResolveDriveSide(null);
+      pendingSelectionRef.current = null;
+      setSelectionPending(false);
+      return;
+    }
+
+    const pendingSelection = pendingSelectionRef.current;
+    const requestDrive = pendingSelection?.drive ?? url.drive;
+    const requestDriveBcv =
+      pendingSelection?.driveBcv ??
+      (url.drive === "left" ? url.leftBcv : url.rightBcv);
+
+    if (!requestDriveBcv) {
+      setResolveResult(null);
+      setResolveDriveSide(null);
+      return;
+    }
+
+    if (!pendingSelection) {
+      const committedDriveBcv =
+        url.drive === "left" ? url.leftBcv : url.rightBcv;
+      if (
+        committedDriveBcv &&
+        resolveResult &&
+        resolveResultApplies(
+          resolveResult,
+          resolveDriveSide,
+          url.drive,
+          committedDriveBcv,
+        )
+      ) {
+        return;
+      }
+    }
+
+    resolveAbort.current?.abort();
+    pendingFollowerScroll.current = null;
+    const controller = new AbortController();
+    resolveAbort.current = controller;
+    const resolveRequestId = resolveGuard.current.start();
+    setResolveLoading(true);
+
+    const fromTranslation =
+      requestDrive === "left" ? url.left! : url.right!;
+    const toTranslation =
+      requestDrive === "left" ? url.right! : url.left!;
+    const fromVers =
+      requestDrive === "left" ? url.leftVers : url.rightVers;
+    const toVers =
+      requestDrive === "left" ? url.rightVers : url.leftVers;
+    const driveTranslationId =
+      requestDrive === "left" ? url.left! : url.right!;
+
+    void (async () => {
+      try {
+        const resolveDriveBcv = await loadCanonicalColumnBcv(
+          spanCache.current,
+          driveTranslationId,
+          requestDriveBcv,
+        );
+        setSpanTick((n) => n + 1);
+
+        if (controller.signal.aborted) {
+          return;
+        }
+        if (!resolveGuard.current.isLatest(resolveRequestId)) {
+          return;
+        }
+
+        const { ref, part } = columnToResolveArgs(resolveDriveBcv);
+        const result = await resolveMapping(
+          {
+            fromTranslation,
+            toTranslation,
+            ref,
+            part,
+            fromVersification: fromVers,
+            toVersification: toVers,
+          },
+          { signal: controller.signal },
+        );
+
+        if (controller.signal.aborted) {
+          return;
+        }
+        if (!resolveGuard.current.isLatest(resolveRequestId)) {
+          return;
+        }
+
+        const followerSide: DriveSide =
+          requestDrive === "left" ? "right" : "left";
+        const followerTranslationId =
+          followerSide === "left" ? url.left! : url.right!;
+        const followerBcv =
+          followerSide === "left" ? url.leftBcv : url.rightBcv;
+        const followerTarget = await ensureFollowerChapter({
+          result,
+          followerBook: followerBcv?.book ?? null,
+          followerChapter: followerBcv?.chapter ?? null,
+          loadChapter: async (book, chapter) => {
+            await loadSpansCached(toTranslation, book, chapter, spanCache.current);
+            setSpanTick((n) => n + 1);
+          },
+        });
+
+        if (controller.signal.aborted) {
+          return;
+        }
+        if (!resolveGuard.current.isLatest(resolveRequestId)) {
+          return;
+        }
+
+        const committedDriveBcv = resolveDriveBcv;
+        let committedFollowerBcv: ColumnBcv | null = null;
+        if (followerTarget) {
+          committedFollowerBcv = await loadCanonicalColumnBcv(
+            spanCache.current,
+            followerTranslationId,
+            {
+              book: followerTarget.book,
+              chapter: followerTarget.chapter,
+              verse: followerTarget.verse,
+              part: followerTarget.part,
+            },
+          );
+          setSpanTick((n) => n + 1);
+        }
+
+        if (controller.signal.aborted) {
+          return;
+        }
+        if (!resolveGuard.current.isLatest(resolveRequestId)) {
+          return;
+        }
+
+        const urlPatch = buildSelectionUrlPatch(
+          requestDrive,
+          committedDriveBcv,
+          committedFollowerBcv,
+        );
+        if (selectionUrlPatchDiffers(url, urlPatch)) {
+          updateUrl(urlPatch);
+        }
+        pendingSelectionRef.current = null;
+        setSelectionPending(false);
+
+        setResolveResult(result);
+        setResolveDriveSide(requestDrive);
+        setErrorBanner(null);
+        unauthorizedCount.current = 0;
+
+        const driveSpans =
+          spanCache.current.get(
+            spanCacheKey(
+              driveTranslationId,
+              committedDriveBcv.book,
+              committedDriveBcv.chapter,
+            ),
+          ) ?? [];
+        const driveSeq = seqForBcv(driveSpans, committedDriveBcv);
+        if (driveSeq !== null) {
+          const scrollSide = requestDrive;
+          window.requestAnimationFrame(() => {
+            scrollColumnToSeq(scrollRoots.current[scrollSide], driveSeq, scrollLock);
+          });
+        }
+
+        if (committedFollowerBcv) {
+          const followerSpans =
+            spanCache.current.get(
+              spanCacheKey(
+                followerTranslationId,
+                committedFollowerBcv.book,
+                committedFollowerBcv.chapter,
+              ),
+            ) ?? [];
+          const followerSeq = seqForBcv(followerSpans, committedFollowerBcv);
+          if (followerSeq !== null) {
+            pendingFollowerScroll.current = {
+              side: followerSide,
+              seq: followerSeq,
+            };
+            setFollowerScrollTick((n) => n + 1);
+          }
+        }
+      } catch (error: unknown) {
+        if (controller.signal.aborted) {
+          return;
+        }
+        setResolveResult(null);
+        setResolveDriveSide(null);
+        pendingSelectionRef.current = null;
+        setSelectionPending(false);
+        handleApiFailure(error);
+      } finally {
+        if (resolveGuard.current.isLatest(resolveRequestId)) {
+          setResolveLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      controller.abort();
+    };
+  }, [
+    canResolve,
+    selectionRequestId,
+    url.drive,
+    url.left,
+    url.right,
+    url.leftBcv,
+    url.rightBcv,
+    url.leftVers,
+    url.rightVers,
+    updateUrl,
+    handleApiFailure,
+  ]);
+
+  // Chapter resolve for overlay chapter mode (drive→from mapping, stored verse spans).
+  useEffect(() => {
+    if (!canResolve || url.mapMode !== "chapter") {
+      setChapterResolveItems(null);
+      setChapterResolveLoading(false);
+      return;
+    }
+    const driveBcv = url.drive === "left" ? url.leftBcv : url.rightBcv;
+    if (!driveBcv) {
+      setChapterResolveItems(null);
+      return;
+    }
+
+    chapterAbort.current?.abort();
+    const controller = new AbortController();
+    chapterAbort.current = controller;
+    setChapterResolveLoading(true);
+
+    const fromTranslation = url.drive === "left" ? url.left! : url.right!;
+    const toTranslation = url.drive === "left" ? url.right! : url.left!;
+    const fromVers = url.drive === "left" ? url.leftVers : url.rightVers;
+    const toVers = url.drive === "left" ? url.rightVers : url.leftVers;
+
+    void resolveChapter(
+      {
+        fromTranslation,
+        toTranslation,
+        book: driveBcv.book,
+        chapter: driveBcv.chapter,
+        fromVersification: fromVers,
+        toVersification: toVers,
+      },
+      { signal: controller.signal },
+    )
+      .then((page) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+        setChapterResolveItems(page.items);
+        setErrorBanner(null);
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+        setChapterResolveItems(null);
+        handleApiFailure(error);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setChapterResolveLoading(false);
+        }
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [
+    canResolve,
+    url.mapMode,
+    url.drive,
+    url.left,
+    url.right,
+    url.leftBcv,
+    url.rightBcv,
+    url.leftVers,
+    url.rightVers,
+    handleApiFailure,
+  ]);
+
+  // Prefetch jump-books summaries for both column directions (book dropdown markers).
+  useEffect(() => {
+    if (!canResolve || !url.left || !url.right) {
+      setLeftJumpBooks(new Set());
+      setRightJumpBooks(new Set());
+      jumpBooksAbort.current.left?.abort();
+      jumpBooksAbort.current.right?.abort();
+      return;
+    }
+
+    setLeftJumpBooks(new Set());
+    setRightJumpBooks(new Set());
+
+    const leftController = new AbortController();
+    const rightController = new AbortController();
+    jumpBooksAbort.current = { left: leftController, right: rightController };
+
+    void listJumpBooks(
+      {
+        fromTranslation: url.left,
+        toTranslation: url.right,
+        fromVersification: url.leftVers,
+        toVersification: url.rightVers,
+      },
+      { signal: leftController.signal },
+    )
+      .then((out) => {
+        if (leftController.signal.aborted) {
+          return;
+        }
+        setLeftJumpBooks(new Set(out.books));
+        setJumpBooksTick((n) => n + 1);
+      })
+      .catch((error: unknown) => {
+        if (leftController.signal.aborted) {
+          return;
+        }
+        setLeftJumpBooks(new Set());
+        handleApiFailure(error);
+      });
+
+    void listJumpBooks(
+      {
+        fromTranslation: url.right,
+        toTranslation: url.left,
+        fromVersification: url.rightVers,
+        toVersification: url.leftVers,
+      },
+      { signal: rightController.signal },
+    )
+      .then((out) => {
+        if (rightController.signal.aborted) {
+          return;
+        }
+        setRightJumpBooks(new Set(out.books));
+        setJumpBooksTick((n) => n + 1);
+      })
+      .catch((error: unknown) => {
+        if (rightController.signal.aborted) {
+          return;
+        }
+        setRightJumpBooks(new Set());
+        handleApiFailure(error);
+      });
+
+    return () => {
+      leftController.abort();
+      rightController.abort();
+    };
+  }, [canResolve, url.left, url.right, url.leftVers, url.rightVers, handleApiFailure]);
+
+  // Canonicalize column BCV to combined-milestone anchors once spans are loaded.
+  useEffect(() => {
+    if (selectionPending) {
+      return;
+    }
+    const sides: DriveSide[] = ["left", "right"];
+    for (const side of sides) {
+      const translationId = side === "left" ? url.left : url.right;
+      const bcv = side === "left" ? url.leftBcv : url.rightBcv;
+      if (!translationId || !bcv) {
+        continue;
+      }
+      const spans =
+        spanCache.current.get(spanCacheKey(translationId, bcv.book, bcv.chapter)) ?? [];
+      const canonical = canonicalBcvFromSpans(spans, bcv);
+      if (!canonical) {
+        continue;
+      }
+      if (
+        canonical.verse !== bcv.verse ||
+        (canonical.part ?? "") !== (bcv.part ?? "")
+      ) {
+        if (side === "left") {
+          updateUrl({ leftBcv: canonical });
+        } else {
+          updateUrl({ rightBcv: canonical });
+        }
+      }
+    }
+  }, [spanTick, selectionPending, url.left, url.right, url.leftBcv, url.rightBcv, updateUrl]);
+
+  // Bring the selected verse of the driving column into view (chrome, click, or jump).
+  useEffect(() => {
+    const side = url.drive;
+    const translationId = side === "left" ? url.left : url.right;
+    const bcv = side === "left" ? url.leftBcv : url.rightBcv;
+    if (!translationId || !bcv) {
+      return;
+    }
+    const spans =
+      spanCache.current.get(spanCacheKey(translationId, bcv.book, bcv.chapter)) ?? [];
+    const seq = seqForBcv(spans, bcv);
+    if (seq === null) {
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      scrollColumnToSeq(scrollRoots.current[side], seq, scrollLock);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [spanTick, url.drive, url.left, url.right, url.leftBcv, url.rightBcv]);
+
+  // Bring the resolved follower target into view once its chapter is rendered.
+  useEffect(() => {
+    const pending = pendingFollowerScroll.current;
+    if (!pending) {
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      if (scrollColumnToSeq(scrollRoots.current[pending.side], pending.seq, scrollLock)) {
+        pendingFollowerScroll.current = null;
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [followerScrollTick, spanTick, url.leftBcv, url.rightBcv]);
+
+  const spansFor = useCallback(
+    (side: DriveSide): VerseSpanOut[] => {
+      void spanTick;
+      const id = side === "left" ? url.left : url.right;
+      const bcv = side === "left" ? url.leftBcv : url.rightBcv;
+      if (!id || !bcv) {
+        return [];
+      }
+      return spanCache.current.get(spanCacheKey(id, bcv.book, bcv.chapter)) ?? [];
+    },
+    [spanTick, url.left, url.right, url.leftBcv, url.rightBcv],
+  );
+
+  const navigationFor = useCallback(
+    (side: DriveSide): NavBook[] => {
+      void navTick;
+      const id = side === "left" ? url.left : url.right;
+      const vers = side === "left" ? url.leftVers : url.rightVers;
+      if (!id) {
+        return [];
+      }
+      return navCache.current.get(navCacheKey(id, vers)) ?? [];
+    },
+    [navTick, url.left, url.right, url.leftVers, url.rightVers],
+  );
+
+  const jumpBooksFor = useCallback(
+    (side: DriveSide): ReadonlySet<string> => {
+      void jumpBooksTick;
+      if (!canResolve) {
+        return new Set();
+      }
+      return side === "left" ? leftJumpBooks : rightJumpBooks;
+    },
+    [canResolve, jumpBooksTick, leftJumpBooks, rightJumpBooks],
+  );
+
+  const setColumnBcv = useCallback(
+    (side: DriveSide, bcv: ColumnBcv) => {
+      if (scrollLock.current) {
+        return;
+      }
+      if (!canResolve) {
+        const translationId = side === "left" ? url.left : url.right;
+        if (!translationId) {
+          return;
+        }
+        const requestId = singleColumnGuard.current.start();
+        void loadCanonicalColumnBcv(spanCache.current, translationId, bcv)
+          .then((canonicalBcv) => {
+            if (!singleColumnGuard.current.isLatest(requestId)) {
+              return;
+            }
+            if (side === "left") {
+              updateUrl({ leftBcv: canonicalBcv, drive: "left" });
+            } else {
+              updateUrl({ rightBcv: canonicalBcv, drive: "right" });
+            }
+            setSpanTick((n) => n + 1);
+          })
+          .catch(handleApiFailure);
+        return;
+      }
+      pendingSelectionRef.current = { drive: side, driveBcv: bcv };
+      setSelectionPending(true);
+      setSelectionRequestId((n) => n + 1);
+    },
+    [canResolve, handleApiFailure, updateUrl, url.left, url.right],
+  );
+
+  const setColumnTranslation = useCallback(
+    (side: DriveSide, translationId: string | null) => {
+      if (side === "left") {
+        updateUrl({
+          left: translationId,
+          leftBcv: null,
+          leftVers: null,
+        });
+        if (translationId) {
+          assocCache.current.delete(translationId);
+        }
+      } else {
+        updateUrl({
+          right: translationId,
+          rightBcv: null,
+          rightVers: null,
+        });
+        if (translationId) {
+          assocCache.current.delete(translationId);
+        }
+      }
+    },
+    [updateUrl],
+  );
+
+  const setColumnVersification = useCallback(
+    (side: DriveSide, schemeId: string | null) => {
+      if (side === "left") {
+        if (url.left) {
+          navCache.current.delete(navCacheKey(url.left, url.leftVers));
+          navCache.current.delete(navCacheKey(url.left, schemeId));
+        }
+        updateUrl({ leftVers: schemeId });
+      } else {
+        if (url.right) {
+          navCache.current.delete(navCacheKey(url.right, url.rightVers));
+          navCache.current.delete(navCacheKey(url.right, schemeId));
+        }
+        updateUrl({ rightVers: schemeId });
+      }
+      setResolveResult(null);
+      setResolveDriveSide(null);
+      pendingSelectionRef.current = null;
+      setSelectionPending(false);
+    },
+    [updateUrl, url.left, url.right, url.leftVers, url.rightVers],
+  );
+
+  const setMapMode = useCallback(
+    (mode: MapMode) => {
+      updateUrl({ mapMode: mode });
+    },
+    [updateUrl],
+  );
+
+  const registerScrollRoot = useCallback((side: DriveSide, el: HTMLElement | null) => {
+    scrollRoots.current[side] = el;
+  }, []);
+
+  const value: ViewerSessionValue = {
+    url,
+    translations,
+    translationTotal,
+    versifications,
+    resolveResult,
+    resolveDriveSide,
+    chapterResolveItems,
+    chapterResolveLoading,
+    resolveLoading,
+    selectionPending,
+    errorBanner,
+    authRequired,
+    spansFor,
+    navigationFor,
+    associationsFor,
+    canResolve,
+    jumpBooksFor,
+    updateUrl,
+    setColumnBcv,
+    setColumnTranslation,
+    setColumnVersification,
+    setMapMode,
+    registerScrollRoot,
+    refreshCatalogs,
+  };
+
+  return createElement(ViewerSessionContext.Provider, { value }, children);
+}
+
+/**
+ * Access the viewer session from chrome/columns.
+ * Throws when used outside ``ViewerSessionProvider``.
+ */
+export function useViewerSession(): ViewerSessionValue {
+  const ctx = useContext(ViewerSessionContext);
+  if (!ctx) {
+    throw new Error("useViewerSession requires ViewerSessionProvider");
+  }
+  return ctx;
+}
+
+/** Patch missing left/right translation ids from the catalog list order. */
+function catalogDefaultPatch(
+  items: TranslationOut[],
+  url: ViewerUrlState,
+): Partial<ViewerUrlState> {
+  if (items.length === 0) {
+    return {};
+  }
+  const patch: Partial<ViewerUrlState> = {};
+  if (!url.left && items[0]) {
+    patch.left = items[0].id;
+  }
+  if (!url.right && items.length >= 2 && items[1]) {
+    patch.right = items[1].id;
+  }
+  return patch;
+}

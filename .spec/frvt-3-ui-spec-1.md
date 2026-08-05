@@ -4,6 +4,12 @@
 **Audience:** The developer implementing the React frontend; and the developers writing the server, resolver, and ETL specifications that this document is reconciled against.
 **Scope of this document:** The React single-page application under `frvt/web/`: screens, client state, SVG overlay rendering, and API consumption conventions. It does not specify the HTTP API shapes, the mapping resolver, or ETL/ingest internals. Those are owned by separate specifications and appear here only as consumption contracts and reconciliation items.
 
+> **Modification policy.** The normative body of this specification (numbered sections before **Addenda**) is frozen after initial reconciliation and is **never edited**. All post-reconciliation changes are recorded only in **Addenda** at the end of this file.
+>
+> - **Subsections** (`### ADD-*-NNN`) represent logical spec extensions or modifications — one subsection per issue discovery or requirements change. A subsection may list multiple modification rows. The subsection **title** and **Purpose** describe the extension at a **capability or logical level** (what the spec must support); they do not list field names, section ids, or other implementation detail.
+> - **Modification rows** (within a subsection table) are the atomic changes: each row has its own id, cites the section identifier(s) being changed, states an **Action** (`ADD`, `CLARIFY`, `REPLACE`, `REMOVE`), and provides the **effective text**. Detail lives here, not in the Purpose paragraph. Rows with `REPLACE` or `REMOVE` supersede or void the cited main-body text **logically** when computing the effective specification; they do **not** authorize editing the main body.
+> - **Effective specification:** Start from the frozen main body, then apply addendum subsections in order; within each subsection, apply modification rows in listed order. Later rows override earlier ones for the same target. The on-disk main body always remains unchanged.
+
 ---
 
 ## 1. Overview
@@ -30,7 +36,7 @@ The UI is a React + TypeScript SPA. Vite emits built assets to `frvt/web/dist/`;
 ### 2.1 In scope
 
 - Route map for the viewer and manage screens.
-- Two-column viewer: translation selectors, BCV selectors, jump menus, scheme switcher, mapping toggle, verse list by `seq`.
+- Two-column viewer: translation selectors, searchable BCV typeaheads, jump menus, scheme switcher, mapping toggle, verse list by `seq`.
 - SVG overlay: outlines, connector topologies, relation-colored visual language, connector-to-void for exclusions.
 - Empty state that requires project upload when no translations exist.
 - Manage screens for translations and versifications; modals for upload, rename, associate, remove association, and delete confirmation.
@@ -57,7 +63,7 @@ Every POC capability the UI owns traces to a screen or component and the API sur
 | --- | --- | --- | --- | --- |
 | 1 | Side-by-side display of two translations | `ViewerPage` / `ScriptureColumn` | `GET /api/translations`, `GET /api/translations/{id}/spans` | Spans rendered by `seq`. |
 | 2 | Navigation in one column drives alignment in the other | `ViewerSession` resolve cycle | `GET /api/resolve` | Drive→from / follower→to ([§7.6](#76-resolve-request-mapping)); follower may load a new chapter before scroll ([§6.4](#64-viewer-workflow)). |
-| 3 | Per-column book/chapter/verse selector | `ColumnChrome` / BCV selectors | `GET /api/translations/{id}/navigation`, spans | Verse options from loaded chapter spans when navigation omits verse lists. |
+| 3 | Per-column book/chapter/verse selector | `ColumnChrome` / BCV typeaheads | `GET /api/translations/{id}/navigation`, spans | Searchable comboboxes (filter by value and label). Books rendered in API order (USX Bible order). Verse options from loaded chapter spans when navigation omits verse lists. |
 | 4 | Per-column jump menu | `JumpMenu` | `GET /api/resolve/deltas`, `/misalignments`, `/navigation` | Unblocked: server provides discrete `navigation_ref` / `navigation` ([§9.2](#92-required-api-reconciliation) #1). |
 | 5 | Outlines around mapped verses and partial spans | `MappingOverlay` | `GET /api/resolve` (`part`) | Partial outlines the part node only. |
 | 6 | Connector lines between mapped spans | `OverlayController` | `GET /api/resolve` (`seq`) | Topology by `relation` value; edges follow drive/follower, not left/right ([§8.4](#84-overlay-redraw-pipeline)). |
@@ -301,6 +307,8 @@ Each column provides:
 
 Selecting a jump entry sets that column's structured BCV from the structured `navigation` object. The UI must not parse range strings.
 
+Lists reflect server-side cancel filtering and source-starting-BCV order; the UI does not apply a second client-side cancel or sort pass. Identity-locus `partial` entries remain after cancel filtering (the part annotation is the meaningful delta).
+
 ---
 
 ## 7. State model
@@ -438,7 +446,7 @@ Each rendered span:
 </div>
 ```
 
-Prefer `data-seq` for overlay lookup when `ResolvedSpan.seq` is present. Fall back to `data-ref` (+ part) when `seq` is null. Partial mappings outline the part-bearing node only.
+Prefer `data-seq` for overlay lookup when `ResolvedSpan.seq` is present. Fall back to `data-ref` (+ part) when `seq` is null. When a part-bearing resolve has no part-specific DOM node (typical for USX whole-verse rows), fall back to the whole-verse node. Partial mappings outline the part-bearing node only when one exists.
 
 ### 8.4 Overlay redraw pipeline
 
@@ -577,10 +585,12 @@ frvt/web/
       VersificationsManagePage.tsx
     viewer/
       ViewerSession.tsx          # URL sync + caches + resolve mapping (§7.6)
+      viewerPersistence.ts       # localStorage fallback for viewer URL state (ADD-U-008)
       ViewerToolbar.tsx
       ViewerWorkspace.tsx
       ScriptureColumn.tsx
       ColumnChrome.tsx
+      TypeaheadSelect.tsx        # searchable BCV combobox (ADD-U-006)
       VerseList.tsx
       VerseSpan.tsx
       JumpMenu.tsx
@@ -692,3 +702,139 @@ Authoritative detail lives in [§9.2](#92-required-api-reconciliation). All requ
 - **DrawPlan:** pure overlay description (outlines, paths, labels) produced from measured anchors and the `relation` value.
 - **`navigation_ref`:** server-provided single-verse (or single-partial) BCV used as a jump target so the UI never parses ranges; accompanied by structured `navigation` when reconciled.
 - **`seq`:** stable document-order index for rendered spans; overlay and scroll anchors prefer it over BCV labels.
+
+---
+
+## Addenda
+
+Post-reconciliation modifications. Apply subsections in order (`ADD-*-001`, then `ADD-*-002`, …). Each subsection is one logical extension; modification rows within it are applied in listed order to compute the **effective** specification. The main body above is never edited.
+
+### ADD-U-001 — Visual alignment and category test coverage
+
+**Purpose:** Clarifications required to generate visual tests of all alignment relation types and jump-menu misalignment categories in the viewer overlay and jump menu.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-U-001a | §11.3 | ADD | Manual overlay QA for relation topologies and jump-menu categories is documented in [`.test/visual-demo-walkthrough.md`](../.test/visual-demo-walkthrough.md) (`C-*`, `CAT-*` case ids) and [`.test/multihop-chain-walkthrough.md`](../.test/multihop-chain-walkthrough.md) (`P-*` parity ids). Automated contract tests for resolve/overlay inputs remain in pytest; walkthroughs are not CI-gated initially. |
+| ADD-U-001b | §6.6 | ADD | Category filter labels map 1:1 to server §7.9 vocabulary: `psalm_title`, `chapter_boundary`, `chapter_count`, `lxx_psalm`, `synodal`, `nt_omission`, `other` (see [`JumpMenu.tsx`](../frvt/web/src/viewer/JumpMenu.tsx)). |
+
+### ADD-U-002 — Mapping visibility modes
+
+**Purpose:** Three-mode mapping overlay visibility — hidden, current alignment only, and chapter-wide unique alignments with the drive verse emphasized and others dimmed. In chapter mode, the user sees alignments among currently displayed verses without opening the jump menu.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-U-002a | §1 (overview resp. 2) | REPLACE | Draw outlines and connector lines for mapping overlays in three modes: **hidden** clears SVG connectors/outlines; **current** paints one `ResolveResult` at full opacity; **chapter** paints unique alignments for currently displayed drive-column verses via `GET /api/resolve/chapter`, with non-current alignments dimmed. Chapter mode does not require the jump menu. |
+| ADD-U-002b | §2.1 | CLARIFY | Mapping visibility is a three-option native `<select>` labeled **Mapping** (`Hidden` / `Current` / `All (dimmed)`), not a boolean checkbox. |
+| ADD-U-002c | §2.3 row 8 | REPLACE | Three-mode Mapping control. `current` uses `GET /api/resolve`; `chapter` uses `GET /api/resolve/chapter` with dimming so the user views in-column alignments without the jump menu. Disabled when `!canResolve`. |
+| ADD-U-002d | §3.2 (Mapping toggle) | REPLACE | **`off`:** clear overlay SVG. **`current`:** draw the current alignment only. **`chapter`:** draw unique alignments for verses currently displayed in the drive column (from stored `verse_span` rows via the chapter API; not jump-menu deltas). Verse text highlight stays on in all modes. The jump menu is optional for chapter-mode viewing. |
+| ADD-U-002e | §7.1 `map` | REPLACE | `map` is `0` \| `1` \| `all`. Absent or unrecognized ⇒ `1` (`current`). Always serialize as `map=0`, `map=1`, or `map=all`. |
+| ADD-U-002f | §7.2 | ADD | Session caches chapter resolve: `chapterResolveItems: ResolveResult[] \| null`, `chapterResolveLoading: boolean`. Fetch when `mapMode === "chapter"` and `canResolve`; abort in-flight requests on mode, drive BCV, translation pair, or scheme change. |
+| ADD-U-002g | §7.6 | ADD | Chapter fetch uses the same drive→from / follower→to mapping as single resolve: drive column → `from_translation`, follower → `to_translation`; `book` and `chapter` are the drive column's current BCV. |
+| ADD-U-002h | §8.2 (toggle paragraph) | REPLACE | **Mapping modes:** `off` clears connector/outline SVG (text highlight may remain). `current` draws the current `ResolveResult` only. `chapter` draws unique alignments visible among currently displayed drive-column verses; emphasize the alignment whose `source_spans` contain the drive `(book, chapter, verse)` (+ `part` when set — membership, not first span index). Non-current outlines, connectors, labels, and void marks use SVG opacity `0.25`; paint dimmed plans first, emphasized last. No duplicate hull paint after server emit-once. Highlights are independent of map mode. No jump-menu interaction is required for chapter mode. |
+| ADD-U-002i | §8.4 | REPLACE | Redraw gate covers three map modes (`off`, `current`, `chapter`). Chapter mode builds one `DrawPlan` per chapter item, merges with `mergeDrawPlans`, and paints. Triggers include Mapping select change, resolve change, scroll, resize, scheme switch, and spans re-render. |
+| ADD-U-002j | §9.2 row 5 | REPLACE | **`map=1` stays current-only.** **`map=all` (chapter mode)** lets the user view alignments among currently displayed verses without the jump menu, via `GET /api/resolve/chapter` (not deltas). The jump menu remains for cross-chapter navigation and discovery outside chapter overlay mode. |
+| ADD-U-002k | §9.3 (Resolve + overlay) | REPLACE | `GET /api/resolve`, `GET /api/resolve/chapter`. |
+| ADD-U-002l | §11.3 | ADD | Contract tests: `MapMode` URL round-trip; `mergeDrawPlans` and `indexOfDriveAlignment` (including drive verse in a non-first `source_spans` slot); three-mode overlay behavior. Do not test thin fetch wrappers that only forward arguments. |
+| ADD-U-002m | §13 (glossary **Current alignment**) | CLARIFY | In `chapter` mode, "current" is the emphasized alignment whose `source_spans` contain the drive BCV (+ `part` when set), not necessarily the only painted alignment. |
+| ADD-U-002n | §6.3, §6.4, §10 layout | CLARIFY | Replace "map toggle" / checkbox wording with Mapping `<select>`. Disable the select when `!canResolve`. |
+
+### ADD-U-003 — Book jump-difference indicators
+
+**Purpose:** Per-book indicators on each column's book typeahead for translation-pair jump differences, plus a visible legend, so users see which books have jump-menu deltas or misalignments before opening Jump.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-U-003a | §2.3 row 3 | REPLACE | Per-column book/chapter/verse selector: book options show a unicode suffix on books that have jump-relevant mapping differences for the current pair and schemes (via `GET /api/resolve/jump-books` for that column's from→to direction). Always-visible legend: `● Book has mapping differences`. |
+| ADD-U-003b | §10 layout (`ColumnChrome`) | ADD | Book typeahead: option **display text** suffixes ` ●` (U+25CF) when the book is in the jump-books set for that column; committed **value** stays the bare USFM code. Legend visible whenever the Book control is enabled (translation selected). Markers only when `canResolve` and summary data has loaded; unmarked labels while loading or when `!canResolve`. Prefer one visible legend element with an `id` and `aria-describedby` on the Book combobox. |
+| ADD-U-003c | §7.2 | ADD | Session caches per-side jump-books: e.g. `jumpBooksFor(side): ReadonlySet<string>`. Fetch when `canResolve`; one request per column direction (left-as-from, right-as-from) with `AbortController`; clear cache on translation or versification change before new data arrives. Prefetch independently of Jump panel open state; do not block BCV selection. |
+| ADD-U-003d | §9.3 | ADD | `GET /api/resolve/jump-books` per column when both translations are resolvable. |
+| ADD-U-003e | §11.3 | ADD | Contract tests: option label suffix when book is flagged; legend visible; bare `value` preserved on selection (no marker leaked into URL book params). Do not test thin fetch wrappers. |
+| ADD-U-003f | §6.6 | CLARIFY | Jump-books indicators use the same cancel-filtered row set as Mapped deltas and Misalignments; they are a translation-level summary, not a replacement for the jump menu. |
+
+### ADD-U-004 — Viewer chrome UX polish
+
+**Purpose:** After verse selection, both viewer columns scroll to the relevant spans; versification options show their parent scheme; the book jump-difference legend sits beside the Book label; and a visible arrow shows which column is driving resolve.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-U-004a | §6.4 (After a successful resolve) | REPLACE | Verse selection scrolls both columns. The **drive** column scrolls to its selected verse span whenever that selection changes and the span is rendered (chrome, verse click, or jump), independent of resolve success, so `exclude` results and single-translation mode still scroll the driving column. After a successful resolve, if a primary follower target exists, scroll the **follower** so that target `seq` is visible (existing rule); for `exclude` / empty targets do not invent a follower scroll target. Both use `scrollIntoView` with `block: "nearest"` and `behavior: "smooth"` under scroll-lock; targets already fully inside the scrollport neither scroll nor take the lock. |
+| ADD-U-004b | §6.4 sequence diagram note / step 3 | CLARIFY | Highlight and scroll steps cover **both** columns: drive to selected verse, follower to primary target when present. |
+| ADD-U-004c | §6.5 step 2 (scheme option labels) | REPLACE | Scheme option labels: `{name} (based on {based_on_name})` when `based_on_name` is non-null; otherwise `{name}`. Preferred association appends ` ★` after the full label. The empty option remains `Preferred (default)` with no based-on text. Join path unchanged (associations → versification catalog by `scheme_id`, or enriched `AssociationOut` if present). |
+| ADD-U-004d | §10 layout (`ColumnChrome`) / ADD-U-003b legend placement | REPLACE | Book jump legend `● Book has mapping differences` is inline on the same row as the **Book** label text (not under the typeahead). Keep legend `id` + `aria-describedby` on the Book combobox. Visibility and marker rules from ADD-U-003 remain. |
+| ADD-U-004e | §5.3 / §10 layout (`ViewerWorkspace`) | ADD | When `canResolve`, show one non-interactive drive-direction indicator near the seam between the two columns at chrome-row height, offset slightly left for visual balance. Glyph points drive→follower: `→` when `drive=left`, `←` when `drive=right`. Accessible name e.g. `Drive: left → right` / `Drive: right → left`. Hidden when `!canResolve`. Does not change `drive` on click. |
+| ADD-U-004f | §3.2 / toolbar pair context | CLARIFY | Keep the textual `drive: left\|right` cue in the viewer toolbar pair-context row alongside the between-column direction arrow (ADD-U-004e). Drive-column accent bar (`is-source`) also remains. |
+| ADD-U-004g | §11.3 | ADD | Contract tests: drive + follower scroll after resolve (no resolve loop); drive scrolls on exclude; versification option text includes `(based on …)` when `based_on_name` set and omits it when null; preferred ★ after full label; legend is a sibling of the Book label text (not below the select); drive arrow visible only when `canResolve`, flips with `drive`, and is not a control that writes `drive`. |
+
+### ADD-U-005 — Composed alignment presentation
+
+**Purpose:** Single-point presentation of composed alignments: the overlay states an alignment's character once at the hub instead of repeating or approximating it on every connector, and renders the classification the server reports without re-deriving it from span counts.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-U-005a | §8.2 | CLARIFY | The overlay renders the server relation verbatim and never re-derives it from span counts. |
+| ADD-U-005b | §8.2 | REPLACE | The `complex` row: a gutter hub badge carries the axis summary; per-connector labels are suppressed whenever a hub badge is present. |
+| ADD-U-005c | §8.2 | ADD | `range` row: new color token, graph topology, one connector per edge, fixed hub label, no per-connector labels. |
+
+### ADD-U-005 — Content-backed book/chapter navigation
+
+**Purpose:** Column BCV selectors only offer books and chapters that exist as stored content for the selected translation.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-U-005a | §2.3 row 3 | CLARIFY | Book/chapter options come from `GET /api/translations/{id}/navigation`, which lists stored `verse_span` books/chapters only (server ADD-S-004). The UI continues to render API order as given; it does not invent scheme-only books. |
+
+### ADD-U-006 — Searchable BCV typeaheads
+
+**Purpose:** Users can select book, chapter, and verse by typing instead of scrolling long native lists.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-U-006a | §2.3 row 3 / §10 (`ColumnChrome`) | REPLACE | Book, chapter, and verse controls are searchable comboboxes (`TypeaheadSelect`), not native `<select>`. Typing filters options by case-insensitive substring match on both the option **value** and **label** (so USFM codes and display text such as `Title (0)` both match). Keyboard: ArrowUp/ArrowDown, Enter to commit, Escape to dismiss. Translation and versification controls remain native `<select>`. |
+| ADD-U-006b | ADD-U-003b / ADD-U-004d | CLARIFY | Jump-book ` ●` markers and legend/`aria-describedby` apply to the book combobox the same way they did for the native book select; committed values remain bare USFM codes. |
+| ADD-U-006c | §11.3 | ADD | Contract tests: filter narrows options; selecting a marked book commits the bare code; e2e BCV helpers drive the combobox via listbox options / `data-value`. |
+
+### ADD-U-007 — RTL scripture column layout and versification association display
+
+**Purpose:** Scripture columns respect each translation's stored text direction for verse layout while mapping connectors remain physically attached across columns. On the versifications manage screen, a **Translation(s)** column lists associated translation names so operators can see which translations use each scheme (including schemes created by project ingest, which are associated with the new translation at ingest time).
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-U-007a | §2.3 row 1 / §10 `VerseSpan` | ADD | Each column's verse list sets HTML `dir` from that column's translation `text_direction` (`rtl` \| `ltr`). Column chrome remains LTR. |
+| ADD-U-007b | §10 `VerseSpan` layout | ADD | RTL columns: verse numbers at inline start (grid follows `dir`); verse numbers use Western numerals with `direction: ltr` and `unicode-bidi: isolate`; gutter alignment `text-align: end`. Verse body inherits column direction. |
+| ADD-U-007c | §8 overlay | CLARIFY | Mapping connectors and anchor measurement remain **physical** (left column left edge ↔ right column right edge toward gutter); RTL text direction does not alter overlay attachment. |
+| ADD-U-007d | §6.3 upload modal | REPLACE | Project upload **Translation name** and **Language** fields are optional, labeled as such, with hint text that each is initialized from `metadata.xml` when omitted. Metadata values are authoritative when present. Ingest fails with field errors when a value cannot be resolved from metadata or the form. |
+| ADD-U-007e | §11.3 | ADD | Contract/e2e: RTL translation renders `dir="rtl"` on verse list; verse-num isolation; overlay connectors still attach across columns for LTR↔RTL pairs. |
+| ADD-U-007f | §6.1 `/manage/versifications` / `VersificationsManagePage` | ADD | The versifications table includes a **Translation(s)** column populated from `VersificationOut.associated_translation_names` (sorted translation display names). The cell shows the associated translation **name** directly when there is exactly one association; when more than one translation is associated with the scheme, the cell shows a summary and a popover listing each associated translation name. When no translations are associated, the cell shows muted **None**. |
+| ADD-U-007g | §11.3 | ADD | Contract/e2e: versifications manage **Translation(s)** shows one associated translation name inline; multiple associations use the popover listing. |
+
+### ADD-U-008 — Viewer session local persistence
+
+**Purpose:** Durable fallback for viewer URL state when the address bar has no explicit translation selection (manage-route return, post-login reload).
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-U-008a | §7.1 | ADD | The URL remains the runtime source of truth. `localStorage` key `frvt.viewerSession` stores the serialized viewer search string produced by `serializeViewerSearch` (same vocabulary as §7.1). |
+| ADD-U-008b | §7.1 | ADD | **Write:** on every `ViewerSession.updateUrl`. **Read:** on viewer mount when the URL has neither `left` nor `right`, restore the stored search before catalog defaults run. Explicit URL params always override storage. |
+| ADD-U-008c | §5.3 `AppShell` | ADD | The Viewer nav link targets `/?{storedSearch}` when storage holds a saved session, so manage → Viewer round-trips preserve the last viewer state. |
+| ADD-U-008d | §7.1 / §7.3 | ADD | After catalog load, sanitize stored translation and versification ids against `GET /api/translations` and `GET /api/versifications`; drop ids that no longer exist; apply catalog defaults only for still-missing `left`/`right` slots. |
+| ADD-U-008e | §10 layout | ADD | `viewerPersistence.ts` — `localStorage` read/write, explicit-param detection, and catalog sanitization helpers used by `ViewerSession`. |
+| ADD-U-008f | §11.3 | ADD | Contract tests: persistence round-trip and sanitize behavior; e2e `TC-UI-011` manage-route round-trip retains `left`/`right` (and per-column `lvers`/`rvers` when set). |
+
+### ADD-U-009 — Combined milestone display and navigation
+
+**Purpose:** Columns with USX combined milestones show one row and one verse-selector option per stored span (e.g. gutter label `1,2`), scroll to covering spans for programmatic BCVs inside a combined range, and rely on resolve/hull topology from scheme mappings — not client-invented merge/split siblings.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-U-009a | §2.3 row 3 | REPLACE | Per-column verse selector: options built from **loaded chapter spans** (one option per `verse_span` row), not from expanded integer verse lists or scheme `maxVerses`. Option **label** uses `verse_label` when present (USX display, e.g. `1,2` / `1-2`); otherwise formatted anchor verse (and part). Option **value** remains canonical stored coordinates (`verse` + `part`). Covered verse numbers inside a combined milestone are not separate selectable options. |
+| ADD-U-009b | §10 `VerseSpan` / gutter | ADD | Verse gutter displays `verse_label` when set (append `part` when present); otherwise existing numeric/`Title (0)` formatting. Combined labels use tabular numerals (`font-variant-numeric: tabular-nums` on `.verse-num`). |
+| ADD-U-009c | §6.4 scroll / §7.1 URL | ADD | Column scroll-to-verse matches a BCV to a stored span by exact coordinates or by `verse_range` coverage (same chapter/book): programmatic `JHN 4:2` on a translation whose only stored row is a combined `1,2` span at anchor `4:1` scrolls to that row. Optional: when URL BCV matches only via coverage, canonicalize URL state to the anchor verse so the verse selector value matches an option. |
+| ADD-U-009d | §2.3 row 2 / §8 overlay | CLARIFY | Mapping overlay topology for combined milestones comes from `GET /api/resolve` / chapter batch after resolver hull escalation (ADD-R-007f) and server port enrichment (ADD-S-007d). The UI does not synthesize merge/split sibling lists from `verse_range` alone. |
+| ADD-U-009e | §11.3 | ADD | Contract/unit tests: verse selector shows `1,2` not separate `1` and `2`; gutter label; scroll/coverage for BCV inside combined range. E2e optional for FI/CM sample chapters after re-ingest. |
+
+### ADD-U-010 — Coupled preferred scheme on translation delete (cross-spec traceability)
+
+**Purpose:** Cross-spec traceability for server ADD-S-008; no additional client logic beyond existing delete flows.
+
+**No modification rows.** The frozen main body and effective specification are unchanged. Manage Translations delete actions call `DELETE /api/translations/{id}`; when the server removes a coupled preferred scheme, the versification list refresh after delete reflects the scheme's absence. No UI branch is required beyond normal catalog reload.

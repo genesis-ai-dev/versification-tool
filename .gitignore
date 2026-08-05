@@ -35,6 +35,8 @@ eggs/
 .eggs/
 lib/
 lib64/
+!frvt/web/src/lib/
+!frvt/web/src/lib/**
 parts/
 sdist/
 var/
@@ -79,3 +81,4 @@ tmp/
 temp/
 *.tmp
 *.temp
+bench.json

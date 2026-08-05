@@ -260,17 +260,19 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 
 ## Navigation, deltas, misalignments (`NAV`)
 
-### TC-NAV-001 — Navigation tree built from maxVerses + spans
+### TC-NAV-001 — Navigation tree built from stored spans only
 
 - **Level:** integration · **Priority:** Required · **Category:** functional · **Traces:** REQ-110
 - **Preconditions:**
   - A translation with a preferred scheme and ingested spans; authenticated client.
 - **Steps:**
   1. `GET /api/translations/{id}/navigation` (with the relevant versification).
+  2. (Subset case) Associate a full-canon scheme with a translation that has only a subset of books as spans; request navigation again.
 - **Expected result:**
-  - A `NavBook[]` structure is returned, derived from the scheme's `maxVerses` and the translation's spans.
+  - A `NavBook[]` structure is returned from distinct stored `verse_span` `(book, chapter)` only (USX order); scheme `maxVerses` does not add books or chapters.
+  - Subset case: books present in the scheme but absent from spans are omitted.
 
-### TC-NAV-002 — Deltas are paginated and ordered by ordinal
+### TC-NAV-002 — Deltas are paginated and ordered by source starting BCV
 
 - **Level:** integration · **Priority:** Required · **Category:** functional · **Traces:** REQ-111
 - **Preconditions:**
@@ -278,7 +280,7 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
 - **Steps:**
   1. `GET /api/resolve/deltas` for the pair.
 - **Expected result:**
-  - Response is `{items, total}` ordered by `ordinal`.
+  - Response is `{items, total}` ordered by from-side starting BCV (`navigation`: USX book, chapter, verse, part). A range label such as `PSA 62:1-12` orders by `PSA 62:1`.
 
 ### TC-NAV-003 — Misalignment category filter uses the fixed vocabulary
 
@@ -363,3 +365,28 @@ Shared setup, fixtures, and the traceability matrix live in the [parent index](.
   1. `GET /api/resolve/deltas?book=<book>`.
 - **Expected result:**
   - Results are scoped to the requested book.
+
+### TC-NAV-014 — Jump-books API summary
+
+- **Level:** integration · **Priority:** Required · **Category:** boundary · **Traces:** ADD-S-003
+- **Preconditions:**
+  - Eng↔org (or equivalent) pair with known book-level jump differences; authenticated client.
+- **Steps:**
+  1. `GET /api/resolve/jump-books` with the pair and scheme overrides.
+  2. Compare against cancel-filtered deltas book set.
+- **Expected result:**
+  - `200` `{ books: string[] }` in USX order; books match distinct from-side navigation targets from cancel-filtered rows; identical schemes yield `[]`; missing translation `404`; unassociated scheme `409`.
+
+### TC-NAV-015 — Book dropdown markers and legend
+
+- **Level:** e2e · **Priority:** Required · **Category:** nav · **Traces:** ADD-U-003
+- **Preconditions:**
+  - Two associated translations with known jump differences (e.g. eng↔org Psalms).
+- **Steps:**
+  1. Open the viewer with both columns populated.
+  2. Inspect each column's book `<select>` and legend.
+  3. Select a marked book.
+- **Expected result:**
+  - Legend `● Book has mapping differences` visible in both columns when translations are selected.
+  - Marked books show ` ●` suffix in option text only; `value` stays bare USFM.
+  - URL book param updates without the marker character.

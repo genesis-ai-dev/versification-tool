@@ -24,7 +24,7 @@ The plan is split into an index (this file) plus per-area case files because the
 | A-02 | Precedence conflicts (POC chapter-wide overlay toggle, POC `active` flag, POC left=source, etc.) are resolved in favor of the specs; losing interpretations are `OutOfScope`. |
 | A-03 | Standards research supplies domain fixture categories only; it does not introduce product requirements unless echoed in a spec. |
 | A-04 | Interim resolver/ETL bindings (shared-ancestor rule, zip-by-index clamp, compose table, classify_mapped, USX comma-verses, VRS conversion, in-memory mapping load, etc.) are **locked** for test expected results. |
-| A-05 | Primary project-zip fixture: `research/SampleTranslations/6b7f504f1b6050c1-rev1-release.zip` (any of the six sample zips that contain `release/USX_*` + `.vrs` is acceptable). Non-identity overlay demos associate a user translation with contrasting bootstrap schemes (`org` / `lxx`) and/or use Copenhagen `eng.json`/`org.json` / `validated.json` fixtures. |
+| A-05 | Primary project-zip fixture: `research/SampleTranslations/biblica-spanish-1.zip` (any of the seven sample zips that contain `release/USX_*` + `.vrs` is acceptable). Non-identity overlay demos associate a user translation with contrasting bootstrap schemes (`org` / `lxx`) and/or use Copenhagen `eng.json`/`org.json` / `validated.json` fixtures. |
 | A-06 | Health, OpenAPI `/docs`, and static UI are gated by Basic auth (no public exceptions), per server §5.3. |
 | A-07 | USFM→USX is in scope as specified by resolver/ETL and server ingest contracts (fail with `IngestIssue` if conversion fails). |
 | A-08 | Misalignment tests assert the fixed category vocabulary and discrete `navigation` / `navigation_ref` contracts; heuristic assignment of individual verses to categories is covered with representative seeds, not an exhaustive golden list of every verse. |
@@ -52,7 +52,7 @@ No open owner-decision-needed questions remain for this revision. The [owner act
 
 | Fixture | Path / construction | Use |
 | --- | --- | --- |
-| Sample project zip | `research/SampleTranslations/6b7f504f1b6050c1-rev1-release.zip` | Project ingest happy path |
+| Sample project zip | `research/SampleTranslations/biblica-spanish-1.zip` | Project ingest happy path |
 | Other sample zips | remaining `research/SampleTranslations/*.zip` | Optional ingest variety |
 | Copenhagen ingredients | `research/CopenhagenFormat/{org,eng,lxx,rso,rsc,vul}.json` | Bootstrap seed validation; resolve chains |
 | Validated ingredient | `research/CopenhagenFormat/validated.json` | partial/merged/excluded cases |
@@ -190,8 +190,8 @@ Detailed cases (with Preconditions / Steps / Expected result and **Priority**) l
 | REQ-102 | Cycle → LookupError | resolver §6.2 | TC-RESOLVE-026 | Covered |
 | REQ-103 | complex never stored on mapping_record | resolver §3.3; server §6.2 | TC-RESOLVE-027 | Covered |
 | REQ-104 | verse_end < verse_start → ReferenceError | resolver §4.2 | TC-RESOLVE-028 | Covered |
-| REQ-110 | Navigation endpoint from maxVerses + spans | server §7.9 | TC-NAV-001 | Covered |
-| REQ-111 | Deltas paginated ordered by ordinal | server §7.9 | TC-NAV-002 | Covered |
+| REQ-110 | Navigation endpoint from stored `verse_span` only (not `maxVerses`) | server §7.9; ADD-S-004 | TC-NAV-001 | Covered |
+| REQ-111 | Deltas paginated ordered by source starting BCV | server §7.9 | TC-NAV-002 | Covered |
 | REQ-112 | Misalignments category vocab + filter | server §7.9 | TC-NAV-003 | Covered |
 | REQ-113 | navigation_ref / navigation discrete jump contract | server §7.9 | TC-NAV-004 | Covered |
 | REQ-114 | UI never parses range source_ref for jump | UI §6.6 | TC-NAV-005 | Covered |

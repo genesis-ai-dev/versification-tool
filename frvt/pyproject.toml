@@ -1,0 +1,90 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "frvt"
+version = "0.1.0"
+description = "Frontier Research Versification Viewer"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115.0",
+  "uvicorn[standard]>=0.32.0",
+  "SQLAlchemy>=2.0.0",
+  "alembic>=1.13.0",
+  "psycopg2-binary>=2.9.9",
+  "pydantic>=2.7.0",
+  "pydantic-settings>=2.0.0",
+  "python-dotenv>=1.0.0",
+  "python-multipart>=0.0.9",
+]
+
+[tool.setuptools.packages.find]
+where = [".."]
+include = ["frvt*"]
+
+[tool.setuptools.package-data]
+"frvt.resources" = ["*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".."]
+filterwarnings = [
+  "ignore:Using `httpx` with `starlette.testclient` is deprecated.*:UserWarning",
+]
+markers = [
+  "phase1: auth and bootstrap HTTP cases",
+  "phase2: API CRUD and error cases",
+  "phase3: ingest HTTP cases",
+  "phase4: resolve API cases",
+  "phase5: navigation HTTP cases",
+  "phase6: optional backend pure/unit cases",
+  "auth: auth-area cases",
+  "server: server/bootstrap cases",
+  "api: API CRUD/error cases",
+  "ingest: ingest cases",
+  "resolve: resolve cases",
+  "nav: navigation cases",
+  "ui: viewer UI cases",
+  "overlay: overlay cases",
+  "visual_demo: visual demo corpus fixture cases",
+  "multihop: multi-hop chain test bed cases",
+  "manage: manage UI cases",
+  "oos: out-of-scope confirmation cases",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+src = ["api", "resolver", "ingest", "tests", "testops"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["B008"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501"]
+"migrations/*" = ["E501"]
+"testops/*" = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+mypy_path = ".."
+packages = ["frvt.api", "frvt.resolver", "frvt.ingest"]
+
+[[tool.mypy.overrides]]
+module = ["psycopg2.*"]
+ignore_missing_imports = true
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  migrations/versions
+)/
+'''

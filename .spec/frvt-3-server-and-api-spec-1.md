@@ -4,6 +4,12 @@
 **Audience:** The developer implementing the server, database, and API; and the developers writing the UI, resolver, and ETL specifications that this document is reconciled against.
 **Scope of this document:** The backend server process, the relational database, and the HTTP API. It does not specify the resolver internals, the ETL/ingest parsing internals, or the UI. Those are owned by separate specifications and appear here only as isolated interface contracts.
 
+> **Modification policy.** The normative body of this specification (numbered sections before **Addenda**) is frozen after initial reconciliation and is **never edited**. All post-reconciliation changes are recorded only in **Addenda** at the end of this file.
+>
+> - **Subsections** (`### ADD-*-NNN`) represent logical spec extensions or modifications — one subsection per issue discovery or requirements change. A subsection may list multiple modification rows. The subsection **title** and **Purpose** describe the extension at a **capability or logical level** (what the spec must support); they do not list field names, section ids, or other implementation detail.
+> - **Modification rows** (within a subsection table) are the atomic changes: each row has its own id, cites the section identifier(s) being changed, states an **Action** (`ADD`, `CLARIFY`, `REPLACE`, `REMOVE`), and provides the **effective text**. Detail lives here, not in the Purpose paragraph. Rows with `REPLACE` or `REMOVE` supersede or void the cited main-body text **logically** when computing the effective specification; they do **not** authorize editing the main body.
+> - **Effective specification:** Start from the frozen main body, then apply addendum subsections in order; within each subsection, apply modification rows in listed order. Later rows override earlier ones for the same target. The on-disk main body always remains unchanged.
+
 ---
 
 ## 1. Overview
@@ -389,7 +395,7 @@ The flattened, queryable form of a scheme's ingredient relationships, derived at
 | `base_ref` | `text` null | The corresponding reference or range in the base scheme. Null for an exclusion (no counterpart). |
 | `part` | `text` null | Sub-verse part id for `partial` rows (a letter such as `a`, or `-`); null for all other relations. Kept in its own column rather than embedded in `source_ref` (Section 6.3). |
 | `relation` | `text` not null | A `relation_type` value (below). One of the seven atomic values; `complex` is resolve-time only and never stored. |
-| `ordinal` | `int` not null | Stable ordering for deterministic output and jump-menu listing. |
+| `ordinal` | `int` not null | Stable ordering for deterministic derivation output. Jump-menu listing orders by from-side starting BCV instead (Section 7.9). |
 
 Indexes: `(scheme_id, source_ref)` and `(scheme_id, relation)`.
 
@@ -700,15 +706,17 @@ These endpoints supply the higher-level navigation controls: places where two ve
 
 | Method | Path | Query | Purpose | Success |
 | --- | --- | --- | --- | --- |
-| `GET` | `/api/translations/{id}/navigation` | `versification` (optional uuid) | Books and chapter numbers available for the translation's selected scheme (override, else preferred), from `maxVerses` and stored spans. | `200` list of `NavBook`. |
+| `GET` | `/api/translations/{id}/navigation` | `versification` (optional uuid) | Books and chapter numbers available for the translation's selected scheme (override, else preferred), from `maxVerses` and stored spans. Books are ordered in USX/Paratext Bible order (not alphabetically). | `200` list of `NavBook`. |
 | `GET` | `/api/resolve/deltas` | `from_translation`, `to_translation`, `book` (optional), `limit`, `offset`, `from_versification` (optional uuid), `to_versification` (optional uuid) | The explicit mapping deltas between the two selected schemes: every place they differ. | `200` `{items, total}` of `DeltaEntry`. |
 | `GET` | `/api/resolve/misalignments` | `from_translation`, `to_translation`, `category` (optional), `limit`, `offset`, `from_versification` (optional uuid), `to_versification` (optional uuid) | Deltas grouped into common misalignment categories. | `200` `{items, total}` of `MisalignmentEntry`. |
 
 The optional `*_versification` (and `versification`) query params select a scheme per side exactly as `GET /api/resolve` does (Section 7.8): the override must be a scheme associated with that translation (`404` if the scheme id does not exist, `409` if it exists but is not associated), otherwise the endpoint falls back to the translation's preferred scheme (`409 no_preferred_scheme` if none). A per-request selection never changes the preferred scheme.
 
-The `category` vocabulary, drawn from the research's known divergence categories: `psalm_title`, `chapter_boundary`, `chapter_count`, `lxx_psalm`, `synodal`, `nt_omission`, `other`. The deltas come from `mapping_record` rows for the schemes involved. **Categorization is owned by the ETL/API derivation layer, not the resolver** (which stays pure coordinate math): each delta is assigned a `category` from book/chapter/verse-delta heuristics plus a small known-divergence table, maintained here. Entries are ordered deterministically by `mapping_record.ordinal`.
+The `category` vocabulary, drawn from the research's known divergence categories: `psalm_title`, `chapter_boundary`, `chapter_count`, `lxx_psalm`, `synodal`, `nt_omission`, `other`. The deltas come from `mapping_record` rows for the schemes involved. **Categorization is owned by the ETL/API derivation layer, not the resolver** (which stays pure coordinate math): each delta is assigned a `category` from book/chapter/verse-delta heuristics plus a small known-divergence table, maintained here. Entries are ordered by the from-side starting BCV (`navigation` / `navigation_ref`: USX book order, then chapter, verse, and part). Range-form labels such as `PSA 62:1-12` therefore sort by `PSA 62:1`, so nearby Bible areas cluster in the jump menu regardless of mapping type.
 
 Every `DeltaEntry` / `MisalignmentEntry` also carries a **discrete** single-verse navigation target so the UI never parses ranges: `navigation_ref` (a single-verse BCV string) and its structured form `navigation` (`NavRef`, Section 7.2). Derivation, owned by this API/ETL layer: for a range-form `source_ref` (e.g. `PSA 3:0-8`) `navigation_ref` is the range's lower bound in the from-scheme (`PSA 3:0`, part null); a single-verse `source_ref` (including excludes) passes through unchanged; for a `partial` row, `navigation.part` is the row's `mapping_record.part` (and `navigation_ref` stays the plain BCV, since parts are never in ref strings). `navigation_ref` must be legal as the `ref` query param of `GET /api/resolve`. `source_ref` / `base_ref` remain range-form **display-only labels** the UI renders but never parses.
+
+Jump endpoints return mapping differences **after excluding canceling entries**: a delta or misalignment whose `navigation_ref` (+ `part` when present), when resolved from `from_translation` to `to_translation` under the request's `*_versification` overrides, yields exactly one source span and one target span with identical `(book, chapter, verse, part)` and a non-`partial` relation. Identity-locus `partial` results share those coordinates by design (the part annotation is the meaningful delta) and stay visible. Entries are omitted from `{items, total}`; pagination applies to the filtered list. Resolve failures do not omit entries.
 
 ### 7.10 Health
 
@@ -989,3 +997,122 @@ Recorded during the spec reconciliation (see [`.spec/completed/frvt-3-spec-recon
 - **Span:** an addressable unit of scripture text (`verse_span`), possibly a Psalm title (`verse 0`) or a sub-verse part.
 - **Partial verse:** a mapping that covers only part of a verse, represented by a `part` component.
 - **Relation type:** the classification of a mapping (`one_to_one`, `shift`, `renumber`, `split`, `merge`, `exclude`, `partial`; plus the resolve-time-only `complex` for many-to-many hulls).
+
+---
+
+## Addenda
+
+Post-reconciliation modifications. Apply subsections in order (`ADD-*-001`, then `ADD-*-002`, …). Each subsection is one logical extension; modification rows within it are applied in listed order to compute the **effective** specification. The main body above is never edited.
+
+### ADD-S-001 — Visual alignment and category test coverage
+
+**Purpose:** Clarifications required to generate visual tests of all alignment relation types and jump-menu misalignment categories.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-S-001a | §6.1.3 | ADD | Ingredient `basedOn` values must match `^[a-z][a-z0-9]*$` (lowercase letter first, then lowercase letters/digits; **no hyphens or underscores**). Enforced at ingredient validation (`422 validation_failed` on upload/ingest). Applies to the **name used for translation lookup**, not scheme display names. |
+| ADD-S-001b | §6.1.1 | CLARIFY | User-created translation names used as `basedOn` targets should follow the same charset when they will appear in ingredients (e.g. `engdemo`). |
+| ADD-S-001c | §5.7 | ADD | Non-anchor translations created via `POST /api/translations` (`is_anchor=false`) may serve as numbering-space nodes: schemes may declare `"basedOn": "<translation.name>"` for such a translation. Chain walking loads that translation's **preferred** associated scheme for the next hop. The translation may carry minimal or no verse spans (A20). Example intermediate base: `engdemo`. |
+| ADD-S-001d | §7.9 | ADD | Jump-menu categorization heuristics (in addition to the category vocabulary): PSA mapping involving verse 0 or verse renumbering → `lxx_psalm` if scheme name contains `lxx` (case-insensitive), else `psalm_title`; `relation == exclude` and source book in NT set → `nt_omission`; scheme name contains `synodal`, `rso`, or `rsc` → `synodal`; source and base refs differ in chapter → `chapter_boundary`; `relation == renumber` (same chapter) → `chapter_count`; otherwise → `other`. |
+| ADD-S-001e | §10.3 | ADD | Supplementary contract coverage lives in [`frvt/tests/test_visual_demo_corpus.py`](../frvt/tests/test_visual_demo_corpus.py) and [`frvt/tests/test_multihop_chain_testbed.py`](../frvt/tests/test_multihop_chain_testbed.py), with manual QA in [`.test/visual-demo-walkthrough.md`](../.test/visual-demo-walkthrough.md) and [`.test/multihop-chain-walkthrough.md`](../.test/multihop-chain-walkthrough.md). These suites exercise composed relations, all seven misalignment categories, cancel-filter pairs, and multi-hop parity; they do not replace the §10.3 bullets above. |
+
+### ADD-S-002 — Chapter resolve for overlay chapter mode
+
+**Purpose:** Batch chapter resolve endpoint returning unique alignments for overlay chapter mode, scoped to stored verse spans, without changing single-reference resolve semantics.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-S-002a | §2.3 row 8 | REPLACE | Overlay data: `GET /api/resolve` (current alignment) and `GET /api/resolve/chapter` (unique alignments for stored drive-column verses in the requested chapter). |
+| ADD-S-002b | §7.2 | ADD | `ChapterResolveOut`: `{ items: list[ResolveResult], total: int }` where `total === len(items)` after emit-once dedupe. May reuse a generic `Page[ResolveResult]` envelope if already exported. |
+| ADD-S-002c | §7.8 | ADD | **`GET /api/resolve/chapter`** — query: `from_translation`, `to_translation`, `book`, `chapter`, optional `from_versification`, `to_versification`. Response: `200` `ChapterResolveOut`. Same scheme-selection / `404` / `409` pre-checks as single resolve. **Verse enumeration:** distinct whole-verse numbers (`part IS NULL`) from **`verse_span` rows only** for `from_translation` in `(book, chapter)`, ordered by `verse`. Do not use navigation, `maxVerses`, or other inferred verse lists. Resolve each verse with the same port path as single resolve (no `part` param), reusing selected schemes. **Emit-once:** after each successful resolve, compute an alignment fingerprint (`relation` + sorted source/target `(ref, part)` + sorted edges); append only if unseen. Per-verse failure: log ERROR, skip, continue. Empty chapter or no spans ⇒ `{ items: [], total: 0 }`. Does not change `GET /api/resolve` semantics. |
+| ADD-S-002d | §10.3 | ADD | Chapter resolve: happy path; `404`/`409` pre-checks; emit-once regression for merge/split/`complex` hulls in one chapter; per-verse skip on failure; enumeration limited to stored `verse_span` rows. Lives in e.g. [`frvt/tests/test_api_resolve_chapter.py`](../frvt/tests/test_api_resolve_chapter.py). |
+| ADD-S-002e | §8.3 | CLARIFY | UI may call the chapter endpoint for overlay chapter mode so users view in-column alignments without the jump menu; the resolver port is invoked repeatedly per verse, not extended with new entry points. |
+
+### ADD-S-003 — Jump-books summary for book-dropdown indicators
+
+**Purpose:** Pair-scoped summary of which from-side books have jump-relevant mapping differences after cancel filtering, without paginating deltas or misalignments.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-S-003a | §2.3 row 3 | REPLACE | Per-column book/chapter/verse selector data includes a pair-scoped jump-books summary (`GET /api/resolve/jump-books`) for book-dropdown indicators. |
+| ADD-S-003b | §7.2 | ADD | `JumpBooksOut`: `{ books: list[str] }` — distinct from-side USFM book codes, USX-sorted. |
+| ADD-S-003c | §7.9 | ADD | **`GET /api/resolve/jump-books`** — query: `from_translation`, `to_translation`, optional `from_versification`, `to_versification`. Response: `200` `JumpBooksOut`. Same scheme-selection / `404` / `409` pre-checks as deltas and jump-menu endpoints. Collect distinct from-side books from **cancel-filtered** scheme-difference rows (same set as deltas/misalignments; no `book` query param). Derive each row's book from its discrete navigation target (range lower bound). Sort with existing USX book order. Empty pair, identical schemes, or no differences ⇒ `{ books: [] }`. Do **not** enrich per-translation `NavBook` / navigation with pair-scoped flags. Endpoint table: `GET` `/api/resolve/jump-books` — query `from_translation`, `to_translation`, optional `from_versification`, `to_versification` — response `200` `{ books: string[] }`. |
+| ADD-S-003d | §10.3 | ADD | Jump-books: happy path with known book differences; cancel-filter excludes identity-only books; empty / identical schemes; `404` / `409` pre-checks; USX sort. Lives in e.g. [`frvt/tests/test_api_jump_books.py`](../frvt/tests/test_api_jump_books.py). |
+
+### ADD-S-004 — Composed alignment classification on resolve responses
+
+**Purpose:** Resolve responses carry the refined classification of composed alignments, including an optional summary of a hull's two axes that is omitted rather than emptied when it does not apply, so clients can test for presence.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-S-004a | §6.2 | CLARIFY | The reported relation reflects the normalized resolve result. |
+| ADD-S-004b | §6.2 | ADD | `range` row in the vocabulary table: resolve-time only, edges populated, never stored. |
+| ADD-S-004c | §7.2 | ADD | `range` accepted on the resolve response model and its edges. |
+| ADD-S-004d | §7.2 | ADD | Two optional relation-valued fields on the resolve response, present only for composed hulls with a non-identity axis; **keys are absent** rather than null when unset. |
+
+### ADD-S-004 — Navigation tree from stored spans only
+
+**Purpose:** Book/chapter selectors list only content that exists for the translation, so partial canons (e.g. NT-only) are not padded with empty scheme books from `maxVerses`.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-S-004a | §2.3 row 3 | REPLACE | Per-column book/chapter/verse selector: `GET /api/translations/{id}/navigation` (books/chapters from stored `verse_span` only) and `GET /api/translations/{id}/spans`. Scheme `maxVerses` is not used to populate navigation options. |
+| ADD-S-004b | §7.2 `NavBook` | REPLACE | `chapters: list[int]` — chapter numbers present from stored `verse_span` rows for that book (not from `maxVerses`). |
+| ADD-S-004c | §7.9 navigation row | REPLACE | `GET /api/translations/{id}/navigation` — optional `versification` uuid. Books and chapter numbers **available as stored content** for the translation: distinct `(book, chapter)` from `verse_span` for that translation, ordered in USX/Paratext Bible order. Still resolves the selected scheme (override, else preferred) with the same `404`/`409` pre-checks as other coordinate endpoints, but **does not** seed or pad the tree from scheme `maxVerses`. Empty content ⇒ `[]`. Response `200` list of `NavBook`. |
+| ADD-S-004d | §10.3 | ADD | Navigation: happy path returns only books/chapters with stored spans; a translation associated with a full-canon scheme but holding a subset of spans omits scheme-only books; USX order retained; `404`/`409` scheme pre-checks unchanged. Covered by TC-NAV-001 (and span-subset case in `test_api_navigation.py`). |
+
+### ADD-S-005 — Translation language metadata and text direction
+
+**Purpose:** Project ingest reads bundle language and script direction from `metadata.xml`, persists `text_direction` on translations, and names ingested versification schemes after the project translation name.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-S-005a | §6.1.1 `translation` | ADD | Column `text_direction` `text not null`, values `ltr` \| `rtl`, default `ltr`. Set at project ingest from bundle metadata; default `ltr` for metadata-only `POST /api/translations` and bootstrap anchors. |
+| ADD-S-005b | §6.1.1 `language` | CLARIFY | Stores the resolved language tag (BCP 47 / ISO 639-3) for the translation, not a display name. |
+| ADD-S-005c | §7.7.1 | REPLACE | Form fields: `file` (zip), `name` (**optional**), `language` (**optional**). **Name** resolution: read `metadata.xml` when present — use `<identification><name>`; metadata value is **authoritative** over the form. Form value is fallback when metadata omits a name. If no name can be resolved, `400 bad_request` (field `name`). **Language** resolution: prefer `<language><ldml>`, else `<language><iso>`; metadata authoritative over the form; form fallback when metadata omits a code; `400 bad_request` (field `language`) when unresolvable. `text_direction` from `<scriptDirection>` (`RTL` → `rtl`; missing or unrecognized → `ltr`). |
+| ADD-S-005d | §7.7.1 persist | ADD | On successful project ingest with a `.vrs` present, the created `versification_scheme.name` equals the submitted translation `name` (not the VRS filename stem). Standalone versification upload naming unchanged (§7.7.2). |
+| ADD-S-005e | §7.2 `TranslationOut` | ADD | Field `text_direction: "ltr" \| "rtl"`. |
+| ADD-S-005f | §10.3 | ADD | Contract tests: metadata language authoritative; form fallback; `400` without resolvable language; `text_direction` from `scriptDirection`; ingested scheme name matches project name. |
+
+### ADD-S-006 — Viewer session local persistence (cross-spec traceability)
+
+**Purpose:** Cross-spec traceability for client-side viewer session persistence; document that the server is unchanged.
+
+**No modification rows.** The frozen main body and effective specification are unchanged. This addendum records the API boundary for implementers and reviewers.
+
+Viewer session persistence is **client-only** (`localStorage` in the web app, ADD-U-008). No new endpoints, cookies, or server session store are introduced. Stored translation and versification ids are opaque UUIDs already exposed by existing list endpoints (`GET /api/translations`, `GET /api/versifications`). Invalid ids are dropped client-side after catalog load; the server continues to return `404` for unknown ids when referenced directly.
+
+### ADD-S-007 — Combined USX milestones (persistence, API, resolver port)
+
+**Purpose:** Persist combined-milestone display metadata on `verse_span`, expose it on span/resolve DTOs, augment persisted scheme ingredients with implied `splitVerses` mappings at project ingest, and enrich resolve results by canonicalizing onto stored spans without inventing cross-translation topology.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-S-007a | §6.1.2 `verse_span` | ADD | Nullable columns `verse_label` (`text`) and `verse_range` (`text`). `verse_label` holds USX display text for combined milestones (`1,2` vs `1-2`). `verse_range` holds a normalized `parse_ref` range string for the milestone's local verse correspondence (null for simple verses). Unique constraints unchanged; anchor `verse` remains the first USX integer. |
+| ADD-S-007b | §7.2 `VerseSpanOut` | ADD | Fields `verse_label: str \| None` and `verse_range: str \| None`. |
+| ADD-S-007c | §7.2 `ResolvedSpan` | ADD | Optional fields `verse_label: str \| None` and `verse_range: str \| None` when the enriched stored span carries them. |
+| ADD-S-007d | §8.1 resolver port | ADD | Before calling `resolve()`, when the query coordinate falls inside a stored combined-milestone span (exact row or `verse_range` coverage via shared span lookup), rewrite the query ref to the stored **anchor** verse so split `source_ref` rows match. After `resolve()`, enrich each span through the same lookup (attach `seq`, `verse_label`, canonical `verse`); dedupe source/target lists by stored span identity when virtual coordinates collapse; recompute top-level `relation` from post-dedupe cardinalities when not already `complex`. Do **not** expand topology by copying `verse_range` integers onto the other translation. |
+| ADD-S-007e | §8.2 / §7.7.1 persist | ADD | Project ingest: after spans are persisted, apply combined-milestone split augmentation to the scheme ingredient (`mappedVerses` + `splitVerses` per resolver ADD-R-007d), store the **updated** ingredient on `versification_scheme`, then derive and insert **all** `mapping_record` rows from that full ingredient (not from the pre-augmentation parse). |
+| ADD-S-007f | §10.3 | ADD | Contract tests: `VerseSpanOut` labels; resolve EN→FI merge with FI combined span; query canonicalize FI `4:2` → anchor; ingredient export includes `splitVerses`; mapping rows match augmented ingredient. Lives alongside existing ingest/resolve tests. |
+| ADD-S-007g | §3.1 sources | CLARIFY | Copenhagen schema (`versification_schema.json`) gains optional `splitVerses` (resolver ADD-R-007e); packaged copy under `frvt/resources/` must stay in sync. |
+
+### ADD-S-008 — Coupled preferred scheme on translation delete
+
+**Purpose:** When a translation is deleted, also delete its preferred `versification_scheme` only when that scheme is tightly coupled to the translation (same name, sole association). Non-preferred schemes and shared or differently named preferred schemes are unchanged.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-S-008a | §6.1.1 `translation` delete | REPLACE | Deleting a translation cascades to its verse spans and its association rows. Additionally, when the translation's **preferred** association points to a scheme whose `name` matches the translation `name` (case-insensitive) and that scheme has **no** other `translation_versification` rows, delete that scheme as well (cascading its `mapping_record` rows). If the preferred scheme has a different name, or is still associated with another translation, leave the scheme unchanged; translation deletion still proceeds. Non-preferred associations never trigger scheme deletion. Deleting a translation referenced as `versification_scheme.based_on_id` remains rejected (`409 conflict`). |
+| ADD-S-008b | §7.3 `DELETE /api/translations/{id}` | REPLACE | `204` deletes the translation, its spans, and its associations; may also delete the coupled preferred scheme per ADD-S-008a. Does not delete non-preferred schemes or shared/differently named preferred schemes. |
+| ADD-S-008c | §10.3 | ADD | Contract tests: ingest project (same-named translation and preferred scheme) → delete translation → scheme `404`; rename translation before delete → scheme survives; second translation associated to same scheme → delete first translation → scheme survives. |
+
+### ADD-S-009 — Pair-grounded jump misalignment categories
+
+**Purpose:** Jump-menu misalignment categories describe composed pair resolve behavior (what the overlay shows after navigation), not scheme-diff pivot labels alone.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-S-009a | §7.9 | ADD | Misalignment `category` on jump endpoints (`GET /api/resolve/misalignments`, `GET /api/resolve/jump-menu`) is assigned from **pair resolve**: `navigation_ref` (+ `part` when present) resolved from `from_translation` to `to_translation` under the request's `*_versification` overrides, using the ADD-S-001d heuristics with the composed target ref and resolve `relation`. Scheme-diff `base_ref` remains a display label for mapped deltas only; it does not drive misalignment category. |
+| ADD-S-009b | §10.3 | ADD | Unit tests: same-chapter composed renumber categorized as `chapter_count` when scheme-diff refs cross chapters; cross-chapter composed resolve remains `chapter_boundary`. Lives in [`frvt/tests/test_jump_cancel_filter.py`](../frvt/tests/test_jump_cancel_filter.py). |
+| ADD-S-009c | §7.9 | ADD | After cancel filtering, jump endpoints also include **reciprocal** rows: for each kept scheme-diff row in the counterpart direction (`to_translation` → `from_translation`), when the composed target on the from side is a single-verse navigation locus that is not already listed and is not canceling or unreachable in the requested direction, emit a matching from-side jump row. Reciprocal rows use pair resolve for labels, relation, and misalignment category. |
+| ADD-S-009d | §10.3 | ADD | Unit tests for reciprocal row discovery in [`frvt/tests/test_reciprocal_jump_mappings.py`](../frvt/tests/test_reciprocal_jump_mappings.py). |

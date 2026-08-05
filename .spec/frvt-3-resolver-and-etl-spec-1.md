@@ -10,6 +10,12 @@
 
 **Scope:** Behavior of the in-process resolver (`resolve`) and of ingest functions that produce `ParsedSpan` / `ParsedScheme` / `MappingRecordDTO` (API §8.2). Out of scope: HTTP, auth, ORM models/migrations, CRUD routers, UI. The API persists what ingest returns and attaches `verse_span.seq` after resolve.
 
+> **Modification policy.** The normative body of this specification (numbered sections before **Addenda**) is frozen after initial reconciliation and is **never edited**. All post-reconciliation changes are recorded only in **Addenda** at the end of this file.
+>
+> - **Subsections** (`### ADD-*-NNN`) represent logical spec extensions or modifications — one subsection per issue discovery or requirements change. A subsection may list multiple modification rows. The subsection **title** and **Purpose** describe the extension at a **capability or logical level** (what the spec must support); they do not list field names, section ids, or other implementation detail.
+> - **Modification rows** (within a subsection table) are the atomic changes: each row has its own id, cites the section identifier(s) being changed, states an **Action** (`ADD`, `CLARIFY`, `REPLACE`, `REMOVE`), and provides the **effective text**. Detail lives here, not in the Purpose paragraph. Rows with `REPLACE` or `REMOVE` supersede or void the cited main-body text **logically** when computing the effective specification; they do **not** authorize editing the main body.
+> - **Effective specification:** Start from the frozen main body, then apply addendum subsections in order; within each subsection, apply modification rows in listed order. Later rows override earlier ones for the same target. The on-disk main body always remains unchanged.
+
 **How to use this document:** Algorithms in §§5–8 and contracts in §3 are normative enough to implement or to derive a delivery plan that is later merged with API/ORM/UI work. This document does **not** prescribe project phases. Section 12 lists **dependencies** that constrain ordering when a combined plan is produced. Where a rule was previously TBD, this document states an **interim binding** (marked *Interim*) that may later move into the requirements assumptions table.
 
 ---
@@ -713,3 +719,100 @@ Soft constraints (useful when merging plans, not hard blockers):
 - **Numbering-space translation:** A `translation` row named by ingredient `basedOn` and referenced by `based_on_id`; used to walk chains and load the next preferred scheme. Its verse text is not an input to resolve (A20).
 - **Preferred scheme:** A translation's default versification (`translation_versification.preferred=true`); set to the ingested scheme at load, changeable via CRUD, and not deletable. Used for chain hops and as the fallback when a caller omits a side's scheme.
 - **Selected scheme:** The scheme a given request actually uses — a per-request versification override when supplied, else the preferred scheme. The API resolves it before calling `resolve()`.
+
+---
+
+## Addenda
+
+Post-reconciliation modifications. Apply subsections in order (`ADD-*-001`, then `ADD-*-002`, …). Each subsection is one logical extension; modification rows within it are applied in listed order to compute the **effective** specification. The main body above is never edited.
+
+### ADD-R-001 — Visual alignment and category test coverage
+
+**Purpose:** Clarifications required to generate visual tests of all alignment relation types and jump-menu misalignment categories, including composed and multi-hop resolution paths.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-R-001a | §8.1 | ADD | Reject ingredients whose `basedOn` fails `^[a-z][a-z0-9]*$` before lookup. |
+| ADD-R-001b | §8.3 | ADD | VRS `# basedOn:` comment values must satisfy the same charset when present. |
+| ADD-R-001c | §6.2 | ADD | When a scheme's `based_on_id` references a non-anchor user translation, the next hop uses that translation's preferred scheme (same as anchors). Verse text on the intermediate translation is not read (A20). |
+| ADD-R-001d | §10 | ADD | Rows T1–T13 remain the resolver/ETL golden set. Extended end-to-end coverage (composed relations, category navigation, multi-hop parity) is in the Visual Demo Corpus and Multi-hop Chain Test Bed fixture modules cited in server ADD-S-001e. |
+
+### ADD-R-002 — Chapter batch resolve (cross-spec traceability)
+
+**Purpose:** Cross-spec traceability for chapter batch resolve; document that the resolver package is unchanged.
+
+**No modification rows.** The frozen main body and effective specification are unchanged. This addendum records the API↔resolver boundary for implementers and reviewers.
+
+`GET /api/resolve/chapter` (server ADD-S-002) is API-layer orchestration: it selects schemes once, enumerates whole-verse keys from stored `verse_span` rows, and calls the existing single-verse `resolve()` path repeatedly through the resolver port.
+
+The `frvt.resolver` package, `ResolutionDTO` shape, and resolution algorithms (§§5–8) are **unchanged**. Emit-once dedupe, alignment fingerprinting, and verse enumeration are not resolver concerns.
+
+Ingest and `mapping_record` derivation are unchanged.
+
+UI chapter mode (ADD-U-002) consumes the chapter endpoint so users can view alignments among currently displayed verses without the jump menu; that behavior does not require resolver modifications.
+
+### ADD-R-003 — Jump-books summary (cross-spec traceability)
+
+**Purpose:** Cross-spec traceability for jump-books summary; document that the resolver package is unchanged.
+
+**No modification rows.** The frozen main body and effective specification are unchanged. This addendum records the API↔resolver boundary for implementers and reviewers.
+
+`GET /api/resolve/jump-books` (server ADD-S-003) is API-layer orchestration: it selects schemes, loads cancel-filtered jump mappings (same path as deltas/misalignments), and collects distinct from-side book codes from navigation targets.
+
+The `frvt.resolver` package, `ResolutionDTO` shape, and resolution algorithms (§§5–8) are **unchanged**. Cancel filtering, categorization, and book aggregation are not resolver concerns.
+
+Ingest and `mapping_record` derivation are unchanged.
+
+UI book indicators (ADD-U-003) consume the jump-books endpoint; that behavior does not require resolver modifications.
+
+### ADD-R-004 — Composed alignment classification
+
+**Purpose:** Truer top-level classification for alignments produced by composing mappings across schemes, so that a round trip landing on its own coordinate, a range whose two sides differ in length, and a many-to-many hull are each reported as what they are rather than collapsed onto the nearest atomic relation.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-R-004a | §3.3 | ADD | `range` joins the resolve-time-only vocabulary alongside `complex`; never storable on a `mapping_record`. |
+| ADD-R-004b | §6.3 | CLARIFY | Cover width then `ordinal` also orders selection among competing unequal-zip covers on a path. |
+| ADD-R-004c | §6.4 | ADD | A zip-class cover whose two sides differ in length marks that hop as a range trigger; index clamping itself is unchanged. `partial` rows are excluded. |
+| ADD-R-004d | §6.6 | ADD | After assembly, a result with exactly one source and one target span sharing book/chapter/verse/part is emitted as `one_to_one`; skip when the top-level relation is already `one_to_one`, `merge`, `split`, `complex`, `range`, `exclude`, or `partial`, or when either side has more than one span; per-connector `edges[].relation` is never rewritten. |
+| ADD-R-004e | §6.8 | ADD | Each connector carries a source leg and a target leg; a composed hull reports the dominant non-identity relation per axis using the §3.3 composition priority, omitted when an axis is all-identity. |
+| ADD-R-004f | §6.8 | ADD | Precedence: a hull that qualifies as `complex` always wins over `range`. |
+
+### ADD-R-005 — Project metadata extraction
+
+**Purpose:** Project ingest optionally extracts language and script direction from bundle metadata for API persist to store on the translation and to name ingested schemes consistently.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-R-005a | §8.2 step 1 | ADD | Optionally read root `metadata.xml`. Extract translation name (`<identification><name>`), language (`ldml` then `iso`), and `scriptDirection` when parseable; omit silently on absence or malformed XML (not a blocking ingest issue by itself). |
+| ADD-R-005b | §8.5 | ADD | API persist resolves `translation.name` and `translation.language` from extracted metadata (authoritative) with optional form fallbacks; fails closed with `400` when either is unresolvable. Persists `text_direction` (`rtl` when `scriptDirection` is `RTL`, else `ltr`). Names ingested scheme after translation `name` when project `.vrs` is present. |
+| ADD-R-005c | §11 / §10.3 | ADD | Unit tests for metadata parser and ingest language/direction resolution. |
+
+### ADD-R-006 — Viewer session local persistence (cross-spec traceability)
+
+**Purpose:** Cross-spec traceability for client-side viewer session persistence; document that the resolver package is unchanged.
+
+**No modification rows.** The frozen main body and effective specification are unchanged. This addendum records the API↔resolver boundary for implementers and reviewers.
+
+Viewer session persistence (ADD-U-008, ADD-S-006) is a web-client concern. The `frvt.resolver` package, `ResolutionDTO` shape, and resolution algorithms (§§5–8) are **unchanged**. Ingest and `mapping_record` derivation are unchanged.
+
+### ADD-R-007 — Combined USX milestones as explicit split mappings
+
+**Purpose:** USX combined verse milestones (`number="1,2"` / hyphen equivalents) must produce one stored span per milestone, implied upward `split` mappings onto the basedOn numbering space (in ingredient and `mapping_record`), and resolve/hull behavior identical to an explicit VRS split — including multi-hop shifts, renumbers, and composed merges. Display labels and navigation remain span-driven.
+
+| Mod id | Target | Action | Effective text |
+| --- | --- | --- | --- |
+| ADD-R-007a | §8.4 | REPLACE | On `<verse number="V" sid="...">` … `<verse eid>` milestones: if `number` matches USX 3.0 combined forms (comma- or hyphen-separated integers, e.g. `6,7`, `1-2`), emit **one** `ParsedSpan` with full milestone text on the **anchor** verse (first integer), `verse_label` = raw USX `number` string, `verse_range` = normalized same-book/chapter hyphen range legal for `parse_ref` (comma USX becomes hyphen in `verse_range`; display comma preserved in `verse_label`). Simple single-integer milestones omit both label fields. Do **not** emit phantom rows for covered verse numbers. `vid` continuation paragraphs append to the same anchor span. Notes dropped; `seq` monotonic as today. |
+| ADD-R-007b | §3.2 / §8.2 `ParsedSpan` | ADD | Optional fields `verse_label: str \| None` and `verse_range: str \| None` on ingest `ParsedSpan` (after `content` in the dataclass when defaults are used). |
+| ADD-R-007c | §7.1 | ADD | Ingredient key `splitVerses`: array of single-verse BCV anchors. For each anchor listed, emit `MappingRecordDTO` with `relation="split"`, `source_ref` = anchor, `base_ref` = `mappedVerses[anchor]`, skipping anchors already handled in the plain `mappedVerses` classify loop (same skip pattern as `mergedVerses`). Keys in `splitVerses` must not be reclassified as `renumber`/`shift` by `classify_mapped`. |
+| ADD-R-007d | §8.3 / §8.5 | ADD | After USX parse and VRS→ingredient conversion, **before** `derive_mapping_records`: for each combined-milestone span with `verse_range`, when basedOn has discrete whole-verse spans at every member of that range (*Interim:* local USX numbers match basedOn coordinates — current FI/CM samples), and skip rules pass (no existing VRS mapping on anchor; anchor not already in `splitVerses`/`mergedVerses`; no covering `mappedVerses` source range), append `mappedVerses[anchor] = verse_range` and `splitVerses += anchor` to the ingredient. Never overwrite existing keys. Persist the **updated** ingredient on the scheme; derive all `mapping_record` rows from that full ingredient. Implied splits are exportable scheme content, not resolver-only rows. |
+| ADD-R-007e | §8.1 / `burrito_validate` | ADD | Copenhagen schema and ingredient validation accept optional `splitVerses` (array of single BCVs, same grammar as `excludedVerses`). Unknown top-level keys remain rejected. |
+| ADD-R-007f | §6.4 / §6.8 | ADD | When assembling an atomic resolve path, if the upward or downward hop leg relation is `split` or `merge`, escalate to `build_hull` instead of returning a truncated atomic result with missing siblings. `build_hull` may still emit atomic `split`/`merge` for 1↔N closures; `complex` only for M×N. Stored upward `split` rows use `base_ref` as the cover side on descent (invert → `merge`); org verses inside the base range are cover hits. |
+| ADD-R-007g | §10 | ADD | Contract tests: parse hyphen/comma milestones (one span, label, range); ingredient `splitVerses` + derived `split` row; identity EN↔org merge/split hull; EN shift + FI combined (scheme-projected siblings, not BCV copy); skip when VRS already maps anchor; chapter batch emit-once with combined milestones. Re-ingest required for translations with combined USX milestones after deploy. |
+| ADD-R-007h | §12 | CLARIFY | Cross-spec: server ADD-S-007 (persistence/API/port); UI ADD-U-009 (labels/navigation). Chapter batch resolve (ADD-R-002) unchanged except benefiting from hull escalation. |
+
+### ADD-R-008 — Coupled preferred scheme on translation delete (cross-spec traceability)
+
+**Purpose:** Cross-spec traceability for server ADD-S-008; no resolver or ETL behavior changes.
+
+**No modification rows.** The frozen main body and effective specification are unchanged. Project ingest still creates a translation and a preferred scheme with the same project name; deleting that translation via `DELETE /api/translations/{id}` may remove the scheme when ADD-S-008a applies. Canonical schemes (`eng`, `org`, …) and separately uploaded schemes are unaffected unless they happen to match the coupling rule and sole-association condition.
