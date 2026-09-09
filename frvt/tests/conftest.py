@@ -12,8 +12,9 @@ from frvt.api.bootstrap import seed_canonical
 from frvt.api.config import get_settings
 from frvt.api.db import get_session
 from frvt.api.main import create_app
+from frvt.api.models import Base
 from sqlalchemy import create_engine, event, text
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.orm import Session, sessionmaker
 
 # Default test database URL (Compose maps container 5432 → host 5433).
@@ -21,8 +22,37 @@ _DEFAULT_TEST_URL = "postgresql+psycopg2://frvt:frvt@localhost:5433/frvt_test"
 
 
 def _test_database_url() -> str:
-    """Resolve the test database URL from the environment or the local default."""
-    return os.environ.get("FRVT_TEST_DATABASE_URL", _DEFAULT_TEST_URL)
+    """Resolve the test database URL from the environment or the local default.
+
+    Under ``pytest-xdist`` each worker gets its own database (suffixed with the
+    worker id) so that parallel workers never see each other's rows, truncations,
+    or row locks. Serial runs keep using the plain database name.
+    """
+    url = make_url(os.environ.get("FRVT_TEST_DATABASE_URL", _DEFAULT_TEST_URL))
+    worker = os.environ.get("PYTEST_XDIST_WORKER")
+    if worker:
+        url = url.set(database=f"{url.database}_{worker}")
+    return url.render_as_string(hide_password=False)
+
+
+def _ensure_database_exists(url: str) -> None:
+    """Create the target database when missing (xdist per-worker databases).
+
+    Connects to the server's default ``postgres`` database because ``CREATE
+    DATABASE`` cannot run inside a transaction against the target itself.
+    """
+    target = make_url(url)
+    admin = create_engine(target.set(database="postgres"), isolation_level="AUTOCOMMIT")
+    try:
+        with admin.connect() as conn:
+            exists = conn.scalar(
+                text("SELECT 1 FROM pg_database WHERE datname = :name"),
+                {"name": target.database},
+            )
+            if not exists:
+                conn.execute(text(f'CREATE DATABASE "{target.database}"'))
+    finally:
+        admin.dispose()
 
 
 @pytest.fixture(scope="session")
@@ -32,6 +62,7 @@ def engine() -> Generator[Engine]:
     from alembic.config import Config
 
     url = _test_database_url()
+    _ensure_database_exists(url)
     eng = create_engine(url, pool_pre_ping=True)
     with eng.connect() as conn:
         conn.execute(text("SELECT 1"))
@@ -76,11 +107,27 @@ def db_session(engine: Engine) -> Generator[Session]:
         connection.close()
 
 
+@pytest.fixture(scope="session")
+def canonical_seed(engine: Engine) -> None:
+    """Commit the canonical anchors once per test session.
+
+    Deriving canonical mapping rows costs about a second, which is wasted work
+    when repeated inside every test. Seeding once and committing lets each
+    per-test transaction read the anchors and still roll back its own writes.
+    The domain tables are truncated first so a schema or derivation change can
+    never leave a previous run's rows behind.
+    """
+    tables = ", ".join(table.name for table in Base.metadata.sorted_tables)
+    with engine.begin() as connection:
+        connection.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
+    with Session(engine) as session:
+        seed_canonical(session)
+        session.commit()
+
+
 @pytest.fixture
-def seeded_session(db_session: Session) -> Session:
-    """Seed canonical anchors inside the per-test rollback session."""
-    seed_canonical(db_session)
-    db_session.flush()
+def seeded_session(canonical_seed: None, db_session: Session) -> Session:
+    """Yield a rollback session that can already see the canonical anchors."""
     return db_session
 
 

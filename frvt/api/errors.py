@@ -22,6 +22,7 @@ ErrorCode = Literal[
     "conflict",
     "payload_too_large",
     "validation_failed",
+    "too_many_requests",
     "internal_error",
     "database_unavailable",
 ]
@@ -55,6 +56,7 @@ STATUS_TO_CODE: dict[int, ErrorCode] = {
     409: "conflict",
     413: "payload_too_large",
     422: "validation_failed",
+    429: "too_many_requests",
     500: "internal_error",
     503: "database_unavailable",
 }

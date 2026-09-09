@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, insert, select
 from sqlalchemy.orm import Session
 
 from frvt.api.logging_config import get_logger
@@ -76,17 +76,21 @@ def _ensure_mapping_rows(
         canonical=True,
         ingredient=ingredient,
     )
-    for dto in derive_mapping_records(parsed):
-        session.add(
-            MappingRecord(
-                scheme_id=scheme.id,
-                source_ref=dto.source_ref,
-                base_ref=dto.base_ref,
-                part=dto.part,
-                relation=RelationType(dto.relation),
-                ordinal=dto.ordinal,
-            )
-        )
+    # Core executemany; these derived rows are write-only, so ORM instances per
+    # row would only add unit-of-work overhead to every startup and test seed.
+    rows = [
+        {
+            "scheme_id": scheme.id,
+            "source_ref": dto.source_ref,
+            "base_ref": dto.base_ref,
+            "part": dto.part,
+            "relation": RelationType(dto.relation),
+            "ordinal": dto.ordinal,
+        }
+        for dto in derive_mapping_records(parsed)
+    ]
+    if rows:
+        session.execute(insert(MappingRecord), rows)
 
 
 def _ensure_preferred_association(

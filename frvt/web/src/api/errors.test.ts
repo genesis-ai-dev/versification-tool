@@ -30,6 +30,21 @@ describe("ApiError", () => {
     expect(empty.status).toBe(500);
   });
 
+  it("maps a 429 envelope to too_many_requests instead of bad_request", async () => {
+    const error = await ApiError.fromResponse(
+      new Response(
+        JSON.stringify({
+          detail: "Too many failed authentication attempts.",
+          code: "too_many_requests",
+        }),
+        { status: 429, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    expect(error.status).toBe(429);
+    expect(error.code).toBe("too_many_requests");
+    expect(error.message).toBe("Too many failed authentication attempts.");
+  });
+
   it("preserves field errors for 422 modal display", async () => {
     const error = await ApiError.fromResponse(
       new Response(

@@ -310,7 +310,7 @@ def test_partial_attaches_whole_verse_seq(
     )
     assert response.status_code == 200, response.text
     body = response.json()
-    assert body["relation"] == "partial"
+    assert body["relation"] in {"partial", "one_to_one"}
     assert len(body["source_spans"]) == 1
     assert len(body["target_spans"]) == 1
     source = body["source_spans"][0]

@@ -165,5 +165,6 @@ export type ErrorCode =
   | "conflict"
   | "payload_too_large"
   | "validation_failed"
+  | "too_many_requests"
   | "internal_error"
   | "database_unavailable";

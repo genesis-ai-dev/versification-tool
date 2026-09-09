@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 
 from frvt.api.logging_config import get_logger
 from frvt.resolver.types import RefRange, VerseId
@@ -13,23 +14,37 @@ logger = get_logger(__name__)
 _BCV = re.compile(r"^([A-Z1-6]{3}) ([0-9]+):([0-9]+)$")
 # Same-chapter range: ``BOOK C:V`` or ``BOOK C:V-V``.
 _BCV_RANGE = re.compile(r"^([A-Z1-6]{3}) ([0-9]+):([0-9]+)(?:-([0-9]+))?$")
+# Part suffix embedded in a single verse (``SIR 36:13a``) or a range end.
+_EMBEDDED_PART = re.compile(r":[0-9]+(?:-[0-9]+)?[A-Za-z]")
+# Cover a whole-Bible ingredient's distinct references without unbounded growth;
+# ingest and resolve re-parse the same handful of strings hundreds of times each.
+_PARSE_CACHE_SIZE = 32768
 
 
 def parse_ref(value: str) -> RefRange:
     """Parse a BCV or same-chapter bcvRange string into a ``RefRange``.
 
-    Raises ``ReferenceError`` when the grammar does not match, a part suffix is
-    embedded in the string, the range is cross-chapter (unsupported), or
-    ``verse_end < verse_start``.
+    Raises ``ReferenceError`` when the value is not a string, the grammar does
+    not match, a part suffix is embedded in the string, the range is
+    cross-chapter (unsupported), or ``verse_end < verse_start``.
     """
-    logger.trace("Parsing reference %s", value)  # type: ignore[attr-defined]
     if not isinstance(value, str):
         raise ReferenceError(f"Reference must be a string, got {type(value)!r}")
+    return _parse_ref_cached(value)
 
+
+@lru_cache(maxsize=_PARSE_CACHE_SIZE)
+def _parse_ref_cached(value: str) -> RefRange:
+    """Parse an already type-checked reference string, memoizing successes.
+
+    Ingest and resolve re-parse the same references hundreds of times per
+    request, and ``RefRange`` is immutable, so returned instances are safe to
+    share across callers. ``lru_cache`` does not retain exceptions, so rejected
+    input is re-parsed (and re-logged) on every call.
+    """
+    logger.trace("Parsing reference %s", value)  # type: ignore[attr-defined]
     # Reject part-suffixed forms early (e.g. ``SIR 36:13a``) so callers use ``part``.
-    if re.search(r":[0-9]+[A-Za-z]", value) or re.search(
-        r":[0-9]+-[0-9]+[A-Za-z]", value
-    ):
+    if _EMBEDDED_PART.search(value):
         raise ReferenceError(f"Part must not be embedded in reference: {value!r}")
 
     match = _BCV_RANGE.fullmatch(value)

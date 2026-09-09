@@ -20,7 +20,10 @@ from frvt.api.models import Base  # noqa: E402
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # Keep already-configured loggers alive: when Alembic runs in-process (tests,
+    # or an app that migrates on startup) the default would disable the whole
+    # ``frvt`` logger tree for the rest of the process.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # ORM metadata that autogenerate (and upgrade) compares against the database.
 target_metadata = Base.metadata

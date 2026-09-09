@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
 
-from frvt.api.auth import BasicAuthMiddleware
+from frvt.api.auth import BasicAuthMiddleware, warn_if_default_basic_credentials
 from frvt.api.bootstrap import seed_canonical
 from frvt.api.config import get_settings
 from frvt.api.db import get_session_factory
@@ -51,14 +51,20 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     logger.debug("Application shutdown")
 
 
-def create_app(*, run_startup_seed: bool = True) -> FastAPI:
+def create_app(
+    *,
+    run_startup_seed: bool = True,
+    clock: Callable[[], float] | None = None,
+) -> FastAPI:
     """Build and return the configured FastAPI application instance.
 
     ``run_startup_seed`` can be disabled in tests that manage seeding explicitly.
+    ``clock`` is a test-only monotonic time source forwarded to the failed-auth limiter.
     """
     settings = get_settings()
     configure_logging(settings.log_level)
     logger.debug("Creating FastAPI application")
+    warn_if_default_basic_credentials(settings)
 
     app = FastAPI(
         title="FRVT Versification Viewer",
@@ -66,7 +72,7 @@ def create_app(*, run_startup_seed: bool = True) -> FastAPI:
         lifespan=lifespan if run_startup_seed else None,
     )
     register_exception_handlers(app)
-    app.add_middleware(BasicAuthMiddleware, settings=settings)
+    app.add_middleware(BasicAuthMiddleware, settings=settings, clock=clock)
     app.include_router(health.router)
     app.include_router(translations.router)
     app.include_router(spans.router)

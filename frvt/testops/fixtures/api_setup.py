@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from frvt.api.logging_config import get_logger
 from frvt.api.models import VerseSpan
+from frvt.testops.fixtures.project_zip_meta import with_identification_name
 from frvt.testops.http_client import basic_auth_header
 from frvt.testops.sample_assets import primary_project_zip, read_bytes
 
@@ -34,13 +35,13 @@ def ingest_primary_project(
     label = name or f"Sample-{uuid4().hex[:8]}"
     logger.debug("Ingesting primary project name=%s path=%s", label, zip_path)
     headers = basic_auth_header()
-    with zip_path.open("rb") as handle:
-        response = api_client.post(
-            "/api/ingest/project",
-            headers=headers,
-            data={"name": label, "language": language},
-            files={"file": (zip_path.name, handle, "application/zip")},
-        )
+    payload = with_identification_name(zip_path.read_bytes(), label)
+    response = api_client.post(
+        "/api/ingest/project",
+        headers=headers,
+        data={"name": label, "language": language},
+        files={"file": (zip_path.name, io.BytesIO(payload), "application/zip")},
+    )
     assert response.status_code == 201, response.text
     body = response.json()
     logger.debug(
@@ -67,11 +68,12 @@ def ingest_project_bytes(
     label = name or f"Project-{uuid4().hex[:8]}"
     logger.debug("Ingesting project bytes name=%s size=%s", label, len(data))
     headers = basic_auth_header()
+    payload = with_identification_name(data, label)
     response = api_client.post(
         "/api/ingest/project",
         headers=headers,
         data={"name": label, "language": language},
-        files={"file": (filename, io.BytesIO(data), "application/zip")},
+        files={"file": (filename, io.BytesIO(payload), "application/zip")},
     )
     assert response.status_code == 201, response.text
     body = response.json()
