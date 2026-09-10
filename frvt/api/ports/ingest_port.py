@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import UUID
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, insert, select
 from sqlalchemy.orm import Session
 
 from frvt.api.errors import AppError, FieldError
@@ -90,18 +90,25 @@ def _lookup_base(session: Session, based_on: str | None) -> Translation:
 def _insert_mapping_rows(
     session: Session, scheme_id: UUID, parsed: ParsedScheme
 ) -> None:
-    """Derive and insert mapping rows for a newly created scheme."""
-    for dto in derive_mapping_records(parsed):
-        session.add(
-            MappingRecord(
-                scheme_id=scheme_id,
-                source_ref=dto.source_ref,
-                base_ref=dto.base_ref,
-                part=dto.part,
-                relation=RelationType(dto.relation),
-                ordinal=dto.ordinal,
-            )
-        )
+    """Derive and insert mapping rows for a newly created scheme.
+
+    Uses a single Core ``executemany`` rather than per-row ORM objects: a
+    whole-Bible ingredient yields tens of thousands of rows that are only ever
+    written here, so the unit-of-work bookkeeping is pure overhead.
+    """
+    rows = [
+        {
+            "scheme_id": scheme_id,
+            "source_ref": dto.source_ref,
+            "base_ref": dto.base_ref,
+            "part": dto.part,
+            "relation": RelationType(dto.relation),
+            "ordinal": dto.ordinal,
+        }
+        for dto in derive_mapping_records(parsed)
+    ]
+    if rows:
+        session.execute(insert(MappingRecord), rows)
 
 
 def _infer_source_format(archive_bytes: bytes) -> str:
@@ -251,20 +258,24 @@ def persist_project(
     session.add(translation)
     session.flush()
 
-    for span in result.spans:
-        session.add(
-            VerseSpan(
-                translation_id=translation.id,
-                seq=span.seq,
-                book=span.book,
-                chapter=span.chapter,
-                verse=span.verse,
-                part=span.part,
-                verse_label=span.verse_label,
-                verse_range=span.verse_range,
-                content=span.content,
-            )
-        )
+    # Core executemany: a full Bible is ~30k write-only rows, and building ORM
+    # instances for each of them dominates ingest time without adding anything.
+    span_rows = [
+        {
+            "translation_id": translation.id,
+            "seq": span.seq,
+            "book": span.book,
+            "chapter": span.chapter,
+            "verse": span.verse,
+            "part": span.part,
+            "verse_label": span.verse_label,
+            "verse_range": span.verse_range,
+            "content": span.content,
+        }
+        for span in result.spans
+    ]
+    if span_rows:
+        session.execute(insert(VerseSpan), span_rows)
 
     base = _lookup_base(session, result.scheme.based_on)
     ingredient = apply_combined_milestone_splits(
@@ -359,9 +370,7 @@ def refresh_combined_milestone_splits(
     if updated is scheme.ingredient:
         return False
     scheme.ingredient = updated
-    session.execute(
-        delete(MappingRecord).where(MappingRecord.scheme_id == scheme.id)
-    )
+    session.execute(delete(MappingRecord).where(MappingRecord.scheme_id == scheme.id))
     ingest_scheme = ParsedScheme(
         name=scheme.name,
         based_on=scheme.based_on_name,

@@ -71,6 +71,8 @@ function statusToCode(status: number): ErrorCode {
       return "payload_too_large";
     case 422:
       return "validation_failed";
+    case 429:
+      return "too_many_requests";
     case 503:
       return "database_unavailable";
     default:
@@ -87,6 +89,7 @@ function isErrorCode(value: string): value is ErrorCode {
     value === "conflict" ||
     value === "payload_too_large" ||
     value === "validation_failed" ||
+    value === "too_many_requests" ||
     value === "internal_error" ||
     value === "database_unavailable"
   );

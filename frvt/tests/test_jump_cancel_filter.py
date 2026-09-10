@@ -175,18 +175,12 @@ def test_pair_misalignment_category_renumbers_within_chapter() -> None:
         relation="renumber",
         edges=(),
     )
-    assert (
-        categorize_delta("EZK 20:44", "EZK 21:3", "renumber")
-        == "chapter_boundary"
-    )
+    assert categorize_delta("EZK 20:44", "EZK 21:3", "renumber") == "chapter_boundary"
     with patch(
         "frvt.api.routers.navigation.resolve_navigation_dto",
         return_value=dto,
     ):
-        assert (
-            pair_misalignment_category(context, "EZK 20:44", None)
-            == "chapter_count"
-        )
+        assert pair_misalignment_category(context, "EZK 20:44", None) == "chapter_count"
 
 
 @pytest.mark.nav
@@ -210,9 +204,37 @@ def test_pair_misalignment_category_crosses_chapter() -> None:
         return_value=dto,
     ):
         assert (
-            pair_misalignment_category(context, "GEN 31:55", None)
-            == "chapter_boundary"
+            pair_misalignment_category(context, "GEN 31:55", None) == "chapter_boundary"
         )
+
+
+@pytest.mark.nav
+def test_pair_misalignment_category_exclude_is_nt_omission() -> None:
+    """Excludes have no target spans; ACT still classifies as an NT omission."""
+    context = JumpCancelContext(
+        session=MagicMock(),
+        from_translation=uuid4(),
+        to_translation=uuid4(),
+        source_scheme=SchemeRef(scheme_id=uuid4(), based_on_id=None),
+        target_scheme=SchemeRef(scheme_id=uuid4(), based_on_id=None),
+    )
+    dto = ResolutionDTO(
+        source_spans=(_span("ACT 24:7"),),
+        target_spans=(),
+        relation="exclude",
+        edges=(),
+    )
+    with patch(
+        "frvt.api.routers.navigation.resolve_navigation_dto",
+        return_value=dto,
+    ):
+        assert pair_misalignment_category(context, "ACT 24:7", None) == "nt_omission"
+
+
+@pytest.mark.nav
+def test_categorize_delta_range_is_chapter_count() -> None:
+    """Unequal-length range hulls are the chapter_count jump-menu bucket."""
+    assert categorize_delta("GEN 2:5", "GEN 2:4", "range") == "chapter_count"
 
 
 @pytest.mark.nav

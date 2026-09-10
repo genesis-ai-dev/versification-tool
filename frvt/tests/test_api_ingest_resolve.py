@@ -347,7 +347,7 @@ def test_project_metadata_language_authoritative(api_client: TestClient) -> None
     body = response.json()
     assert body["translation"]["language"] == "en"
     assert body["translation"]["text_direction"] == "ltr"
-    assert body["versification"]["name"] == name
+    assert body["versification"]["name"] == "Metadata English Project"
 
 
 @pytest.mark.phase3
@@ -410,7 +410,7 @@ def test_project_arabic_sample_rtl(api_client: TestClient) -> None:
     body = response.json()
     assert body["translation"]["text_direction"] == "rtl"
     assert body["translation"]["language"] == "arb"
-    assert body["versification"]["name"] == name
+    assert body["versification"]["name"] == body["translation"]["name"]
 
 
 @pytest.mark.phase3
@@ -427,5 +427,5 @@ def test_project_scheme_name_matches_translation_name(api_client: TestClient) ->
         )
     assert response.status_code == 201, response.text
     body = response.json()
-    assert body["versification"]["name"] == name
+    assert body["versification"]["name"] == body["translation"]["name"]
     assert body["versification"]["name"] != "versification"

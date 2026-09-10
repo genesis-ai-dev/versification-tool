@@ -23,7 +23,7 @@ from frvt.api.jump_cancel import (
 from frvt.api.jump_target_content import (
     filter_unreachable_jump_rows,
     is_unreachable_jump_entry,
-    translation_books_with_content,
+    target_content_books_or_unfiltered,
 )
 from frvt.api.logging_config import get_logger
 from frvt.api.models import MappingRecord, VerseSpan
@@ -206,7 +206,7 @@ def categorize_delta(
         return "synodal"
     if base and source.chapter != base.chapter:
         return "chapter_boundary"
-    if relation == "renumber":
+    if relation in {"renumber", "range"}:
         return "chapter_count"
     return "other"
 
@@ -224,8 +224,15 @@ def pair_misalignment_category(
     labels match what the overlay shows after navigation.
     """
     dto = resolve_navigation_dto(context, navigation_ref, part)
-    if dto is None or not dto.target_spans:
+    if dto is None:
         return "other"
+    if not dto.target_spans:
+        return categorize_delta(
+            navigation_ref,
+            None,
+            dto.relation,
+            scheme_name=scheme_name,
+        )
     resolved_target = resolved_target_ref_from_dto(dto)
     if resolved_target is None:
         return "other"
@@ -342,7 +349,7 @@ def _scheme_diff_filtered_jump_mappings(
         cancel_context,
         jump_navigation_ref,
     )
-    target_books = translation_books_with_content(session, to_translation)
+    target_books = target_content_books_or_unfiltered(session, to_translation)
     kept = filter_unreachable_jump_rows(
         kept,
         cancel_context,
@@ -376,7 +383,7 @@ def _reciprocal_jump_mappings(
         to_versification,
         from_versification,
     )
-    target_books = translation_books_with_content(session, to_translation)
+    target_books = target_content_books_or_unfiltered(session, to_translation)
     reciprocals: list[JumpMapping] = []
     for row in counterpart_rows:
         nav_ref, part = jump_navigation_ref(row)
@@ -419,7 +426,7 @@ def _cancel_filtered_jump_mappings(
     from_versification: UUID | None,
     to_versification: UUID | None,
 ) -> tuple[list[JumpMapping], JumpCancelContext]:
-    """Return jump rows after scheme-diff, cancel, unreachable, and reciprocal passes."""
+    """Return jump rows after scheme-diff, cancel, unreachable, and reciprocal."""
     kept, cancel_context = _scheme_diff_filtered_jump_mappings(
         session,
         from_translation,
@@ -622,9 +629,7 @@ def resolve_jump_menu(
     )
     page_limit, page_offset = clamp_page(limit, offset)
     page = rows[page_offset : page_offset + page_limit]
-    delta_items = [
-        _delta_entry(row, cancel_context=cancel_context) for row in page
-    ]
+    delta_items = [_delta_entry(row, cancel_context=cancel_context) for row in page]
     mis_items = [
         _misalignment_entry(row, cancel_context=cancel_context) for row in page
     ]

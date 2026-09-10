@@ -42,24 +42,31 @@ def test_reciprocal_jump_mappings_adds_composed_target_locus() -> None:
         relation="renumber",
         edges=(),
     )
-    with patch(
-        "frvt.api.routers.navigation._scheme_diff_filtered_jump_mappings",
-        return_value=([counterpart_row], context),
-    ), patch(
-        "frvt.api.routers.navigation.translation_books_with_content",
-        return_value=frozenset({"EZK"}),
-    ), patch(
-        "frvt.api.routers.navigation.resolved_target_ref_for_jump",
-        side_effect=["EZK 20:47", "EZK 20:44"],
-    ), patch(
-        "frvt.api.routers.navigation.is_canceling_jump_entry",
-        return_value=False,
-    ), patch(
-        "frvt.api.routers.navigation.is_unreachable_jump_entry",
-        return_value=False,
-    ), patch(
-        "frvt.api.routers.navigation.resolve_navigation_dto",
-        return_value=reciprocal_dto,
+    with (
+        patch(
+            "frvt.api.routers.navigation._scheme_diff_filtered_jump_mappings",
+            return_value=([counterpart_row], context),
+        ),
+        patch(
+            "frvt.api.routers.navigation.target_content_books_or_unfiltered",
+            return_value=frozenset({"EZK"}),
+        ),
+        patch(
+            "frvt.api.routers.navigation.resolved_target_ref_for_jump",
+            side_effect=["EZK 20:47", "EZK 20:44"],
+        ),
+        patch(
+            "frvt.api.routers.navigation.is_canceling_jump_entry",
+            return_value=False,
+        ),
+        patch(
+            "frvt.api.routers.navigation.is_unreachable_jump_entry",
+            return_value=False,
+        ),
+        patch(
+            "frvt.api.routers.navigation.resolve_navigation_dto",
+            return_value=reciprocal_dto,
+        ),
     ):
         reciprocals = _reciprocal_jump_mappings(
             MagicMock(),
@@ -94,15 +101,19 @@ def test_reciprocal_jump_mappings_skips_existing_navigation() -> None:
         relation="renumber",
         scheme_name="ASV",
     )
-    with patch(
-        "frvt.api.routers.navigation._scheme_diff_filtered_jump_mappings",
-        return_value=([counterpart_row], context),
-    ), patch(
-        "frvt.api.routers.navigation.translation_books_with_content",
-        return_value=frozenset({"EZK"}),
-    ), patch(
-        "frvt.api.routers.navigation.resolved_target_ref_for_jump",
-        return_value="EZK 20:47",
+    with (
+        patch(
+            "frvt.api.routers.navigation._scheme_diff_filtered_jump_mappings",
+            return_value=([counterpart_row], context),
+        ),
+        patch(
+            "frvt.api.routers.navigation.target_content_books_or_unfiltered",
+            return_value=frozenset({"EZK"}),
+        ),
+        patch(
+            "frvt.api.routers.navigation.resolved_target_ref_for_jump",
+            return_value="EZK 20:47",
+        ),
     ):
         reciprocals = _reciprocal_jump_mappings(
             MagicMock(),
