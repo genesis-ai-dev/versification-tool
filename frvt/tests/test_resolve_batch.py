@@ -141,6 +141,31 @@ def test_expand_combined_milestone(range_translation: tuple[UUID, Session]) -> N
 
 @pytest.mark.phase6
 @pytest.mark.resolve
+def test_combined_milestone_constituents_share_result(
+    range_translation: tuple[UUID, Session],
+) -> None:
+    """Constituents of a combined milestone resolve through the stored anchor."""
+    translation_id, session = range_translation
+    org = _org_translation(session)
+    out = resolve_verse_range(
+        session,
+        _target(translation_id, org.id),
+        from_ref="GEN 1",
+        to_ref="GEN 1",
+    )
+    by_ref = {item.ref: item for item in out.items}
+    first = by_ref["GEN 1:1"]
+    second = by_ref["GEN 1:2"]
+    assert first.error is None and first.result is not None
+    assert second.error is None and second.result is not None
+    assert first.result == second.result
+    sibling = by_ref["GEN 1:3"]
+    assert sibling.result is not None
+    assert sibling.result != first.result
+
+
+@pytest.mark.phase6
+@pytest.mark.resolve
 def test_expand_ignores_part_duplicate(range_translation: tuple[UUID, Session]) -> None:
     """A non-null part row does not add a second entry for the same verse."""
     translation_id, session = range_translation

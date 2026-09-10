@@ -175,6 +175,27 @@ def test_range_unknown_translation_404(
 
 @pytest.mark.phase4
 @pytest.mark.resolve
+def test_range_unknown_override_scheme_404(
+    api_client: TestClient, eng_org: dict[str, str]
+) -> None:
+    """Unknown from_versification is 404, not 409."""
+    response = api_client.get(
+        "/api/resolve/range",
+        headers=_auth(),
+        params={
+            "from_translation": eng_org["translation_id"],
+            "to_translation": eng_org["org_translation_id"],
+            "from_ref": "JHN 3",
+            "to_ref": "JHN 3",
+            "from_versification": str(uuid4()),
+        },
+    )
+    assert response.status_code == 404
+    assert_error_envelope(response.json(), code="not_found")
+
+
+@pytest.mark.phase4
+@pytest.mark.resolve
 def test_range_unassociated_override_409(
     api_client: TestClient, eng_org: dict[str, str]
 ) -> None:
