@@ -4,6 +4,15 @@ Versification viewer for Codex and adjacent apps: a FastAPI API, PostgreSQL, and
 
 All HTTP routes (API, `/docs`, static UI) are gated with HTTP Basic. Default credentials are **local only**.
 
+## API documentation
+
+- [docs/api.md](docs/api.md) — HTTP contract: auth, error envelope, pagination, BCV grammar, every `/api` route, batch verse mapping, and curl examples.
+- [docs/openapi.json](docs/openapi.json) — OpenAPI 3.1 for client generation. Generated from the FastAPI app, then patched so errors use `{detail, code, errors?}` and HTTP Basic is declared. After changing routes or models, from the repository root: `PYTHONPATH=. frvt/.venv/bin/python docs/export-openapi.py` ([docs/export-openapi.py](docs/export-openapi.py)).
+
+A running server also serves Swagger UI at `GET /docs` and ReDoc at `GET /redoc` (Basic required). Those pages load **live** `GET /openapi.json`, which is FastAPI's unpatched schema (no Basic scheme; many `422`s still listed as `HTTPValidationError`). Use the checked-in file for the envelope the process actually returns.
+
+The viewer's TypeScript client lives in `frvt/web/src/api/`. It is not a published package.
+
 ## Prerequisites
 
 - Docker
@@ -35,12 +44,16 @@ cd "$REPO"
 
 Postgres is published on host port **5433**. Uvicorn must be started from the **repository root** so the `frvt` package imports.
 
+The `web` `npm ci` / `npm run build` steps are required for the React UI (`frvt/web/dist`). They are optional if you only need the JSON API; without `dist`, FastAPI skips the static mount and `/` is a `404`.
+
 Health check:
 
 ```bash
-curl -s -u 'admin:Admin123!' http://localhost:8000/api/health
+curl -sS -u 'admin:Admin123!' http://localhost:8000/api/health
 # Expect: {"status":"ok"}
 ```
+
+Examples in [docs/api.md](docs/api.md) also use `jq`.
 
 ### PowerShell (short alternate)
 
@@ -74,4 +87,4 @@ Canonical anchors are seeded once per run and committed; every test then runs in
 - Failed authentication is limited to **10** failures per client IP per **60** seconds, then `429` with `code: too_many_requests`. `BASIC_AUTH_FAILURE_LIMIT=0` or a non-positive `BASIC_AUTH_FAILURE_WINDOW_SECONDS` disables that limiter (failures stay `401`).
 - `TRUST_PROXY_HEADERS` defaults to `false`. Enable it **only** behind a trusted proxy (for example an ALB). The limiter then keys on the **rightmost** `X-Forwarded-For` hop.
 - `BASIC_AUTH_PUBLIC_PATHS` is a comma-separated list of path prefixes and defaults to empty. Prefix `/` disables the gate for **every** path, including the limiter. Do not set that in production.
-- AWS edge controls (WAF, Shield, private subnets, RDS, logging) are **not** implemented in this repository. See the AWS deployment recommendations document in `.spec/`.
+- AWS edge controls (WAF, Shield, private subnets, RDS, logging) are **not** implemented in this repository. See [.spec/frvt-11-aws-deploy-recommendations-1.md](.spec/frvt-11-aws-deploy-recommendations-1.md).

@@ -1,0 +1,3537 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "FRVT Versification Viewer",
+    "version": "0.1.0",
+    "description": "HTTP API for the FRVT versification viewer. Every path requires HTTP Basic. This checked-in document adds a Basic security scheme and rewrites error responses to ErrorBody ({detail, code, errors?}), which is what the running server returns. GET /openapi.json on a live process is FastAPI's unpatched generator output (HTTPValidationError on many 422s, no Basic scheme). Human guide: docs/api.md."
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health",
+        "description": "Return ``{\"status\":\"ok\"}`` when the database answers a simple ping.",
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Health Api Health Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database ping failed. code: database_unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/translations": {
+      "get": {
+        "tags": [
+          "translations"
+        ],
+        "summary": "List Translations",
+        "description": "List non-anchor translations with pagination.",
+        "operationId": "list_translations_api_translations_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_TranslationOut_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "translations"
+        ],
+        "summary": "Create Translation",
+        "description": "Create a metadata-only translation row.",
+        "operationId": "create_translation_api_translations_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TranslationCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/translations/{translation_id}": {
+      "get": {
+        "tags": [
+          "translations"
+        ],
+        "summary": "Get Translation",
+        "description": "Return one translation by id (anchors are readable by id).",
+        "operationId": "get_translation_api_translations__translation_id__get",
+        "parameters": [
+          {
+            "name": "translation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Translation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "translations"
+        ],
+        "summary": "Update Translation",
+        "description": "Update translation name and/or language.",
+        "operationId": "update_translation_api_translations__translation_id__patch",
+        "parameters": [
+          {
+            "name": "translation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Translation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TranslationUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranslationOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "translations"
+        ],
+        "summary": "Delete Translation",
+        "description": "Delete a translation unless it is still referenced as a scheme base.\n\nWhen the preferred versification scheme shares the translation name and is\nnot associated with any other translation, that scheme and its mapping rows\nare deleted as well. Non-preferred schemes and shared or differently named\npreferred schemes are left unchanged.",
+        "operationId": "delete_translation_api_translations__translation_id__delete",
+        "parameters": [
+          {
+            "name": "translation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Translation Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/translations/{translation_id}/spans": {
+      "get": {
+        "tags": [
+          "spans"
+        ],
+        "summary": "List Spans",
+        "description": "Return verse spans for a book (optional chapter), ordered by ``seq``.",
+        "operationId": "list_spans_api_translations__translation_id__spans_get",
+        "parameters": [
+          {
+            "name": "translation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Translation Id"
+            }
+          },
+          {
+            "name": "book",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Book"
+            }
+          },
+          {
+            "name": "chapter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chapter"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_VerseSpanOut_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/versifications": {
+      "get": {
+        "tags": [
+          "versifications"
+        ],
+        "summary": "List Versifications",
+        "description": "List schemes, optionally filtered by the ``canonical`` flag.",
+        "operationId": "list_versifications_api_versifications_get",
+        "parameters": [
+          {
+            "name": "canonical",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Canonical"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_VersificationOut_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/versifications/{scheme_id}": {
+      "get": {
+        "tags": [
+          "versifications"
+        ],
+        "summary": "Get Versification",
+        "description": "Return one scheme including its stored ingredient.",
+        "operationId": "get_versification_api_versifications__scheme_id__get",
+        "parameters": [
+          {
+            "name": "scheme_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Scheme Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersificationDetailOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "versifications"
+        ],
+        "summary": "Update Versification",
+        "description": "Rename a versification scheme.",
+        "operationId": "update_versification_api_versifications__scheme_id__patch",
+        "parameters": [
+          {
+            "name": "scheme_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Scheme Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersificationUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersificationOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "versifications"
+        ],
+        "summary": "Delete Versification",
+        "description": "Delete a scheme when no association still references it.",
+        "operationId": "delete_versification_api_versifications__scheme_id__delete",
+        "parameters": [
+          {
+            "name": "scheme_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Scheme Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/translations/{translation_id}/versifications": {
+      "get": {
+        "tags": [
+          "associations"
+        ],
+        "summary": "List Associations",
+        "description": "List schemes associated with a translation, marking the preferred one.",
+        "operationId": "list_associations_api_translations__translation_id__versifications_get",
+        "parameters": [
+          {
+            "name": "translation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Translation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AssociationOut"
+                  },
+                  "title": "Response List Associations Api Translations  Translation Id  Versifications Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "associations"
+        ],
+        "summary": "Create Association",
+        "description": "Associate an existing scheme with the translation (non-preferred).",
+        "operationId": "create_association_api_translations__translation_id__versifications_post",
+        "parameters": [
+          {
+            "name": "translation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Translation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssociationCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssociationOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/translations/{translation_id}/versifications/{scheme_id}/preferred": {
+      "put": {
+        "tags": [
+          "associations"
+        ],
+        "summary": "Make Preferred",
+        "description": "Make an existing association the preferred default in one transaction.",
+        "operationId": "make_preferred_api_translations__translation_id__versifications__scheme_id__preferred_put",
+        "parameters": [
+          {
+            "name": "translation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Translation Id"
+            }
+          },
+          {
+            "name": "scheme_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Scheme Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssociationOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/translations/{translation_id}/versifications/{scheme_id}": {
+      "delete": {
+        "tags": [
+          "associations"
+        ],
+        "summary": "Delete Association",
+        "description": "Remove a non-preferred association; preferred rows return 409.",
+        "operationId": "delete_association_api_translations__translation_id__versifications__scheme_id__delete",
+        "parameters": [
+          {
+            "name": "translation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Translation Id"
+            }
+          },
+          {
+            "name": "scheme_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Scheme Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/project": {
+      "post": {
+        "tags": [
+          "ingest"
+        ],
+        "summary": "Ingest Project Endpoint",
+        "description": "Ingest a zipped Paratext-style project (USX + required ``.vrs``).",
+        "operationId": "ingest_project_endpoint_api_ingest_project_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_ingest_project_endpoint_api_ingest_project_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectIngestOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Upload exceeds MAX_UPLOAD_BYTES. code: payload_too_large.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/versifications/upload": {
+      "post": {
+        "tags": [
+          "ingest"
+        ],
+        "summary": "Upload Versification Endpoint",
+        "description": "Create a scheme from a standalone ``.vrs`` or Copenhagen ``.json`` file.",
+        "operationId": "upload_versification_endpoint_api_versifications_upload_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_versification_endpoint_api_versifications_upload_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersificationOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Upload exceeds MAX_UPLOAD_BYTES. code: payload_too_large.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/resolve": {
+      "get": {
+        "tags": [
+          "resolve"
+        ],
+        "summary": "Resolve Endpoint",
+        "description": "Resolve a BCV (or bcvRange) reference between two translations' schemes.",
+        "operationId": "resolve_endpoint_api_resolve_get",
+        "parameters": [
+          {
+            "name": "from_translation",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "From Translation"
+            }
+          },
+          {
+            "name": "to_translation",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "To Translation"
+            }
+          },
+          {
+            "name": "ref",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ref"
+            }
+          },
+          {
+            "name": "part",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Part"
+            }
+          },
+          {
+            "name": "from_versification",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From Versification"
+            }
+          },
+          {
+            "name": "to_versification",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To Versification"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolveResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/resolve/chapter": {
+      "get": {
+        "tags": [
+          "resolve"
+        ],
+        "summary": "Resolve Chapter Endpoint",
+        "description": "Resolve unique alignments for stored whole verses in one drive chapter.",
+        "operationId": "resolve_chapter_endpoint_api_resolve_chapter_get",
+        "parameters": [
+          {
+            "name": "from_translation",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "From Translation"
+            }
+          },
+          {
+            "name": "to_translation",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "To Translation"
+            }
+          },
+          {
+            "name": "book",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Book"
+            }
+          },
+          {
+            "name": "chapter",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "title": "Chapter"
+            }
+          },
+          {
+            "name": "from_versification",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From Versification"
+            }
+          },
+          {
+            "name": "to_versification",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To Versification"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChapterResolveOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/resolve/range": {
+      "get": {
+        "tags": [
+          "resolve"
+        ],
+        "summary": "Resolve Range Endpoint",
+        "description": "Resolve stored verses in a from/to partial-reference window.\n\nPer-verse failures appear as entry ``error`` values; the HTTP status stays\n``200`` unless translations, schemes, bounds, or pagination are invalid.",
+        "operationId": "resolve_range_endpoint_api_resolve_range_get",
+        "parameters": [
+          {
+            "name": "from_translation",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "From Translation"
+            }
+          },
+          {
+            "name": "to_translation",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "To Translation"
+            }
+          },
+          {
+            "name": "from_ref",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "From Ref"
+            }
+          },
+          {
+            "name": "to_ref",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "To Ref"
+            }
+          },
+          {
+            "name": "from_versification",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From Versification"
+            }
+          },
+          {
+            "name": "to_versification",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To Versification"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchResolveOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/resolve/verses": {
+      "post": {
+        "tags": [
+          "resolve"
+        ],
+        "summary": "Resolve Verses Endpoint",
+        "description": "Resolve an explicit list of references in request order.\n\nPer-verse failures appear as entry ``error`` values; the HTTP status stays\n``200`` unless translations, schemes, or the ``refs`` length are invalid.",
+        "operationId": "resolve_verses_endpoint_api_resolve_verses_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchVerseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchResolveOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/translations/{translation_id}/navigation": {
+      "get": {
+        "tags": [
+          "navigation"
+        ],
+        "summary": "Translation Navigation",
+        "description": "Return books and chapters that have stored verse spans for the translation.\n\nValidates the selected scheme (override, else preferred) for the same\n``404``/``409`` rules as other coordinate endpoints, but builds the tree\nfrom ``verse_span`` only — never from scheme ``maxVerses`` — so partial\ntranslations (e.g. NT-only) do not list empty scheme books.",
+        "operationId": "translation_navigation_api_translations__translation_id__navigation_get",
+        "parameters": [
+          {
+            "name": "translation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Translation Id"
+            }
+          },
+          {
+            "name": "versification",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Versification"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NavBook"
+                  },
+                  "title": "Response Translation Navigation Api Translations  Translation Id  Navigation Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/resolve/deltas": {
+      "get": {
+        "tags": [
+          "navigation"
+        ],
+        "summary": "Resolve Deltas",
+        "description": "List explicit mapping deltas for the from-side selected scheme.",
+        "operationId": "resolve_deltas_api_resolve_deltas_get",
+        "parameters": [
+          {
+            "name": "from_translation",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "From Translation"
+            }
+          },
+          {
+            "name": "to_translation",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "To Translation"
+            }
+          },
+          {
+            "name": "book",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Book"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "from_versification",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From Versification"
+            }
+          },
+          {
+            "name": "to_versification",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To Versification"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_DeltaEntry_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/resolve/misalignments": {
+      "get": {
+        "tags": [
+          "navigation"
+        ],
+        "summary": "Resolve Misalignments",
+        "description": "List categorized misalignments derived from from-scheme mapping rows.",
+        "operationId": "resolve_misalignments_api_resolve_misalignments_get",
+        "parameters": [
+          {
+            "name": "from_translation",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "From Translation"
+            }
+          },
+          {
+            "name": "to_translation",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "To Translation"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "name": "book",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Book"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "from_versification",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From Versification"
+            }
+          },
+          {
+            "name": "to_versification",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To Versification"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_MisalignmentEntry_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/resolve/jump-menu": {
+      "get": {
+        "tags": [
+          "navigation"
+        ],
+        "summary": "Resolve Jump Menu",
+        "description": "Return deltas and misalignments for the jump menu in one filtered pass.",
+        "operationId": "resolve_jump_menu_api_resolve_jump_menu_get",
+        "parameters": [
+          {
+            "name": "from_translation",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "From Translation"
+            }
+          },
+          {
+            "name": "to_translation",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "To Translation"
+            }
+          },
+          {
+            "name": "book",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Book"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "from_versification",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From Versification"
+            }
+          },
+          {
+            "name": "to_versification",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To Versification"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JumpMenuEntries"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/resolve/jump-books": {
+      "get": {
+        "tags": [
+          "navigation"
+        ],
+        "summary": "Resolve Jump Books",
+        "description": "List distinct from-side books with cancel-filtered jump differences.",
+        "operationId": "resolve_jump_books_api_resolve_jump_books_get",
+        "parameters": [
+          {
+            "name": "from_translation",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "From Translation"
+            }
+          },
+          {
+            "name": "to_translation",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "To Translation"
+            }
+          },
+          {
+            "name": "from_versification",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From Versification"
+            }
+          },
+          {
+            "name": "to_versification",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To Versification"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JumpBooksOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AssociationCreate": {
+        "properties": {
+          "scheme_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Scheme Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scheme_id"
+        ],
+        "title": "AssociationCreate",
+        "description": "Body for associating an existing scheme with a translation."
+      },
+      "AssociationOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "translation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Translation Id"
+          },
+          "scheme_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Scheme Id"
+          },
+          "preferred": {
+            "type": "boolean",
+            "title": "Preferred"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "translation_id",
+          "scheme_id",
+          "preferred"
+        ],
+        "title": "AssociationOut",
+        "description": "Association row including whether it is the preferred default."
+      },
+      "BatchResolveEntry": {
+        "properties": {
+          "ref": {
+            "type": "string",
+            "title": "Ref"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResolveResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BatchResolveError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "ref"
+        ],
+        "title": "BatchResolveEntry",
+        "description": "One requested reference paired with either a resolve result or an error.\n\nExactly one of ``result`` / ``error`` is non-null. Both keys are always\npresent so clients can switch on a stable shape."
+      },
+      "BatchResolveError": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "bad_request",
+              "unauthorized",
+              "not_found",
+              "conflict",
+              "payload_too_large",
+              "validation_failed",
+              "too_many_requests",
+              "internal_error",
+              "database_unavailable"
+            ],
+            "title": "Code"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "detail"
+        ],
+        "title": "BatchResolveError",
+        "description": "Per-member failure copied from the uniform error envelope."
+      },
+      "BatchResolveOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BatchResolveEntry"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "from_versification": {
+            "type": "string",
+            "format": "uuid",
+            "title": "From Versification"
+          },
+          "to_versification": {
+            "type": "string",
+            "format": "uuid",
+            "title": "To Versification"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "from_versification",
+          "to_versification"
+        ],
+        "title": "BatchResolveOut",
+        "description": "Paginated batch resolve result with the scheme ids actually used.\n\nLives after ``Page`` because a base-class expression is evaluated eagerly;\npostponed annotations do not apply to subclassing."
+      },
+      "BatchVerseRequest": {
+        "properties": {
+          "from_translation": {
+            "type": "string",
+            "format": "uuid",
+            "title": "From Translation"
+          },
+          "to_translation": {
+            "type": "string",
+            "format": "uuid",
+            "title": "To Translation"
+          },
+          "refs": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Refs"
+          },
+          "from_versification": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Versification"
+          },
+          "to_versification": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Versification"
+          }
+        },
+        "type": "object",
+        "required": [
+          "from_translation",
+          "to_translation",
+          "refs"
+        ],
+        "title": "BatchVerseRequest",
+        "description": "JSON body for ``POST /api/resolve/verses``."
+      },
+      "Body_ingest_project_endpoint_api_ingest_project_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_ingest_project_endpoint_api_ingest_project_post"
+      },
+      "Body_upload_versification_endpoint_api_versifications_upload_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_versification_endpoint_api_versifications_upload_post"
+      },
+      "ChapterResolveOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ResolveResult"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "ChapterResolveOut",
+        "description": "Unique alignments for one drive chapter after emit-once dedupe."
+      },
+      "DeltaEntry": {
+        "properties": {
+          "source_ref": {
+            "type": "string",
+            "title": "Source Ref"
+          },
+          "base_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Ref"
+          },
+          "relation": {
+            "$ref": "#/components/schemas/RelationType"
+          },
+          "navigation_ref": {
+            "type": "string",
+            "title": "Navigation Ref"
+          },
+          "navigation": {
+            "$ref": "#/components/schemas/NavRef"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_ref",
+          "base_ref",
+          "relation",
+          "navigation_ref",
+          "navigation"
+        ],
+        "title": "DeltaEntry",
+        "description": "One explicit mapping delta between two selected schemes."
+      },
+      "JumpBooksOut": {
+        "properties": {
+          "books": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Books"
+          }
+        },
+        "type": "object",
+        "required": [
+          "books"
+        ],
+        "title": "JumpBooksOut",
+        "description": "Distinct from-side books with jump-relevant mapping differences."
+      },
+      "JumpMenuEntries": {
+        "properties": {
+          "deltas": {
+            "$ref": "#/components/schemas/Page_DeltaEntry_"
+          },
+          "misalignments": {
+            "$ref": "#/components/schemas/Page_MisalignmentEntry_"
+          }
+        },
+        "type": "object",
+        "required": [
+          "deltas",
+          "misalignments"
+        ],
+        "title": "JumpMenuEntries",
+        "description": "Deltas and misalignments for the jump menu in one response."
+      },
+      "MisalignmentEntry": {
+        "properties": {
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "source_ref": {
+            "type": "string",
+            "title": "Source Ref"
+          },
+          "relation": {
+            "$ref": "#/components/schemas/RelationType"
+          },
+          "navigation_ref": {
+            "type": "string",
+            "title": "Navigation Ref"
+          },
+          "navigation": {
+            "$ref": "#/components/schemas/NavRef"
+          }
+        },
+        "type": "object",
+        "required": [
+          "category",
+          "source_ref",
+          "relation",
+          "navigation_ref",
+          "navigation"
+        ],
+        "title": "MisalignmentEntry",
+        "description": "Categorized misalignment entry for the jump menu."
+      },
+      "NavBook": {
+        "properties": {
+          "book": {
+            "type": "string",
+            "title": "Book"
+          },
+          "chapters": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Chapters"
+          }
+        },
+        "type": "object",
+        "required": [
+          "book",
+          "chapters"
+        ],
+        "title": "NavBook",
+        "description": "Book with available chapter numbers for navigation selectors."
+      },
+      "NavRef": {
+        "properties": {
+          "book": {
+            "type": "string",
+            "title": "Book"
+          },
+          "chapter": {
+            "type": "integer",
+            "title": "Chapter"
+          },
+          "verse": {
+            "type": "integer",
+            "title": "Verse"
+          },
+          "part": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Part"
+          }
+        },
+        "type": "object",
+        "required": [
+          "book",
+          "chapter",
+          "verse"
+        ],
+        "title": "NavRef",
+        "description": "Structured single-verse navigation target (UI never parses ranges)."
+      },
+      "Page_DeltaEntry_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DeltaEntry"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "Page[DeltaEntry]"
+      },
+      "Page_MisalignmentEntry_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MisalignmentEntry"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "Page[MisalignmentEntry]"
+      },
+      "Page_TranslationOut_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TranslationOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "Page[TranslationOut]"
+      },
+      "Page_VerseSpanOut_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/VerseSpanOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "Page[VerseSpanOut]"
+      },
+      "Page_VersificationOut_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/VersificationOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "Page[VersificationOut]"
+      },
+      "ProjectIngestOut": {
+        "properties": {
+          "translation": {
+            "$ref": "#/components/schemas/TranslationOut"
+          },
+          "versification": {
+            "$ref": "#/components/schemas/VersificationOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "translation",
+          "versification"
+        ],
+        "title": "ProjectIngestOut",
+        "description": "Success body for project ingest (translation plus preferred scheme)."
+      },
+      "RelationType": {
+        "type": "string",
+        "enum": [
+          "one_to_one",
+          "shift",
+          "renumber",
+          "split",
+          "merge",
+          "exclude",
+          "partial",
+          "complex",
+          "range"
+        ],
+        "title": "RelationType",
+        "description": "Relation vocabulary shared by resolve results and jump-menu entries."
+      },
+      "ResolveEdge": {
+        "properties": {
+          "source_index": {
+            "type": "integer",
+            "title": "Source Index"
+          },
+          "target_index": {
+            "type": "integer",
+            "title": "Target Index"
+          },
+          "relation": {
+            "$ref": "#/components/schemas/RelationType"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_index",
+          "target_index",
+          "relation"
+        ],
+        "title": "ResolveEdge",
+        "description": "One connector for a ``complex`` or ``range`` resolve result."
+      },
+      "ResolveResult": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "ResolvedSpan": {
+        "properties": {
+          "ref": {
+            "type": "string",
+            "title": "Ref"
+          },
+          "book": {
+            "type": "string",
+            "title": "Book"
+          },
+          "chapter": {
+            "type": "integer",
+            "title": "Chapter"
+          },
+          "verse": {
+            "type": "integer",
+            "title": "Verse"
+          },
+          "seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seq"
+          },
+          "part": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Part"
+          },
+          "verse_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verse Label"
+          },
+          "verse_range": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verse Range"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ref",
+          "book",
+          "chapter",
+          "verse"
+        ],
+        "title": "ResolvedSpan",
+        "description": "Denormalized single-verse span with structured coordinates for the UI."
+      },
+      "TranslationCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Name"
+          },
+          "language": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Language"
+          },
+          "source_format": {
+            "type": "string",
+            "enum": [
+              "usx",
+              "usfm"
+            ],
+            "title": "Source Format"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "language",
+          "source_format"
+        ],
+        "title": "TranslationCreate",
+        "description": "Body for creating a metadata-only translation (content arrives via ingest)."
+      },
+      "TranslationOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "language": {
+            "type": "string",
+            "title": "Language"
+          },
+          "text_direction": {
+            "type": "string",
+            "enum": [
+              "ltr",
+              "rtl"
+            ],
+            "title": "Text Direction"
+          },
+          "source_format": {
+            "type": "string",
+            "title": "Source Format"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "language",
+          "text_direction",
+          "source_format",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "TranslationOut",
+        "description": "Public translation representation (anchors are excluded from listings)."
+      },
+      "TranslationUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          }
+        },
+        "type": "object",
+        "title": "TranslationUpdate",
+        "description": "Partial update body for translation name and/or language."
+      },
+      "VerseSpanOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "seq": {
+            "type": "integer",
+            "title": "Seq"
+          },
+          "book": {
+            "type": "string",
+            "title": "Book"
+          },
+          "chapter": {
+            "type": "integer",
+            "title": "Chapter"
+          },
+          "verse": {
+            "type": "integer",
+            "title": "Verse"
+          },
+          "part": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Part"
+          },
+          "verse_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verse Label"
+          },
+          "verse_range": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verse Range"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "seq",
+          "book",
+          "chapter",
+          "verse",
+          "part",
+          "content"
+        ],
+        "title": "VerseSpanOut",
+        "description": "One scripture span returned for column rendering."
+      },
+      "VersificationDetailOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "based_on_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Based On Name"
+          },
+          "based_on_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Based On Id"
+          },
+          "canonical": {
+            "type": "boolean",
+            "title": "Canonical"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "associated_translation_names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Associated Translation Names"
+          },
+          "ingredient": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Ingredient"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "based_on_name",
+          "based_on_id",
+          "canonical",
+          "created_at",
+          "updated_at",
+          "ingredient"
+        ],
+        "title": "VersificationDetailOut",
+        "description": "Scheme detail including the stored Copenhagen ingredient."
+      },
+      "VersificationOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "based_on_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Based On Name"
+          },
+          "based_on_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Based On Id"
+          },
+          "canonical": {
+            "type": "boolean",
+            "title": "Canonical"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "associated_translation_names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Associated Translation Names"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "based_on_name",
+          "based_on_id",
+          "canonical",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "VersificationOut",
+        "description": "Scheme summary without the full ingredient payload."
+      },
+      "VersificationUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "title": "VersificationUpdate",
+        "description": "Partial update body for renaming a scheme."
+      },
+      "FieldError": {
+        "type": "object",
+        "required": [
+          "field",
+          "message"
+        ],
+        "properties": {
+          "field": {
+            "type": "string",
+            "description": "Field or file name, for example query.limit or custom.vrs."
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "ErrorBody": {
+        "type": "object",
+        "required": [
+          "detail",
+          "code"
+        ],
+        "description": "Envelope returned by the running server for application and framework errors. errors is omitted when there is no per-field detail.",
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "bad_request",
+              "unauthorized",
+              "not_found",
+              "conflict",
+              "payload_too_large",
+              "validation_failed",
+              "too_many_requests",
+              "internal_error",
+              "database_unavailable"
+            ]
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            },
+            "description": "Present only when there is per-field or per-file detail."
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic",
+        "description": "HTTP Basic using BASIC_AUTH_USERNAME / BASIC_AUTH_PASSWORD. Local defaults admin / Admin123! must not be used on a shared host."
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000",
+      "description": "Local uvicorn from the repository root (see README.md)"
+    }
+  ],
+  "tags": [
+    {
+      "name": "health",
+      "description": "Liveness plus a database ping."
+    },
+    {
+      "name": "translations",
+      "description": "Translation CRUD. Listings omit numbering-space anchors."
+    },
+    {
+      "name": "spans",
+      "description": "Stored scripture spans for a translation, ordered by seq."
+    },
+    {
+      "name": "versifications",
+      "description": "Numbering schemes (canonical and uploaded)."
+    },
+    {
+      "name": "associations",
+      "description": "Link a translation to schemes; one preferred scheme per translation."
+    },
+    {
+      "name": "ingest",
+      "description": "Project zip ingest and standalone versification upload."
+    },
+    {
+      "name": "resolve",
+      "description": "Map verses between two translations' selected schemes."
+    },
+    {
+      "name": "navigation",
+      "description": "Book/chapter trees and jump-menu deltas/misalignments."
+    }
+  ],
+  "security": [
+    {
+      "basicAuth": []
+    }
+  ]
+}
