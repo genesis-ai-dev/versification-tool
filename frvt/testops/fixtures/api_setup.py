@@ -8,6 +8,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from frvt.api.logging_config import get_logger
@@ -105,6 +106,57 @@ def set_preferred(
     return response.json()
 
 
+def insert_verse_span(
+    session: Session,
+    translation_id: str | UUID,
+    *,
+    book: str,
+    chapter: int,
+    verse: int,
+    part: str | None = None,
+    content: str = "[fixture]",
+    seq: int | None = None,
+    verse_label: str | None = None,
+    verse_range: str | None = None,
+) -> VerseSpan:
+    """Insert one ``VerseSpan`` row with optional combined-milestone fields.
+
+    Auto-assigns the next ``seq`` when omitted. Commits are the caller's
+    responsibility (pytest ``seeded_session`` rolls back).
+    """
+    tid = UUID(str(translation_id))
+    if seq is None:
+        current = session.scalar(
+            select(func.coalesce(func.max(VerseSpan.seq), -1)).where(
+                VerseSpan.translation_id == tid
+            )
+        )
+        seq = int(current) + 1
+    row = VerseSpan(
+        translation_id=tid,
+        seq=seq,
+        book=book,
+        chapter=chapter,
+        verse=verse,
+        part=part,
+        content=content,
+        verse_label=verse_label,
+        verse_range=verse_range,
+    )
+    session.add(row)
+    session.flush()
+    logger.debug(
+        "Inserted span translation=%s %s %s:%s part=%s seq=%s",
+        tid,
+        book,
+        chapter,
+        verse,
+        part,
+        seq,
+    )
+    return row
+
+
 def insert_partial_verse_span(
     session: Session,
     translation_id: str | UUID,
@@ -122,37 +174,16 @@ def insert_partial_verse_span(
     case needs an explicit part anchor (for example SIR ``36:13`` part ``a``).
     Commits are the caller's responsibility (pytest ``seeded_session`` rolls back).
     """
-    tid = UUID(str(translation_id))
-    if seq is None:
-        from sqlalchemy import func, select
-
-        current = session.scalar(
-            select(func.coalesce(func.max(VerseSpan.seq), -1)).where(
-                VerseSpan.translation_id == tid
-            )
-        )
-        seq = int(current) + 1
-    row = VerseSpan(
-        translation_id=tid,
-        seq=seq,
+    return insert_verse_span(
+        session,
+        translation_id,
         book=book,
         chapter=chapter,
         verse=verse,
         part=part,
         content=content,
+        seq=seq,
     )
-    session.add(row)
-    session.flush()
-    logger.debug(
-        "Inserted partial span translation=%s %s %s:%s part=%s seq=%s",
-        tid,
-        book,
-        chapter,
-        verse,
-        part,
-        seq,
-    )
-    return row
 
 
 def canonical_scheme_ids(api_client: TestClient) -> dict[str, str]:
