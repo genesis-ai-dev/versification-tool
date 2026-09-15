@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from frvt.api.errors import AppError
@@ -66,6 +66,30 @@ def require_scheme(session: Session, scheme_id: UUID) -> VersificationScheme:
     return scheme
 
 
+def _preferred_association(
+    session: Session, translation_id: UUID
+) -> TranslationVersification | None:
+    """Return the preferred association row for a translation, if one exists."""
+    logger.trace(  # type: ignore[attr-defined]
+        "Loading preferred association translation=%s", translation_id
+    )
+    return session.scalar(
+        select(TranslationVersification).where(
+            TranslationVersification.translation_id == translation_id,
+            TranslationVersification.preferred.is_(True),
+        )
+    )
+
+
+def _scheme_ref_from_scheme(scheme: VersificationScheme) -> SchemeRef:
+    """Build a ``SchemeRef`` from a loaded scheme row."""
+    return SchemeRef(
+        scheme_id=scheme.id,
+        based_on_id=scheme.based_on_id,
+        based_on_name=scheme.based_on_name,
+    )
+
+
 def selected_scheme_ref(
     session: Session,
     translation_id: UUID,
@@ -102,18 +126,9 @@ def selected_scheme_ref(
                 "Versification is not associated with the translation.",
                 code="conflict",
             )
-        return SchemeRef(
-            scheme_id=scheme.id,
-            based_on_id=scheme.based_on_id,
-            based_on_name=scheme.based_on_name,
-        )
+        return _scheme_ref_from_scheme(scheme)
 
-    preferred = session.scalar(
-        select(TranslationVersification).where(
-            TranslationVersification.translation_id == translation_id,
-            TranslationVersification.preferred.is_(True),
-        )
-    )
+    preferred = _preferred_association(session, translation_id)
     if preferred is None:
         raise AppError(
             409,
@@ -121,8 +136,54 @@ def selected_scheme_ref(
             code="conflict",
         )
     scheme = require_scheme(session, preferred.scheme_id)
-    return SchemeRef(
-        scheme_id=scheme.id,
-        based_on_id=scheme.based_on_id,
-        based_on_name=scheme.based_on_name,
+    return _scheme_ref_from_scheme(scheme)
+
+
+def org_scheme_ref(session: Session) -> SchemeRef:
+    """Load the canonical ``org`` versification scheme.
+
+    Looks up ``VersificationScheme``, not the similarly named anchor translation.
+    Raises ``AppError`` ``409 conflict`` when the canonical ``org`` scheme is
+    missing from the database.
+    """
+    logger.trace("Loading canonical org scheme")  # type: ignore[attr-defined]
+    scheme = session.scalar(
+        select(VersificationScheme).where(
+            func.lower(VersificationScheme.name) == "org",
+            VersificationScheme.canonical.is_(True),
+        )
     )
+    if scheme is None:
+        logger.error("Canonical org scheme is missing")
+        raise AppError(
+            409,
+            "Canonical org versification is missing.",
+            code="conflict",
+        )
+    return _scheme_ref_from_scheme(scheme)
+
+
+def batch_scheme_ref(
+    session: Session,
+    translation_id: UUID,
+    override_scheme_id: UUID | None,
+) -> SchemeRef:
+    """Select a scheme for batch resolve, falling back to canonical ``org``.
+
+    Differs from ``selected_scheme_ref`` only when no override is given and the
+    translation has no preferred association: existing coordinate endpoints still
+    raise ``409`` in that case, while batch endpoints must not fail the whole
+    request over a missing preferred scheme.
+    """
+    logger.debug(
+        "Selecting batch scheme for translation=%s override=%s",
+        translation_id,
+        override_scheme_id,
+    )
+    if override_scheme_id is not None:
+        return selected_scheme_ref(session, translation_id, override_scheme_id)
+    preferred = _preferred_association(session, translation_id)
+    if preferred is None:
+        return org_scheme_ref(session)
+    scheme = require_scheme(session, preferred.scheme_id)
+    return _scheme_ref_from_scheme(scheme)

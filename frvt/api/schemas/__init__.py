@@ -10,6 +10,9 @@ from uuid import UUID
 from pydantic import BaseModel, Field, StringConstraints, model_serializer
 from pydantic_core.core_schema import SerializerFunctionWrapHandler
 
+from frvt.api.errors import ErrorCode
+from frvt.api.scheme_select import MAX_LIMIT
+
 # Item type carried by the reusable paginated response envelope.
 PageItem = TypeVar("PageItem")
 # Trimmed, non-empty operator-provided metadata text.
@@ -217,6 +220,45 @@ class ResolveResult(BaseModel):
         return data
 
 
+class BatchResolveError(BaseModel):
+    """Per-member failure copied from the uniform error envelope."""
+
+    # Machine-readable code from the fixed vocabulary.
+    code: ErrorCode
+    # Human-readable explanation of why this member failed.
+    detail: str
+
+
+class BatchResolveEntry(BaseModel):
+    """One requested reference paired with either a resolve result or an error.
+
+    Exactly one of ``result`` / ``error`` is non-null. Both keys are always
+    present so clients can switch on a stable shape.
+    """
+
+    # Requested reference string, exactly as submitted or expanded.
+    ref: str
+    # Successful ``ResolveResult`` for this member; ``None`` when ``error`` is set.
+    result: ResolveResult | None = None
+    # Per-member failure; ``None`` when ``result`` is set.
+    error: BatchResolveError | None = None
+
+
+class BatchVerseRequest(BaseModel):
+    """JSON body for ``POST /api/resolve/verses``."""
+
+    # Source translation whose scheme (or override) numbers the requested refs.
+    from_translation: UUID
+    # Target translation to map into.
+    to_translation: UUID
+    # References in ``GET /api/resolve`` grammar, request order, 1–500 items.
+    refs: Annotated[list[str], Field(min_length=1, max_length=MAX_LIMIT)]
+    # Optional scheme override for the from side.
+    from_versification: UUID | None = None
+    # Optional scheme override for the to side.
+    to_versification: UUID | None = None
+
+
 class ChapterResolveOut(BaseModel):
     """Unique alignments for one drive chapter after emit-once dedupe."""
 
@@ -301,6 +343,19 @@ class Page(BaseModel, Generic[PageItem]):
     items: list[PageItem]
     # Total matching rows before pagination.
     total: int
+
+
+class BatchResolveOut(Page[BatchResolveEntry]):
+    """Paginated batch resolve result with the scheme ids actually used.
+
+    Lives after ``Page`` because a base-class expression is evaluated eagerly;
+    postponed annotations do not apply to subclassing.
+    """
+
+    # Scheme selected (override, preferred, or org fallback) on the from side.
+    from_versification: UUID
+    # Scheme selected (override, preferred, or org fallback) on the to side.
+    to_versification: UUID
 
 
 class ProjectIngestOut(BaseModel):
