@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from frvt.api.db import get_session
 from frvt.api.errors import AppError
+from frvt.api.indexing.invalidation import retarget_default_indexes
 from frvt.api.logging_config import get_logger
 from frvt.api.models import TranslationVersification
 from frvt.api.schemas import AssociationCreate, AssociationOut
@@ -87,6 +88,7 @@ def create_association(
     except IntegrityError as exc:
         logger.error("Association insert conflict", exc_info=True)
         raise AppError(409, "Scheme is already associated.", code="conflict") from exc
+    retarget_default_indexes(session, translation_id)
     return AssociationOut.model_validate(row)
 
 
@@ -124,6 +126,7 @@ def make_preferred(
     session.flush()
     assoc.preferred = True
     session.flush()
+    retarget_default_indexes(session, translation_id)
     return AssociationOut.model_validate(assoc)
 
 
@@ -152,3 +155,4 @@ def delete_association(
         )
     session.delete(assoc)
     session.flush()
+    retarget_default_indexes(session, translation_id)

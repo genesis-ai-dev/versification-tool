@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from frvt.api.errors import AppError
 from frvt.api.logging_config import get_logger
 from frvt.api.models import VerseSpan
-from frvt.api.ports.span_lookup import find_stored_span
+from frvt.api.ports.span_lookup import SpanFinder, db_span_finder
 from frvt.api.schemas import RelationType, ResolvedSpan, ResolveEdge, ResolveResult
 from frvt.api.scheme_select import require_translation, selected_scheme_ref
 from frvt.resolver import assemble
@@ -61,17 +61,16 @@ def _resolved_from_stored(
 
 
 def _enrich_span(
-    session: Session,
     translation_id: UUID,
     dto: ResolvedSpanDTO,
+    span_finder: SpanFinder,
 ) -> ResolvedSpan:
     """Map resolver coordinates onto stored spans, including combined milestones."""
     ref_range = parse_ref(dto.ref)
     book = ref_range.book
     chapter = ref_range.chapter
     verse = ref_range.verse_start
-    span = find_stored_span(
-        session,
+    span = span_finder(
         translation_id,
         book=book,
         chapter=chapter,
@@ -134,10 +133,10 @@ def _relation_after_dedupe(
 
 
 def _canonicalize_query_ref(
-    session: Session,
     translation_id: UUID,
     ref: str,
     part: str | None,
+    span_finder: SpanFinder,
 ) -> tuple[str, str | None]:
     """Rewrite a query ref to a combined-milestone anchor when coverage applies.
 
@@ -148,8 +147,7 @@ def _canonicalize_query_ref(
     ref_range = parse_ref(ref)
     if ref_range.verse_start != ref_range.verse_end:
         return ref, part
-    span = find_stored_span(
-        session,
+    span = span_finder(
         translation_id,
         book=ref_range.book,
         chapter=ref_range.chapter,
@@ -227,11 +225,13 @@ def resolve_single_with_path(
     ref: str,
     part: str | None,
     path: ResolvePath,
+    span_finder: SpanFinder | None = None,
 ) -> ResolveResult:
     """Resolve one reference using a precomputed hop path (no chain SQL).
 
     Raises ``AppError`` ``400`` for bad BCV grammar and ``422`` for unexpected
-    resolver ``LookupError`` during assemble.
+    resolver ``LookupError`` during assemble. ``span_finder`` defaults to a
+    per-call database lookup so the live path is unchanged.
     """
     source_scheme_id = path.source_hops[0].scheme_id if path.source_hops else None
     target_scheme_id = path.target_hops[0].scheme_id if path.target_hops else None
@@ -242,6 +242,7 @@ def resolve_single_with_path(
         source_scheme_id,
         target_scheme_id,
     )
+    finder = span_finder if span_finder is not None else db_span_finder(session)
     try:
         parse_ref(ref)
     except ReferenceError as exc:
@@ -249,10 +250,10 @@ def resolve_single_with_path(
         raise AppError(400, str(exc), code="bad_request") from exc
 
     resolve_ref, resolve_part = _canonicalize_query_ref(
-        session,
         from_translation,
         ref,
         part,
+        finder,
     )
 
     try:
@@ -275,7 +276,7 @@ def resolve_single_with_path(
         logger.error("Resolver LookupError", exc_info=True)
         raise AppError(422, str(exc), code="validation_failed") from exc
 
-    return _to_result(session, from_translation, to_translation, dto)
+    return _to_result(from_translation, to_translation, dto, finder)
 
 
 def resolve_single_with_schemes(
@@ -311,19 +312,19 @@ def resolve_single_with_schemes(
 
 
 def _to_result(
-    session: Session,
     source_translation: UUID,
     target_translation: UUID,
     dto: ResolutionDTO,
+    span_finder: SpanFinder,
 ) -> ResolveResult:
     """Map a resolver DTO onto the HTTP ``ResolveResult`` contract."""
     source_rel = RelationType(dto.source_rel) if dto.source_rel is not None else None
     target_rel = RelationType(dto.target_rel) if dto.target_rel is not None else None
     source_spans = _dedupe_enriched(
-        [_enrich_span(session, source_translation, s) for s in dto.source_spans]
+        [_enrich_span(source_translation, s, span_finder) for s in dto.source_spans]
     )
     target_spans = _dedupe_enriched(
-        [_enrich_span(session, target_translation, t) for t in dto.target_spans]
+        [_enrich_span(target_translation, t, span_finder) for t in dto.target_spans]
     )
     relation = _relation_after_dedupe(
         source_spans,

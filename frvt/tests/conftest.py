@@ -135,7 +135,7 @@ def seeded_session(canonical_seed: None, db_session: Session) -> Session:
 def api_client(seeded_session: Session) -> Generator[TestClient]:
     """TestClient with DB dependency overridden to the rollback session."""
     get_settings.cache_clear()
-    app = create_app(run_startup_seed=False)
+    app = create_app(run_startup_seed=False, run_index_worker=False)
 
     def _override_session() -> Generator[Session]:
         yield seeded_session

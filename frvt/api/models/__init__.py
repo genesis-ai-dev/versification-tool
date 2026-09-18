@@ -152,7 +152,7 @@ class VerseSpan(Base):
     verse: Mapped[int] = mapped_column(Integer, nullable=False)
     # Sub-verse part id when the span is partial; null for whole verses.
     part: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # USX display label for combined milestones (``1,2`` / ``1-2``); null for simple verses.
+    # Combined-milestone USX label (``1,2`` / ``1-2``); null for simple verses.
     verse_label: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Normalized ``parse_ref`` range for combined milestones; null for simple verses.
     verse_range: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -288,3 +288,152 @@ class MappingRecord(Base):
 
     # Parent scheme that owns this derived mapping row.
     scheme: Mapped[VersificationScheme] = relationship(back_populates="mapping_records")
+
+
+# Lifecycle values a ``translation_index`` row may hold, mirrored by the table's
+# check constraint. Kept as plain strings rather than a database enum so adding a
+# state later needs no type migration.
+INDEX_STATUS_PENDING = "pending"
+INDEX_STATUS_BUILDING = "building"
+INDEX_STATUS_READY = "ready"
+INDEX_STATUS_FAILED = "failed"
+INDEX_STATUS_CANCELLED = "cancelled"
+INDEX_STATUSES = (
+    INDEX_STATUS_PENDING,
+    INDEX_STATUS_BUILDING,
+    INDEX_STATUS_READY,
+    INDEX_STATUS_FAILED,
+    INDEX_STATUS_CANCELLED,
+)
+
+
+class TranslationIndex(Base):
+    """A translation/versification combination whose pairwise mappings are pre-created.
+
+    One row is both the configuration an operator manages and the queue entry the
+    background builder claims. Mapping rows are only consumed once ``status`` is
+    ``ready``; every other state falls back to resolving live, so a partial or
+    stale index is slow rather than wrong.
+    """
+
+    __tablename__ = "translation_index"
+    __table_args__ = (
+        UniqueConstraint(
+            "translation_id", "scheme_id", name="uq_translation_index_pair"
+        ),
+        CheckConstraint(
+            "status IN ('pending', 'building', 'ready', 'failed', 'cancelled')",
+            name="ck_translation_index_status",
+        ),
+        Index("ix_translation_index_status", "status", "requested_at"),
+    )
+
+    # Server-generated primary key, also the id mapping rows reference.
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    # Indexed translation; deleting it removes the index (acceptance criterion 3.2).
+    translation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("translation.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    # Indexed versification; deleting it removes the index too.
+    scheme_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("versification_scheme.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    # False when the versification was defaulted, which makes the index track the
+    # translation's preferred scheme instead of pinning the id it resolved to.
+    scheme_explicit: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
+    # Lifecycle state drawn from ``INDEX_STATUSES``.
+    status: Mapped[str] = mapped_column(
+        Text, nullable=False, default=INDEX_STATUS_PENDING
+    )
+    # Set by cancel/rebuild requests; the builder checks it between chunks.
+    cancel_requested: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
+    # Digest of everything the index depends on, recorded at the last good build.
+    content_fingerprint: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Why the index is queued, so status readers can tell a rebuild from a repair.
+    pending_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Non-fatal warnings from the last build, such as a pair with no shared ancestor.
+    build_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Failure detail; set only alongside ``failed``.
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Ordered pairs this build must materialize (two per other ready index).
+    pairs_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Ordered pairs finished so far, advanced as the build commits chunks.
+    pairs_completed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # When the current build was requested; also the queue's ordering key.
+    requested_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    # When the worker claimed the row; null while pending.
+    started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # When the last build finished successfully; null until one does.
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # Creation timestamp maintained by the database default.
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    # Last-update timestamp refreshed on write.
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class IndexMapping(Base):
+    """One pre-created resolve result for an ordered index pair and source verse.
+
+    Deliberately carries **no** foreign key to ``translation_index``. At the
+    documented scale a single index owns hundreds of thousands of rows, and a
+    cascading delete would run inside the HTTP request that removed the index or
+    its translation. Rows are instead orphaned by a delete and reclaimed in chunks
+    by the background worker; until then they are unreachable, because a reader
+    only ever looks up ids of indexes that still exist and are ``ready``.
+    """
+
+    __tablename__ = "index_mapping"
+    __table_args__ = (Index("ix_index_mapping_target", "target_index_id"),)
+
+    # Index whose translation the verse is being mapped from.
+    source_index_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True
+    )
+    # Index whose translation the verse is being mapped to.
+    target_index_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True
+    )
+    # Normalized ``BOOK C:V`` key produced by the shared index-key helper.
+    source_ref: Mapped[str] = mapped_column(Text, primary_key=True)
+    # Serialized ``ResolveResult`` identical to what the live path would return.
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+
+
+class IndexReclaim(Base):
+    """A deleted index whose mapping rows are still awaiting chunked cleanup.
+
+    Written by whatever removed the index, so the worker knows which orphaned rows
+    to free without scanning the whole mapping table.
+    """
+
+    __tablename__ = "index_reclaim"
+
+    # Id of the index that was removed; matches orphaned ``index_mapping`` rows.
+    index_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    # When reclamation was queued, for operator visibility into cleanup lag.
+    requested_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )

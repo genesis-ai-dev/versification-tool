@@ -31,43 +31,44 @@ def _stored_span(*, seq: int) -> MagicMock:
     return row
 
 
+@pytest.mark.phase6
 @pytest.mark.resolve
-def test_enrich_span_falls_back_to_whole_verse_when_part_row_missing() -> None:
-    """Part-bearing resolves attach the whole-verse seq when USX has part=null."""
-    session = MagicMock()
-    session.scalar.side_effect = [None, _stored_span(seq=42)]
+def test_enrich_span_copies_stored_seq_and_part() -> None:
+    """A finder hit supplies seq while the DTO's part is preserved."""
+    translation_id = uuid4()
+    finder = MagicMock(return_value=_stored_span(seq=42))
 
     with patch("frvt.api.ports.resolver_port.parse_ref") as parse_ref:
         parse_ref.return_value = MagicMock(book="GEN", chapter=1, verse_start=1)
         result = _enrich_span(
-            session,
-            uuid4(),
+            translation_id,
             ResolvedSpanDTO(ref="GEN 1:1", part="a"),
+            finder,
         )
 
     assert result.seq == 42
     assert result.part == "a"
     assert result.ref == "GEN 1:1"
-    assert session.scalar.call_count == 2
+    finder.assert_called_once()
 
 
+@pytest.mark.phase6
 @pytest.mark.resolve
-def test_enrich_span_uses_part_row_when_present() -> None:
-    """Prefer an exact part-bearing verse_span when one exists."""
-    session = MagicMock()
-    session.scalar.return_value = _stored_span(seq=7)
+def test_enrich_span_uses_bare_coordinates_when_missing() -> None:
+    """A finder miss still returns structured coordinates without a stored seq."""
+    finder = MagicMock(return_value=None)
 
     with patch("frvt.api.ports.resolver_port.parse_ref") as parse_ref:
         parse_ref.return_value = MagicMock(book="GEN", chapter=1, verse_start=1)
         result = _enrich_span(
-            session,
             uuid4(),
-            ResolvedSpanDTO(ref="GEN 1:1", part="a"),
+            ResolvedSpanDTO(ref="GEN 1:1", part=None),
+            finder,
         )
 
-    assert result.seq == 7
-    assert result.part == "a"
-    assert session.scalar.call_count == 1
+    assert result.seq is None
+    assert result.book == "GEN"
+    assert result.verse == 1
 
 
 def _canonical_scheme_ref(session: Session, name: str) -> tuple[SchemeRef, Translation]:

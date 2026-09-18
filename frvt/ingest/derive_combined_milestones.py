@@ -32,11 +32,11 @@ def apply_combined_milestone_splits(
     session: Session,
     based_on_translation_id: UUID,
 ) -> dict[str, Any]:
-    """Return ``ingredient`` with ``splitVerses`` rows for combined spans when basedOn allows.
+    """Return ``ingredient`` with ``splitVerses`` for combined spans.
 
-    Each combined milestone that maps to discrete ``basedOn`` spans receives
-    ``mappedVerses[anchor] = verse_range`` and ``splitVerses += anchor``. Existing
-    VRS keys are never overwritten.
+    Combined milestones that map to discrete ``basedOn`` spans receive
+    ``mappedVerses[anchor] = verse_range`` and ``splitVerses += anchor``.
+    Existing VRS keys are never overwritten.
     """
     logger.debug("Applying combined milestone splits for %s spans", len(spans))
     mapped: dict[str, str] = dict(ingredient.get("mappedVerses") or {})
@@ -63,7 +63,9 @@ def apply_combined_milestone_splits(
         try:
             milestone_range = parse_ref(range_ref)
         except ReferenceError:
-            logger.error("Skipping unparseable verse_range %s", range_ref, exc_info=True)
+            logger.error(
+                "Skipping unparseable verse_range %s", range_ref, exc_info=True
+            )
             continue
         if len(expand(milestone_range)) <= 1:
             continue

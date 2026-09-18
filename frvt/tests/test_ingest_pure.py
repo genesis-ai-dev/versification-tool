@@ -237,7 +237,9 @@ def test_combined_split_projects_through_covering_vrs_range() -> None:
     scheme = ParsedScheme(
         name="mari", based_on="org", canonical=False, ingredient=updated
     )
-    split = next(row for row in derive_mapping_records(scheme) if row.relation == "split")
+    split = next(
+        row for row in derive_mapping_records(scheme) if row.relation == "split"
+    )
     assert split.source_ref == "ROM 14:24"
     assert split.base_ref == "ROM 16:25-26"
 

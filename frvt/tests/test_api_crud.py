@@ -426,12 +426,12 @@ def test_delete_translation_removes_coupled_preferred_scheme(
     scheme_id = body["versification"]["id"]
     assert body["translation"]["name"].lower() == body["versification"]["name"].lower()
 
-    response = api_client.delete(
-        f"/api/translations/{translation_id}", headers=headers
-    )
+    response = api_client.delete(f"/api/translations/{translation_id}", headers=headers)
     assert response.status_code == 204
     assert (
-        api_client.get(f"/api/translations/{translation_id}", headers=headers).status_code
+        api_client.get(
+            f"/api/translations/{translation_id}", headers=headers
+        ).status_code
         == 404
     )
     assert (
@@ -457,9 +457,7 @@ def test_delete_translation_preserves_differently_named_preferred_scheme(
     )
     assert renamed.status_code == 200
 
-    response = api_client.delete(
-        f"/api/translations/{translation_id}", headers=headers
-    )
+    response = api_client.delete(f"/api/translations/{translation_id}", headers=headers)
     assert response.status_code == 204
     assert (
         api_client.get(f"/api/versifications/{scheme_id}", headers=headers).status_code

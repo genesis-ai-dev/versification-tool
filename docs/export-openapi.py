@@ -105,7 +105,7 @@ def _patch_live_error_envelope(spec: dict) -> None:
 
 def _spec_with_integrator_metadata() -> dict:
     """Return the generated OpenAPI document plus integrator-facing additions."""
-    app = create_app(run_startup_seed=False)
+    app = create_app(run_startup_seed=False, run_index_worker=False)
     spec = app.openapi()
     spec["info"]["description"] = (
         "HTTP API for the FRVT versification viewer. Every path requires HTTP Basic. "
@@ -146,6 +146,10 @@ def _spec_with_integrator_metadata() -> dict:
         {
             "name": "resolve",
             "description": "Map verses between two translations' selected schemes.",
+        },
+        {
+            "name": "indexes",
+            "description": "Precomputed pairwise mappings between translations.",
         },
         {
             "name": "navigation",

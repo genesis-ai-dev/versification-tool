@@ -17,11 +17,11 @@ def coupled_preferred_scheme_id(
     session: Session,
     translation: Translation,
 ) -> UUID | None:
-    """Return the preferred scheme id to delete with ``translation``, when tightly coupled.
+    """Return the preferred scheme id to delete with ``translation``.
 
-    A scheme is deleted only when it is this translation's preferred association,
-    its name matches the translation name (case-insensitive), and no other
-    translation is associated with the same scheme.
+    A scheme is deleted only when it is tightly coupled: this translation's
+    preferred association, its name matches the translation name
+    (case-insensitive), and no other translation is associated with it.
     """
     logger.trace(  # type: ignore[attr-defined]
         "Checking coupled preferred scheme for translation=%s name=%s",
