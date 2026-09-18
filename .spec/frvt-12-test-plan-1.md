@@ -5,7 +5,7 @@
 **Related:**
 
 - [frvt-12-acceptance-criteria-1.md](./frvt-12-acceptance-criteria-1.md)
-- Product API spec for indexes — **not yet authored**; until it exists, this plan’s provisional routes and field names are working assumptions (see [§11](#11-open-items)). The product spec wins when published.
+- Product API spec: [frvt-12-translation-index-api-spec-1.md](./frvt-12-translation-index-api-spec-1.md) (authoritative for routes and fields)
 - [frvt-8-batch-mapping-api-spec-1.md](./completed/frvt-8-batch-mapping-api-spec-1.md) (batch routes that must consume indexes when ready)
 - [frvt-3-http-api-spec-1.md](./completed/frvt-3-http-api-spec-1.md) (inherited Basic auth, error envelope, pagination)
 - [docs/api.md](../docs/api.md) (live HTTP surface for non-index routes)
@@ -47,21 +47,22 @@ Happy-path **manual verification** of the translation-index feature: CRUD for tr
 | Canonical schemes | `GET /api/versifications?canonical=true` | `org` / `eng`; org **translation** id is `eng.based_on_id` |
 | Batch oracle | `GET /api/resolve/range`, `POST /api/resolve/verses` | Same pair before indexes are ready vs after; compare `items[].ref` / `result` (not only latency) |
 
-### Provisional route map (working assumptions)
+### Route map
 
-Replace with product-spec paths when available. Logical operations must remain covered even if names change.
-
-| Operation | Provisional HTTP |
+| Operation | HTTP |
 | --- | --- |
 | List indexes | `GET /api/indexes` |
 | Create index | `POST /api/indexes` body `{ "translation_id": "<uuid>", "versification_id"?: "<uuid>" }` |
+| Usage | `GET /api/indexes/usage` |
 | Get index | `GET /api/indexes/{index_id}` |
+| Change versification | `PATCH /api/indexes/{index_id}` body `{ "versification_id": "<uuid>" }` |
 | Delete index | `DELETE /api/indexes/{index_id}` |
 | Manual rebuild | `POST /api/indexes/{index_id}/rebuild` |
-| Manual terminate | `POST /api/indexes/{index_id}/terminate` |
-| Status / resources | Embedded on get/list **or** dedicated sub-resources — product spec decides; testers assert the fields exist on the documented surface |
+| Manual terminate | `POST /api/indexes/{index_id}/cancel` |
 
-**Illustrative status vocabulary** (names may differ): `pending` → `building` → `ready` (success path); `terminating` / `failed` as needed. Poll get/list until terminal for the case under test; do not sleep fixed long intervals without a status check.
+Status vocabulary: `pending` → `building` → `ready` (success path); `failed` / `cancelled` as needed. Resource metrics on the index are `outbound_mappings` / `inbound_mappings`; aggregate usage is `GET /api/indexes/usage`. Poll get until terminal for the case under test; do not sleep fixed long intervals without a status check.
+
+Companion: [`.test/scripts/run-frvt-12-test-plan.sh`](../.test/scripts/run-frvt-12-test-plan.sh).
 
 ### Coverage patterns
 
@@ -513,7 +514,7 @@ Run after enabling flows. Default persona: Basic user (`AUTH_VIEWER`). Where sta
 
 ### TC-MANUAL-02 — Manual terminate during build; safe with automatic work
 
-**API:** `POST .../terminate`, create/delete  
+**API:** `POST .../cancel`, create/delete  
 **Acceptance criteria:** AC-2.2.2; AC-2.1.1  
 
 | | |
@@ -522,10 +523,10 @@ Run after enabling flows. Default persona: Basic user (`AUTH_VIEWER`). Where sta
 
 **Steps**
 
-1. Create an index; while building, `POST` terminate.
-2. Confirm status becomes a terminated/cancelled terminal (or the row is removed — per product spec).
-3. Create the same translation’s index again (or rebuild if the row remains); confirm progress to ready.
-4. Overlap check: start rebuild, then terminate; optionally delete while terminating — API must not `500`; final state is coherent (gone or terminal cancelled, not half-ready).
+1. Create an index; while building, `POST` cancel.
+2. Confirm status becomes `cancelled` (row remains).
+3. Rebuild; confirm progress to ready.
+4. Overlap check: start rebuild, then cancel; optionally delete while cancelling — API must not `500`; final state is coherent (`cancelled` or gone, not half-ready).
 
 **Expected outcomes**
 
@@ -670,14 +671,14 @@ One case per essential failure class. Full matrices stay in automated tests once
 
 | # | Outcome |
 | --- | --- |
-| E1 | Either `409` `conflict`, or idempotent `200`/`201` returning the existing id — **exactly one** behavior, locked by the product spec |
+| E1 | `409` `conflict` |
 | E2 | Must not create two distinct ready rows for the identical pair |
 
 ---
 
-### TC-NEG-05 — Manual rebuild/terminate on unknown id is 404
+### TC-NEG-05 — Manual rebuild/cancel on unknown id is 404
 
-**API:** rebuild / terminate  
+**API:** rebuild / cancel  
 
 | | |
 | --- | --- |
@@ -685,7 +686,7 @@ One case per essential failure class. Full matrices stay in automated tests once
 
 **Steps**
 
-1. Rebuild and terminate with a random index UUID.
+1. Rebuild and cancel with a random index UUID.
 
 **Expected outcomes**
 
@@ -750,15 +751,14 @@ Story AC are on case headers in §6–8 and the legend in §3.
 
 ## 11. Open items
 
-Listed items do **not** block drafting the plan; several **do** block executable curls until a product API spec exists.
+Listed items do **not** block drafting the plan.
 
 | Item | Type | Handling |
 | --- | --- | --- |
-| No product API spec for indexes yet | Blocker for path/field lock | Provisional `/api/indexes` map in §1; rewrite steps when the spec ships; spec wins |
-| Status enum and resource payload shape unspecified | Assumption | Illustrative JSON in §3; assert documented equivalents |
-| Which translation/versification updates invalidate an index | Assumption | TC-AUTO-04 defers to product spec |
-| Duplicate create behavior (409 vs idempotent) | Assumption | TC-NEG-04 allows either until locked |
+| Status enum and resource payload | Locked | `pending`/`building`/`ready`/`failed`/`cancelled`; `outbound_mappings`/`inbound_mappings` plus `GET /api/indexes/usage` |
+| Which translation/versification updates invalidate an index | Locked | Rename/language on a translation; rename or mapping rebuild on a versification; fingerprint sweep for chain changes |
+| Duplicate create behavior | Locked | `409` `conflict` |
 | AC-1 scale ceilings (12 translations / ~5% divergence) | Out of scope | Operational note; not Local checklist items |
 | AC-5 AWS “typical deployment” | Environment | TC-PERF-01 required for AC-5; Local times are informational |
-| Companion shell script | Optional follow-up | FRVT-8 pattern (`.test/scripts/run-frvt-*-test-plan.sh`) after routes stabilize |
+| Companion shell script | Done | [`.test/scripts/run-frvt-12-test-plan.sh`](../.test/scripts/run-frvt-12-test-plan.sh) |
 | Automated pytest matrix | Deferred | Prefer happy paths + essential failures per testing standards once implemented |
