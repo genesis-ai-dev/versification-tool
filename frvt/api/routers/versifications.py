@@ -11,6 +11,10 @@ from sqlalchemy.orm import Session
 
 from frvt.api.db import get_session
 from frvt.api.errors import AppError
+from frvt.api.indexing.invalidation import (
+    drop_indexes_for_scheme,
+    invalidate_for_scheme,
+)
 from frvt.api.logging_config import get_logger
 from frvt.api.models import Translation, TranslationVersification, VersificationScheme
 from frvt.api.schemas import (
@@ -106,6 +110,7 @@ def update_versification(
     if body.name is not None:
         row.name = body.name
     session.flush()
+    invalidate_for_scheme(session, scheme_id, reason="versification updated")
     return VersificationOut.model_validate(row)
 
 
@@ -128,6 +133,7 @@ def delete_versification(
             "Versification is still associated with a translation.",
             code="conflict",
         )
+    drop_indexes_for_scheme(session, scheme_id)
     try:
         session.delete(row)
         session.flush()

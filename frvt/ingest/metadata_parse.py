@@ -68,7 +68,9 @@ def parse_dbl_metadata(xml_text: str) -> ProjectMetadata:
             language_el = node
 
     translation_name = (
-        _text_content(identification_el, "name") if identification_el is not None else None
+        _text_content(identification_el, "name")
+        if identification_el is not None
+        else None
     )
 
     language_code: str | None = None

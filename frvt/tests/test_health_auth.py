@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 def client() -> TestClient:
     """Build a TestClient against a fresh app instance (no startup seed)."""
     get_settings.cache_clear()
-    return TestClient(create_app(run_startup_seed=False))
+    return TestClient(create_app(run_startup_seed=False, run_index_worker=False))
 
 
 @pytest.mark.phase1

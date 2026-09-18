@@ -13,7 +13,10 @@ _USX_VERSE_NUMBER = re.compile(r"^\d+(?:[,\-]\d+)*$")
 
 
 def parse_usx_verse_number(number: str) -> list[int] | None:
-    """Return verse integers from a USX milestone ``number``, or ``None`` when unsupported."""
+    """Return verse integers from a USX milestone ``number``.
+
+    Returns ``None`` when the number is unsupported.
+    """
     if not _USX_VERSE_NUMBER.match(number):
         logger.debug("Unsupported USX verse number %s", number)
         return None

@@ -23,6 +23,7 @@ Internal design notes live under `.spec/`. If this file and a `.spec` catalog di
 - [Ingest and upload](#ingest-and-upload)
 - [Resolve](#resolve)
 - [Batch mapping](#batch-mapping)
+- [Indexes](#indexes)
 - [Navigation and jump menu](#navigation-and-jump-menu)
 - [Resource shapes](#resource-shapes)
 - [OpenAPI notes](#openapi-notes)
@@ -38,7 +39,7 @@ JSON application routes live under `/api` and use `Content-Type: application/jso
 
 Every `GET` also accepts `HEAD` with the same query parameters, auth, and status codes, and an empty body. An unsupported method on a registered path returns `405` with `code: "bad_request"`.
 
-Path parameters `{translation_id}` and `{scheme_id}` are UUIDs. A malformed UUID is `422 validation_failed`.
+Path parameters `{translation_id}`, `{scheme_id}`, and `{index_id}` are UUIDs. A malformed UUID is `422 validation_failed`.
 
 ---
 
@@ -106,7 +107,7 @@ Success body:
 
 `total` is the match count **before** the page slice.
 
-Paginated: `GET /api/translations`, `GET /api/translations/{id}/spans`, `GET /api/versifications`, `GET /api/resolve/deltas`, `GET /api/resolve/misalignments`, `GET /api/resolve/jump-menu` (both inner lists), `GET /api/resolve/range`.
+Paginated: `GET /api/translations`, `GET /api/translations/{id}/spans`, `GET /api/versifications`, `GET /api/indexes`, `GET /api/resolve/deltas`, `GET /api/resolve/misalignments`, `GET /api/resolve/jump-menu` (both inner lists), `GET /api/resolve/range`.
 
 Not paginated: association lists and `GET /api/translations/{id}/navigation` return a bare JSON array. `GET /api/resolve/chapter` uses `{items, total}` but has no `limit`/`offset`; `total` equals `len(items)` after emit-once dedupe. `POST /api/resolve/verses` is not paged; the caller already controls the list (`refs` length 1–500).
 
@@ -209,6 +210,14 @@ curl -sS -u "$AUTH" -G "$BASE/api/resolve" \
 | `GET` | `/api/resolve/chapter` | `200` chapter alignments |
 | `GET` | `/api/resolve/range` | `200` `BatchResolveOut` |
 | `POST` | `/api/resolve/verses` | `200` `BatchResolveOut` |
+| `GET` | `/api/indexes` | `200` page of indexes |
+| `POST` | `/api/indexes` | `201` `IndexOut` |
+| `GET` | `/api/indexes/usage` | `200` `IndexUsageOut` |
+| `GET` | `/api/indexes/{index_id}` | `200` `IndexOut` |
+| `PATCH` | `/api/indexes/{index_id}` | `200` `IndexOut` |
+| `DELETE` | `/api/indexes/{index_id}` | `204` |
+| `POST` | `/api/indexes/{index_id}/rebuild` | `202` `IndexOut` |
+| `POST` | `/api/indexes/{index_id}/cancel` | `202` `IndexOut` |
 | `GET` | `/api/resolve/deltas` | `200` page of deltas |
 | `GET` | `/api/resolve/misalignments` | `200` page of misalignments |
 | `GET` | `/api/resolve/jump-menu` | `200` both lists, shared paging |
@@ -373,7 +382,7 @@ Enumerates distinct whole-verse numbers from **stored spans** of `from_translati
 
 ## Batch mapping
 
-Two routes for integrators who need many verses in one round trip. Scheme chains are built **once per request**. Span enrichment still queries per verse; keep the default page size (`100`) for interactive callers. `LOG_LEVEL` defaults to `DEBUG` and a 500-verse page emits a large log.
+Two routes for integrators who need many verses in one round trip. Scheme chains are built **once per request**. When both sides have a **ready** translation index for the selected versifications, stored `ResolveResult` payloads replace per-verse chain walking; `index_used` is `true` on the response. Otherwise the live path runs. `LOG_LEVEL` defaults to `DEBUG` and a 500-verse live page emits a large log.
 
 There is no emit-once dedupe. Duplicate requested refs produce duplicate entries.
 
@@ -392,11 +401,12 @@ Shared success body (`BatchResolveOut`):
   ],
   "total": 1,
   "from_versification": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-  "to_versification": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+  "to_versification": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+  "index_used": false
 }
 ```
 
-Exactly one of `result` / `error` is non-null; both keys are always present. Member `error` is `{ "code": "<ErrorCode>", "detail": "..." }` (no `errors` array). Request-level failures still use the usual envelope.
+Exactly one of `result` / `error` is non-null; both keys are always present. Member `error` is `{ "code": "<ErrorCode>", "detail": "..." }` (no `errors` array). Request-level failures still use the usual envelope. `index_used` is `true` when a ready index pair was consulted for the request; per-entry fallback (for example a range ref such as `GEN 1:1-3`) is not distinguished.
 
 ### `GET /api/resolve/range`
 
@@ -462,6 +472,48 @@ curl -sS -u "$AUTH" -H 'Content-Type: application/json' \
 
 ---
 
+## Indexes
+
+An index is a translation plus a versification whose pairwise mappings against every other index are pre-created. Building is asynchronous. `DELETE` returns immediately; mapping rows are reclaimed in the background.
+
+Versification is optional on create: preferred scheme if present, otherwise canonical `org`. Defaulted indexes (`versification_explicit: false`) retarget when the translation's preferred scheme changes.
+
+Status values: `pending`, `building`, `ready`, `failed`, `cancelled`. The batch mapping routes consult a pair only when **both** indexes are `ready`.
+
+### `GET /api/indexes`
+
+Query: `limit`, `offset`. Ordered by `created_at`.
+
+### `POST /api/indexes`
+
+Body: `translation_id` (required uuid), `versification_id` (optional uuid). `201` with `status: pending`. `409` if that translation/versification pair is already indexed. `404` if the translation or override scheme is missing. `409` if an explicit scheme is not associated with the translation.
+
+### `GET /api/indexes/usage`
+
+Aggregate `{total_indexes, ready_indexes, mapping_rows, mapping_bytes, reclaim_pending}`. Declared as a fixed path so `usage` is never parsed as an id.
+
+### `GET /api/indexes/{index_id}`
+
+Includes `outbound_mappings` / `inbound_mappings` (two count queries) plus progress (`pairs_total`, `pairs_completed`) and `pending_reason` / `build_notes` / `last_error`.
+
+### `PATCH /api/indexes/{index_id}`
+
+Body: `{ "versification_id": "<uuid>" }`. Pins the index as explicit and queues a rebuild. `409` on collision with an existing pair.
+
+### `DELETE /api/indexes/{index_id}`
+
+`204`. Mapping rows are reclaimed asynchronously.
+
+### `POST /api/indexes/{index_id}/rebuild`
+
+`202`. Legal from any status.
+
+### `POST /api/indexes/{index_id}/cancel`
+
+`202` from `pending` or `building`. `409` otherwise.
+
+---
+
 ## Navigation and jump menu
 
 Jump endpoints (`deltas`, `misalignments`, `jump-menu`, `jump-books`) share one filtered mapping set: scheme-difference rows (not `one_to_one`), cancel filtering (identity loci omitted), unreachable-target filtering (resolved target book has no stored spans on the to-translation; excludes are kept), then reciprocal rows from the counterpart direction. Ordered by from-side starting BCV. Pagination applies to that filtered list. Resolve failures during filtering do not drop entries.
@@ -502,7 +554,9 @@ Field types match `frvt.api.schemas`. Null means JSON `null`.
 
 **`AssociationOut`:** `id`, `translation_id`, `scheme_id`, `preferred`.
 
-**`BatchResolveEntry`:** `ref`, `result` (`ResolveResult` or `null`), `error` (`{code, detail}` or `null`). **`BatchResolveOut`:** `items`, `total`, `from_versification`, `to_versification` (scheme ids actually used).
+**`BatchResolveEntry`:** `ref`, `result` (`ResolveResult` or `null`), `error` (`{code, detail}` or `null`). **`BatchResolveOut`:** `items`, `total`, `from_versification`, `to_versification` (scheme ids actually used), `index_used`.
+
+**`IndexOut`:** `id`, `translation_id`, `versification_id`, `versification_explicit`, `status`, `pending_reason`, `build_notes`, `last_error`, `pairs_total`, `pairs_completed`, `outbound_mappings`, `inbound_mappings`, `requested_at`, `started_at`, `completed_at`. **`IndexUsageOut`:** `total_indexes`, `ready_indexes`, `mapping_rows`, `mapping_bytes`, `reclaim_pending`.
 
 **`ResolvedSpan`:** `ref` (single-verse BCV, never a range or part suffix), `book`, `chapter`, `verse`, `seq`, `part`, `verse_label`, `verse_range`.
 
@@ -545,3 +599,8 @@ PYTHONPATH=. frvt/.venv/bin/python docs/export-openapi.py
 | `POSTGRES_*` / `DATABASE_URL` | Compose defaults | Health `503` when unreachable. `DATABASE_URL` overrides the discrete `POSTGRES_*` pieces. |
 | `LOG_LEVEL` | `DEBUG` | Batch resolve is noisy at DEBUG |
 | `RESOLVE_TRACE_PIVOTS` | `false` | TRACE logs only; response bodies unchanged |
+| `INDEX_WORKER_ENABLED` | `true` | In-process index builder thread |
+| `INDEX_WORKER_POLL_SECONDS` | `5` | Idle poll interval |
+| `INDEX_BUILD_CHUNK_SIZE` | `500` | Refs per build commit |
+| `INDEX_FINGERPRINT_SWEEP_SECONDS` | `300` | Staleness sweep interval |
+| `INDEX_RECLAIM_CHUNK_SIZE` | `10000` | Mapping rows deleted per reclaim commit |
