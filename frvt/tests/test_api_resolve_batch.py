@@ -72,6 +72,7 @@ def test_range_happy_path_one_chapter(
     assert len(body["items"]) == body["total"]
     assert body["from_versification"] == eng_org["eng_id"]
     assert body["to_versification"] == eng_org["org_id"]
+    assert body["index_used"] is False
     assert body["items"][0]["ref"].startswith("JHN 3:")
     assert body["items"][0]["result"] is not None
     assert body["items"][0]["error"] is None
@@ -124,6 +125,7 @@ def test_verses_happy_path(api_client: TestClient, eng_org: dict[str, str]) -> N
     assert [item["ref"] for item in body["items"]] == refs
     assert body["from_versification"] == eng_org["eng_id"]
     assert body["to_versification"] == eng_org["org_id"]
+    assert body["index_used"] is False
 
 
 @pytest.mark.phase4

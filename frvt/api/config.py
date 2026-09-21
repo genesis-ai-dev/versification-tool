@@ -78,6 +78,22 @@ class Settings(BaseSettings):
     log_level: str = Field(default="DEBUG", alias="LOG_LEVEL")
     # When true, the resolver logs composite pivot/hop diagnostics at TRACE.
     resolve_trace_pivots: bool = Field(default=False, alias="RESOLVE_TRACE_PIVOTS")
+    # Master switch for the in-process index builder thread.
+    index_worker_enabled: bool = Field(default=True, alias="INDEX_WORKER_ENABLED")
+    # Idle sleep between queue polls when the builder has nothing to do.
+    index_worker_poll_seconds: float = Field(
+        default=5.0, alias="INDEX_WORKER_POLL_SECONDS"
+    )
+    # Refs written per commit, and the interval at which cancel is checked.
+    index_build_chunk_size: int = Field(default=500, alias="INDEX_BUILD_CHUNK_SIZE")
+    # Minimum seconds between fingerprint sweeps of ready indexes.
+    index_fingerprint_sweep_seconds: float = Field(
+        default=300.0, alias="INDEX_FINGERPRINT_SWEEP_SECONDS"
+    )
+    # Mapping rows deleted per reclaim commit.
+    index_reclaim_chunk_size: int = Field(
+        default=10000, alias="INDEX_RECLAIM_CHUNK_SIZE"
+    )
 
     @computed_field  # type: ignore[prop-decorator]
     @property

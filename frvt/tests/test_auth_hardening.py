@@ -47,7 +47,9 @@ def auth_client_factory(
         for key, value in (env or {}).items():
             monkeypatch.setenv(key, value)
         get_settings.cache_clear()
-        return TestClient(create_app(run_startup_seed=False, clock=clock))
+        return TestClient(
+            create_app(run_startup_seed=False, run_index_worker=False, clock=clock)
+        )
 
     yield _factory
     get_settings.cache_clear()

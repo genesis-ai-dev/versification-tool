@@ -9,6 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from frvt.api.errors import AppError
+from frvt.api.indexing.keys import index_key
+from frvt.api.indexing.lookup import IndexedPair, find_ready_pair, load_payloads
 from frvt.api.logging_config import get_logger
 from frvt.api.models import VerseSpan
 from frvt.api.ports.resolver_port import (
@@ -28,7 +30,7 @@ from frvt.api.scheme_select import (
     require_translation,
 )
 from frvt.api.usx_book_order import usx_book_sort_key
-from frvt.api.verse_range import range_window, verse_key
+from frvt.api.verse_range import VerseRangeWindow, range_window, verse_key
 from frvt.resolver.parse_ref import parse_ref
 from frvt.resolver.types import SchemeRef
 
@@ -47,6 +49,66 @@ class BatchTarget:
     from_versification: UUID | None = None
     # Optional to-side scheme override; ``None`` means preferred then org.
     to_versification: UUID | None = None
+
+
+def stored_verse_refs(
+    session: Session,
+    translation_id: UUID,
+    *,
+    window: VerseRangeWindow | None = None,
+) -> list[str]:
+    """Return ordered whole-verse ``BOOK C:V`` strings stored for the translation.
+
+    Combined-milestone constituents from ``verse_range`` are included. When
+    ``window`` is omitted the full stored set is returned; otherwise the closed
+    interval is applied the same way ``GET /api/resolve/range`` applies it.
+    """
+    logger.trace(  # type: ignore[attr-defined]
+        "Listing stored verse refs translation=%s window=%s",
+        translation_id,
+        window is not None,
+    )
+    filters = [
+        VerseSpan.translation_id == translation_id,
+        VerseSpan.part.is_(None),
+    ]
+    if window is not None:
+        filters.append(VerseSpan.book.in_(window.books))
+    stmt = select(
+        VerseSpan.book,
+        VerseSpan.chapter,
+        VerseSpan.verse,
+        VerseSpan.verse_range,
+    ).where(*filters)
+    covered: set[tuple[str, int, int]] = set()
+    for book, chapter, verse, stored_range in session.execute(stmt).all():
+        covered.add((book, chapter, verse))
+        if stored_range is None:
+            continue
+        try:
+            parsed = parse_ref(stored_range)
+        except ReferenceError:
+            logger.error(
+                "Skipping malformed verse_range %r at %s %s:%s",
+                stored_range,
+                book,
+                chapter,
+                verse,
+                exc_info=True,
+            )
+            continue
+        for member in range(parsed.verse_start, parsed.verse_end + 1):
+            covered.add((parsed.book, parsed.chapter, member))
+    if window is None:
+        inside = list(covered)
+    else:
+        inside = [
+            coord
+            for coord in covered
+            if window.lower <= verse_key(*coord) <= window.upper
+        ]
+    inside.sort(key=lambda coord: (usx_book_sort_key(coord[0]), coord[1], coord[2]))
+    return [f"{book} {chapter}:{verse}" for book, chapter, verse in inside]
 
 
 def expand_stored_range(
@@ -74,41 +136,9 @@ def expand_stored_range(
         from_ref,
         to_ref,
     )
-    window = range_window(from_ref, to_ref)
-    stmt = select(
-        VerseSpan.book,
-        VerseSpan.chapter,
-        VerseSpan.verse,
-        VerseSpan.verse_range,
-    ).where(
-        VerseSpan.translation_id == translation_id,
-        VerseSpan.book.in_(window.books),
-        VerseSpan.part.is_(None),
+    return stored_verse_refs(
+        session, translation_id, window=range_window(from_ref, to_ref)
     )
-    covered: set[tuple[str, int, int]] = set()
-    for book, chapter, verse, stored_range in session.execute(stmt).all():
-        covered.add((book, chapter, verse))
-        if stored_range is None:
-            continue
-        try:
-            parsed = parse_ref(stored_range)
-        except ReferenceError:
-            logger.error(
-                "Skipping malformed verse_range %r at %s %s:%s",
-                stored_range,
-                book,
-                chapter,
-                verse,
-                exc_info=True,
-            )
-            continue
-        for member in range(parsed.verse_start, parsed.verse_end + 1):
-            covered.add((parsed.book, parsed.chapter, member))
-    inside = [
-        coord for coord in covered if window.lower <= verse_key(*coord) <= window.upper
-    ]
-    inside.sort(key=lambda coord: (usx_book_sort_key(coord[0]), coord[1], coord[2]))
-    return [f"{book} {chapter}:{verse}" for book, chapter, verse in inside]
 
 
 def _prepare(
@@ -145,10 +175,17 @@ def _resolve_entries(
     *,
     target: BatchTarget,
     path: ResolvePath,
+    pair: IndexedPair | None,
 ) -> list[BatchResolveEntry]:
-    """Resolve each ref against ``path``, recording per-member errors."""
+    """Resolve each ref against ``path``, using ``pair`` when a payload exists."""
+    payloads = load_payloads(session, pair, refs) if pair is not None else {}
     entries: list[BatchResolveEntry] = []
     for ref in refs:
+        key = index_key(ref)
+        cached = payloads.get(key) if key is not None else None
+        if cached is not None:
+            entries.append(BatchResolveEntry(ref=ref, result=cached, error=None))
+            continue
         try:
             result = resolve_single_with_path(
                 session,
@@ -207,12 +244,20 @@ def resolve_verse_set(
             code="validation_failed",
         )
     source_scheme, target_scheme, path = _prepare(session, target)
-    entries = _resolve_entries(session, refs, target=target, path=path)
+    pair = find_ready_pair(
+        session,
+        from_translation=target.from_translation,
+        from_scheme_id=source_scheme.scheme_id,
+        to_translation=target.to_translation,
+        to_scheme_id=target_scheme.scheme_id,
+    )
+    entries = _resolve_entries(session, refs, target=target, path=path, pair=pair)
     return BatchResolveOut(
         items=entries,
         total=len(entries),
         from_versification=source_scheme.scheme_id,
         to_versification=target_scheme.scheme_id,
+        index_used=pair is not None,
     )
 
 
@@ -247,10 +292,18 @@ def resolve_verse_range(
     )
     total = len(all_refs)
     page_refs = all_refs[page_offset : page_offset + page_limit]
-    entries = _resolve_entries(session, page_refs, target=target, path=path)
+    pair = find_ready_pair(
+        session,
+        from_translation=target.from_translation,
+        from_scheme_id=source_scheme.scheme_id,
+        to_translation=target.to_translation,
+        to_scheme_id=target_scheme.scheme_id,
+    )
+    entries = _resolve_entries(session, page_refs, target=target, path=path, pair=pair)
     return BatchResolveOut(
         items=entries,
         total=total,
         from_versification=source_scheme.scheme_id,
         to_versification=target_scheme.scheme_id,
+        index_used=pair is not None,
     )

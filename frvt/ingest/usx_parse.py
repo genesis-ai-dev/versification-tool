@@ -8,7 +8,10 @@ from collections.abc import Iterable
 
 from frvt.api.logging_config import get_logger
 from frvt.ingest.types import ParsedSpan
-from frvt.ingest.usx_verse_number import milestone_label_and_range, parse_usx_verse_number
+from frvt.ingest.usx_verse_number import (
+    milestone_label_and_range,
+    parse_usx_verse_number,
+)
 
 logger = get_logger(__name__)
 

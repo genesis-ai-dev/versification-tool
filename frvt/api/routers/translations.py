@@ -12,6 +12,10 @@ from sqlalchemy.orm import Session
 from frvt.api.coupled_scheme_delete import coupled_preferred_scheme_id
 from frvt.api.db import get_session
 from frvt.api.errors import AppError
+from frvt.api.indexing.invalidation import (
+    drop_indexes_for_translation,
+    invalidate_for_translation,
+)
 from frvt.api.logging_config import get_logger
 from frvt.api.models import Translation, VersificationScheme
 from frvt.api.schemas import Page, TranslationCreate, TranslationOut, TranslationUpdate
@@ -114,6 +118,7 @@ def update_translation(
         raise AppError(
             409, "Translation name already exists.", code="conflict"
         ) from exc
+    invalidate_for_translation(session, translation_id, reason="translation updated")
     return TranslationOut.model_validate(row)
 
 
@@ -147,6 +152,7 @@ def delete_translation(
             code="conflict",
         )
     coupled_scheme_id = coupled_preferred_scheme_id(session, row)
+    drop_indexes_for_translation(session, translation_id)
     # Bulk-delete children first so large projects do not ORM-load every span.
     session.execute(delete(VerseSpan).where(VerseSpan.translation_id == translation_id))
     session.execute(

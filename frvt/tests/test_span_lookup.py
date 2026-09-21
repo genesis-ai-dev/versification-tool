@@ -48,35 +48,47 @@ def test_find_stored_span_exact_and_covering(db_session: Session) -> None:
     db_session.add_all([combined, discrete])
     db_session.flush()
 
-    assert find_stored_span(
-        db_session,
-        translation.id,
-        book="JHN",
-        chapter=4,
-        verse=1,
-        part=None,
-    ) is combined
-    assert find_stored_span(
-        db_session,
-        translation.id,
-        book="JHN",
-        chapter=4,
-        verse=2,
-        part=None,
-    ) is combined
-    assert find_stored_span(
-        db_session,
-        translation.id,
-        book="JHN",
-        chapter=4,
-        verse=3,
-        part=None,
-    ) is discrete
-    assert find_stored_span(
-        db_session,
-        translation.id,
-        book="JHN",
-        chapter=4,
-        verse=99,
-        part=None,
-    ) is None
+    assert (
+        find_stored_span(
+            db_session,
+            translation.id,
+            book="JHN",
+            chapter=4,
+            verse=1,
+            part=None,
+        )
+        is combined
+    )
+    assert (
+        find_stored_span(
+            db_session,
+            translation.id,
+            book="JHN",
+            chapter=4,
+            verse=2,
+            part=None,
+        )
+        is combined
+    )
+    assert (
+        find_stored_span(
+            db_session,
+            translation.id,
+            book="JHN",
+            chapter=4,
+            verse=3,
+            part=None,
+        )
+        is discrete
+    )
+    assert (
+        find_stored_span(
+            db_session,
+            translation.id,
+            book="JHN",
+            chapter=4,
+            verse=99,
+            part=None,
+        )
+        is None
+    )

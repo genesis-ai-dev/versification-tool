@@ -379,5 +379,8 @@ def refresh_combined_milestone_splits(
     )
     _insert_mapping_rows(session, scheme.id, ingest_scheme)
     session.flush()
+    from frvt.api.indexing.invalidation import invalidate_for_scheme
+
+    invalidate_for_scheme(session, scheme.id, reason="versification updated")
     logger.debug("Refreshed combined milestone splits on scheme=%s", scheme.id)
     return True

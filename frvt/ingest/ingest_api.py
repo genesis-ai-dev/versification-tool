@@ -9,8 +9,8 @@ from typing import Any
 
 from frvt.api.logging_config import get_logger
 from frvt.ingest.burrito_validate import validate_ingredient
-from frvt.ingest.normalize import normalize_ingredient
 from frvt.ingest.metadata_parse import parse_dbl_metadata
+from frvt.ingest.normalize import normalize_ingredient
 from frvt.ingest.project_zip import locate_project_members
 from frvt.ingest.types import IngestIssue, ParsedScheme, ProjectIngestResult
 from frvt.ingest.usx_parse import parse_usx_files
@@ -109,9 +109,7 @@ def ingest_project(archive_bytes: bytes) -> ProjectIngestResult:
     logger.debug("Ingesting project archive (%s bytes)", len(archive_bytes))
     located = locate_project_members(archive_bytes)
     metadata = (
-        parse_dbl_metadata(located.metadata_text)
-        if located.metadata_text
-        else None
+        parse_dbl_metadata(located.metadata_text) if located.metadata_text else None
     )
     if located.issues:
         return ProjectIngestResult(

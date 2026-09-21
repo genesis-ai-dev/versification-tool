@@ -2394,6 +2394,513 @@
           }
         }
       }
+    },
+    "/api/indexes": {
+      "get": {
+        "tags": [
+          "indexes"
+        ],
+        "summary": "List Indexes Endpoint",
+        "description": "List translation indexes with pagination.",
+        "operationId": "list_indexes_endpoint_api_indexes_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_IndexOut_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "indexes"
+        ],
+        "summary": "Create Index Endpoint",
+        "description": "Create an index and queue its cartesian build.",
+        "operationId": "create_index_endpoint_api_indexes_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndexCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/indexes/usage": {
+      "get": {
+        "tags": [
+          "indexes"
+        ],
+        "summary": "Index Usage Endpoint",
+        "description": "Return aggregate mapping-table resource consumption.",
+        "operationId": "index_usage_endpoint_api_indexes_usage_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexUsageOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/indexes/{index_id}": {
+      "get": {
+        "tags": [
+          "indexes"
+        ],
+        "summary": "Get Index Endpoint",
+        "description": "Return one index including status, progress, and mapping counts.",
+        "operationId": "get_index_endpoint_api_indexes__index_id__get",
+        "parameters": [
+          {
+            "name": "index_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Index Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "indexes"
+        ],
+        "summary": "Update Index Endpoint",
+        "description": "Pin the index to an explicit versification and queue a rebuild.",
+        "operationId": "update_index_endpoint_api_indexes__index_id__patch",
+        "parameters": [
+          {
+            "name": "index_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Index Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndexUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "indexes"
+        ],
+        "summary": "Delete Index Endpoint",
+        "description": "Remove the index immediately; mapping rows are reclaimed in the background.",
+        "operationId": "delete_index_endpoint_api_indexes__index_id__delete",
+        "parameters": [
+          {
+            "name": "index_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Index Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/indexes/{index_id}/rebuild": {
+      "post": {
+        "tags": [
+          "indexes"
+        ],
+        "summary": "Rebuild Index Endpoint",
+        "description": "Queue a full rebuild from any status.",
+        "operationId": "rebuild_index_endpoint_api_indexes__index_id__rebuild_post",
+        "parameters": [
+          {
+            "name": "index_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Index Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/indexes/{index_id}/cancel": {
+      "post": {
+        "tags": [
+          "indexes"
+        ],
+        "summary": "Cancel Index Endpoint",
+        "description": "Request termination of a queued or running build.",
+        "operationId": "cancel_index_endpoint_api_indexes__index_id__cancel_post",
+        "parameters": [
+          {
+            "name": "index_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Index Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2531,6 +3038,11 @@
             "type": "string",
             "format": "uuid",
             "title": "To Versification"
+          },
+          "index_used": {
+            "type": "boolean",
+            "title": "Index Used",
+            "default": false
           }
         },
         "type": "object",
@@ -2720,6 +3232,202 @@
         "title": "DeltaEntry",
         "description": "One explicit mapping delta between two selected schemes."
       },
+      "IndexCreate": {
+        "properties": {
+          "translation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Translation Id"
+          },
+          "versification_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Versification Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "translation_id"
+        ],
+        "title": "IndexCreate",
+        "description": "Body for queueing a translation/versification index."
+      },
+      "IndexOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "translation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Translation Id"
+          },
+          "versification_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Versification Id"
+          },
+          "versification_explicit": {
+            "type": "boolean",
+            "title": "Versification Explicit"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "pending_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pending Reason"
+          },
+          "build_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Build Notes"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "pairs_total": {
+            "type": "integer",
+            "title": "Pairs Total"
+          },
+          "pairs_completed": {
+            "type": "integer",
+            "title": "Pairs Completed"
+          },
+          "outbound_mappings": {
+            "type": "integer",
+            "title": "Outbound Mappings"
+          },
+          "inbound_mappings": {
+            "type": "integer",
+            "title": "Inbound Mappings"
+          },
+          "requested_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Requested At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "translation_id",
+          "versification_id",
+          "versification_explicit",
+          "status",
+          "pairs_total",
+          "pairs_completed",
+          "outbound_mappings",
+          "inbound_mappings",
+          "requested_at"
+        ],
+        "title": "IndexOut",
+        "description": "Public index representation including status and mapping counts."
+      },
+      "IndexUpdate": {
+        "properties": {
+          "versification_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Versification Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "versification_id"
+        ],
+        "title": "IndexUpdate",
+        "description": "Body for pinning an index to an explicit versification."
+      },
+      "IndexUsageOut": {
+        "properties": {
+          "total_indexes": {
+            "type": "integer",
+            "title": "Total Indexes"
+          },
+          "ready_indexes": {
+            "type": "integer",
+            "title": "Ready Indexes"
+          },
+          "mapping_rows": {
+            "type": "integer",
+            "title": "Mapping Rows"
+          },
+          "mapping_bytes": {
+            "type": "integer",
+            "title": "Mapping Bytes"
+          },
+          "reclaim_pending": {
+            "type": "integer",
+            "title": "Reclaim Pending"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_indexes",
+          "ready_indexes",
+          "mapping_rows",
+          "mapping_bytes",
+          "reclaim_pending"
+        ],
+        "title": "IndexUsageOut",
+        "description": "Aggregate resource consumption for all indexes."
+      },
       "JumpBooksOut": {
         "properties": {
           "books": {
@@ -2863,6 +3571,27 @@
           "total"
         ],
         "title": "Page[DeltaEntry]"
+      },
+      "Page_IndexOut_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/IndexOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "Page[IndexOut]"
       },
       "Page_MisalignmentEntry_": {
         "properties": {
@@ -3523,6 +4252,10 @@
     {
       "name": "resolve",
       "description": "Map verses between two translations' selected schemes."
+    },
+    {
+      "name": "indexes",
+      "description": "Precomputed pairwise mappings between translations."
     },
     {
       "name": "navigation",

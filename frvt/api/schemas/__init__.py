@@ -76,6 +76,72 @@ class TranslationOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class IndexCreate(BaseModel):
+    """Body for queueing a translation/versification index."""
+
+    # Translation whose verses will be pre-mapped.
+    translation_id: UUID
+    # Optional versification override; omitted means preferred then org.
+    versification_id: UUID | None = None
+
+
+class IndexUpdate(BaseModel):
+    """Body for pinning an index to an explicit versification."""
+
+    # Versification the index should use from now on.
+    versification_id: UUID
+
+
+class IndexOut(BaseModel):
+    """Public index representation including status and mapping counts."""
+
+    # Index primary key.
+    id: UUID
+    # Indexed translation.
+    translation_id: UUID
+    # Indexed versification actually stored on the row.
+    versification_id: UUID
+    # False when the versification was defaulted and should retarget.
+    versification_explicit: bool
+    # Lifecycle status: pending, building, ready, failed, cancelled.
+    status: str
+    # Why the index is queued, when status is pending.
+    pending_reason: str | None = None
+    # Non-fatal warnings from the last build.
+    build_notes: str | None = None
+    # Failure detail; set only alongside failed.
+    last_error: str | None = None
+    # Ordered pairs this build must materialize.
+    pairs_total: int
+    # Ordered pairs finished so far.
+    pairs_completed: int
+    # Mapping rows where this index is the source.
+    outbound_mappings: int
+    # Mapping rows where this index is the target.
+    inbound_mappings: int
+    # When the current build was requested.
+    requested_at: datetime
+    # When the worker claimed the row; null while pending.
+    started_at: datetime | None = None
+    # When the last successful build finished.
+    completed_at: datetime | None = None
+
+
+class IndexUsageOut(BaseModel):
+    """Aggregate resource consumption for all indexes."""
+
+    # All index rows, any status.
+    total_indexes: int
+    # Indexes the read path may consult.
+    ready_indexes: int
+    # Stored mapping rows across every pair.
+    mapping_rows: int
+    # On-disk size of the mapping table including indexes, in bytes.
+    mapping_bytes: int
+    # Deleted indexes whose mapping rows are still being reclaimed.
+    reclaim_pending: int
+
+
 class VerseSpanOut(BaseModel):
     """One scripture span returned for column rendering."""
 
@@ -356,6 +422,8 @@ class BatchResolveOut(Page[BatchResolveEntry]):
     from_versification: UUID
     # Scheme selected (override, preferred, or org fallback) on the to side.
     to_versification: UUID
+    # True when a ready index pair was consulted for this request.
+    index_used: bool = False
 
 
 class ProjectIngestOut(BaseModel):
