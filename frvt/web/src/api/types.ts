@@ -52,9 +52,27 @@ export interface VersificationOut {
   associated_translation_names: string[];
 }
 
+/** Metadata for a stored versification source. The text itself is a separate route. */
+export interface VersificationSourceMetaOut {
+  /** ``copenhagen_json`` or ``vrs``. */
+  format: string;
+  /** Original filename. */
+  filename: string;
+  /** Digest of the document and any companion .vrs. */
+  sha256: string;
+  /** UTF-8 length of the primary document. */
+  document_bytes: number;
+  /** UTF-8 length of the companion .vrs, or null when there is none. */
+  companion_bytes: number | null;
+  /** When the row was written. */
+  captured_at: string;
+}
+
 /** Scheme detail including the stored Copenhagen ingredient. */
 export interface VersificationDetailOut extends VersificationOut {
   ingredient: Record<string, unknown>;
+  /** Null when the scheme has only a derived ingredient. */
+  source?: VersificationSourceMetaOut | null;
 }
 
 /** Association of a scheme with a translation, including preferred flag. */

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
@@ -180,7 +181,12 @@ def sweep_fingerprints(session: Session) -> int:
     return stale
 
 
-def process_next_index(session: Session, *, chunk_size: int) -> bool:
+def process_next_index(
+    session: Session,
+    *,
+    chunk_size: int,
+    on_index_ready: Callable[[UUID], None] | None = None,
+) -> bool:
     """Claim the oldest pending index and build it. Returns whether work ran."""
     logger.debug("Claiming next pending index")
     row = session.scalar(
@@ -204,6 +210,13 @@ def process_next_index(session: Session, *, chunk_size: int) -> bool:
     session.commit()
     try:
         build_index(session, index_id, chunk_size=chunk_size)
+        finished = session.get(TranslationIndex, index_id)
+        if (
+            on_index_ready is not None
+            and finished is not None
+            and finished.status == INDEX_STATUS_READY
+        ):
+            on_index_ready(index_id)
     except Exception as exc:
         logger.error("Index build failed id=%s", index_id, exc_info=True)
         failed = session.get(TranslationIndex, index_id)
@@ -288,10 +301,12 @@ def vacuum_index_mapping(session: Session) -> None:
 class IndexWorker:
     """Daemon thread that claims builds, reclaims rows, and sweeps fingerprints."""
 
-    def __init__(self) -> None:
+    def __init__(self, on_index_ready: Callable[[UUID], None] | None = None) -> None:
+        """``on_index_ready`` runs after a build reaches ready. It must not raise."""
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._last_sweep = 0.0
+        self._on_index_ready = on_index_ready
 
     def start(self) -> None:
         """Run crash recovery once, then poll until ``stop`` is called."""
@@ -342,7 +357,9 @@ class IndexWorker:
             if step.completed and step.deleted > 0:
                 vacuum_index_mapping(session)
             worked = process_next_index(
-                session, chunk_size=settings.index_build_chunk_size
+                session,
+                chunk_size=settings.index_build_chunk_size,
+                on_index_ready=self._on_index_ready,
             )
             if not worked:
                 now = time.monotonic()

@@ -94,6 +94,14 @@ class Settings(BaseSettings):
     index_reclaim_chunk_size: int = Field(
         default=10000, alias="INDEX_RECLAIM_CHUNK_SIZE"
     )
+    # Daemon threads computing divergence reports. The work is CPU-bound.
+    divergence_runner_threads: int = Field(default=1, alias="DIVERGENCE_RUNNER_THREADS")
+    # A running report whose heartbeat is older than this is stalled.
+    divergence_stale_seconds: int = Field(default=120, alias="DIVERGENCE_STALE_SECONDS")
+    # When true, a finished index schedules comparisons against other ready indexes.
+    divergence_precompute_enabled: bool = Field(
+        default=True, alias="DIVERGENCE_PRECOMPUTE_ENABLED"
+    )
 
     @computed_field  # type: ignore[prop-decorator]
     @property

@@ -201,7 +201,9 @@ curl -sS -u "$AUTH" -G "$BASE/api/resolve" \
 | `DELETE` | `/api/translations/{translation_id}/versifications/{scheme_id}` | `204` |
 | `GET` | `/api/translations/{translation_id}/navigation` | `200` `NavBook[]` |
 | `GET` | `/api/versifications` | `200` page of schemes |
-| `GET` | `/api/versifications/{scheme_id}` | `200` scheme plus `ingredient` |
+| `GET` | `/api/versifications/{scheme_id}` | `200` scheme plus `ingredient` and source metadata |
+| `GET` | `/api/versifications/{scheme_id}/source` | `200` stored source document |
+| `PUT` | `/api/versifications/{scheme_id}/source` | `200` source metadata |
 | `PATCH` | `/api/versifications/{scheme_id}` | `200` scheme |
 | `DELETE` | `/api/versifications/{scheme_id}` | `204` |
 | `POST` | `/api/versifications/upload` | `201` scheme |
@@ -213,6 +215,9 @@ curl -sS -u "$AUTH" -G "$BASE/api/resolve" \
 | `GET` | `/api/indexes` | `200` page of indexes |
 | `POST` | `/api/indexes` | `201` `IndexOut` |
 | `GET` | `/api/indexes/usage` | `200` `IndexUsageOut` |
+| `POST` | `/api/divergence/reports` | `200` ready or `202` accepted |
+| `GET` | `/api/divergence/reports/{report_id}` | `200` progress |
+| `GET` | `/api/divergence/reports/{report_id}/data` | `200` comparison payload |
 | `GET` | `/api/indexes/{index_id}` | `200` `IndexOut` |
 | `PATCH` | `/api/indexes/{index_id}` | `200` `IndexOut` |
 | `DELETE` | `/api/indexes/{index_id}` | `204` |
@@ -490,7 +495,15 @@ Body: `translation_id` (required uuid), `versification_id` (optional uuid). `201
 
 ### `GET /api/indexes/usage`
 
-Aggregate `{total_indexes, ready_indexes, mapping_rows, mapping_bytes, reclaim_pending}`. Declared as a fixed path so `usage` is never parsed as an id.
+Aggregate `{total_indexes, ready_indexes, mapping_rows, mapping_bytes, reclaim_pending, divergence_reports, divergence_bytes}`. Declared as a fixed path so `usage` is never parsed as an id.
+
+---
+
+## Divergence
+
+`POST /api/divergence/reports` compares two translations through their selected versifications. Body: `from_translation_id`, `to_translation_id`, and optional `from_scheme_id` / `to_scheme_id`. `200` when a matching report is already ready; `202` while it is pending or running. `GET .../{report_id}` returns progress (`stage`, `stage_index`, `stage_count`, `completed`, `total`, `stalled`). `GET .../data` returns the comparison document once `status` is `ready`, and `409` before that.
+
+`GET /api/versifications/{scheme_id}/source` returns the stored source text. `404` when the scheme has only a derived ingredient. `PUT` the same path accepts a file that re-derives to the stored ingredient. Canonical schemes and schemes that already have a source return `409`. A file that does not re-derive returns `422`.
 
 ### `GET /api/indexes/{index_id}`
 

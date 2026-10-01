@@ -184,7 +184,8 @@ class VersificationScheme(Base):
     )
     # True for shipped canonical schemes; false for uploaded custom schemes.
     canonical: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    # Full Copenhagen/Burrito ingredient JSON (system of record for this scheme).
+    # Derived Copenhagen ingredient: normalized, and milestone-augmented for projects.
+    # The verbatim upload lives in ``versification_source``.
     ingredient: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     # Creation timestamp maintained by the database default.
     created_at: Mapped[datetime] = mapped_column(

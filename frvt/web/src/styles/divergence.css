@@ -1,0 +1,136 @@
+.modal.modal-fullscreen {
+  width: min(72rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+}
+
+.dv-root {
+  --dv-accent: #ff82b4;
+  --dv-hatch: #8a92a2;
+  --dv-neutral: #272c35;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  color: var(--text);
+  font-family: var(--font-ui);
+}
+
+.dv-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 22rem;
+  gap: 1rem;
+  align-items: start;
+}
+
+.dv-stage {
+  overflow: auto;
+  max-height: calc(100vh - 16rem);
+  background: var(--bg);
+}
+
+.dv-matrix text,
+.dv-radial text,
+.dv-ladder text {
+  fill: var(--text-muted);
+  font-size: 11px;
+}
+
+.dv-focus {
+  stroke: var(--dv-accent);
+  stroke-width: 1.5;
+}
+
+.dv-dot {
+  width: 100%;
+  max-width: 28rem;
+  background: var(--surface-raised);
+}
+
+.dv-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.dv-table th,
+.dv-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 0.25rem 0.4rem;
+  text-align: left;
+}
+
+.dv-loading p,
+.dv-empty {
+  margin: 0;
+}
+
+.dv-events {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.dv-ref {
+  margin: 0 0.5rem;
+}
+
+.dv-note {
+  margin: 0;
+}
+
+.dv-layer {
+  display: inline-flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.modal-body .dv-layer label {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--text);
+}
+
+.dv-controls,
+.dv-books {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.dv-donut {
+  width: 14rem;
+  height: 14rem;
+}
+
+.dv-tip {
+  position: relative;
+  display: inline-flex;
+}
+
+.dv-tip-trigger {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+
+.dv-tip-body {
+  position: absolute;
+  z-index: 2;
+  top: 100%;
+  left: 0;
+  width: 18rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--panel, #1c212b);
+  border: 1px solid var(--line, #3a4150);
+  border-radius: 0.4rem;
+}

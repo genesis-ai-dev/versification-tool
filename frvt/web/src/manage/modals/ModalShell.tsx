@@ -8,17 +8,33 @@ export interface ModalShellProps {
   children: ReactNode;
   /** Close without applying (backdrop / cancel). */
   onClose: () => void;
+  /** ``default`` is the manage-page width. ``fullscreen`` is the comparison. */
+  size?: "default" | "fullscreen";
+  /**
+   * Called before Escape closes the dialog.
+   * Return true when the content consumed the key.
+   */
+  onEscape?: () => boolean;
 }
 
 /**
  * Accessible dialog chrome with backdrop click-to-dismiss.
  * Reused by all manage modals to keep focus and styling consistent.
  */
-export function ModalShell({ title, children, onClose }: ModalShellProps) {
+export function ModalShell({
+  title,
+  children,
+  onClose,
+  size = "default",
+  onEscape,
+}: ModalShellProps) {
   const modalRef = useRef<HTMLDivElement>(null);
+  const backdropDown = useRef(false);
   const onCloseRef = useRef(onClose);
+  const onEscapeRef = useRef(onEscape);
   const headingId = useId();
   onCloseRef.current = onClose;
+  onEscapeRef.current = onEscape;
 
   useEffect(() => {
     const previouslyFocused =
@@ -33,6 +49,10 @@ export function ModalShell({ title, children, onClose }: ModalShellProps) {
     /** Close on Escape and keep Tab navigation inside the active dialog. */
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        if (onEscapeRef.current?.()) {
+          event.preventDefault();
+          return;
+        }
         event.preventDefault();
         onCloseRef.current();
         return;
@@ -63,9 +83,20 @@ export function ModalShell({ title, children, onClose }: ModalShellProps) {
   }, []);
 
   return (
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+    <div
+      className="modal-backdrop"
+      role="presentation"
+      onMouseDown={(event) => {
+        backdropDown.current = event.target === event.currentTarget;
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget && backdropDown.current) {
+          onClose();
+        }
+      }}
+    >
       <div
-        className="modal"
+        className={size === "fullscreen" ? "modal modal-fullscreen" : "modal"}
         role="dialog"
         aria-modal="true"
         aria-labelledby={headingId}
