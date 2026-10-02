@@ -1,3 +1,5 @@
+import { formatCount } from "./counts";
+import { coversWholeBook, type MatrixSelection } from "./MatrixView";
 import { dataWarningTip, FLAG_HELP } from "./help";
 import { InfoTip } from "./InfoTip";
 import {
@@ -7,24 +9,29 @@ import {
   type ComparisonIndex,
   type IndexedEvent,
 } from "./model/index";
-import type { MatrixSelection } from "./MatrixView";
 import type { EventNote, Span } from "./types";
 
 /** Props for the panel beside the charts. */
 export interface InspectorProps {
   index: ComparisonIndex;
-  /** Pinned selection. Hover is used only while nothing is pinned. */
+  /** Hovered or pinned cell. Hover applies only while nothing is pinned. */
   selection: MatrixSelection | null;
   layersOn: ReadonlySet<string>;
   notes: EventNote[];
   sideNames: { a: string; b: string };
-  onOpenBook: (code: string) => void;
-  onClear: () => void;
+  /**
+   * Locale for chapter totals and verse counts.
+   * Omit it in the app so the browser supplies separators.
+   */
+  locale?: string;
 }
 
 /**
- * List the events for the selected chapter or book.
- * A data-warning chip includes the notes stored for that event.
+ * List the events for the hovered or pinned chapter or book.
+ * The title and its actions sit above the donut. This panel is the hover hint
+ * when nothing is selected or the book is missing, and the chapter totals and
+ * event list when a known book is selected. A data-warning chip includes the
+ * notes stored for that event.
  */
 export function Inspector({
   index,
@@ -32,33 +39,26 @@ export function Inspector({
   layersOn,
   notes,
   sideNames,
-  onOpenBook,
-  onClear,
+  locale,
 }: InspectorProps) {
   if (selection === null) {
-    return (
-      <div className="dv-inspector">
-        <h2>Nothing selected</h2>
-        <p>Hover or click a chapter. Arrow keys move through the matrix.</p>
-      </div>
-    );
+    return hoverHint();
   }
   const book = index.byCode.get(selection.bookCode);
   if (book === undefined) {
-    return null;
+    return hoverHint();
   }
-  const events = selection.summary
+  const bookWide = coversWholeBook(selection);
+  const events = bookWide
     ? bookEvents(index, book.code, layersOn)
     : cellState(index, book, selection.chapter ?? 1, layersOn).events;
-  const summary = selection.summary ? bookState(index, book, layersOn) : null;
-  const title = selection.summary ? book.name : `${book.name} ${selection.chapter}`;
+  const summary = bookWide ? bookState(index, book, layersOn) : null;
   return (
     <div className="dv-inspector">
-      <h2>{title}</h2>
       {summary !== null && (
         <p>
-          {book.aCh || "no"} chapters in {sideNames.a}, {book.bCh || "no"} in{" "}
-          {sideNames.b}.
+          {chapterTotal(book.aCh, locale)} chapters in {sideNames.a},{" "}
+          {chapterTotal(book.bCh, locale)} in {sideNames.b}.
         </p>
       )}
       {events.length === 0 ? (
@@ -68,7 +68,7 @@ export function Inspector({
           {events.slice(0, 60).map((event) => (
             <li key={event.index}>
               <span>{event.type}</span> {formatSpan(event.a)} / {formatSpan(event.b)} (
-              {event.n})
+              {formatCount(event.n, locale)})
               {event.flags.map((flag) => (
                 <InfoTip
                   key={flag}
@@ -82,14 +82,29 @@ export function Inspector({
           ))}
         </ol>
       )}
-      <button type="button" className="btn" onClick={() => onOpenBook(book.code)}>
-        Open {book.code} in book detail
-      </button>
-      <button type="button" className="btn ghost" onClick={onClear}>
-        Clear selection
-      </button>
     </div>
   );
+}
+
+/**
+ * Prompt shown when the panel has no chapter or book to list.
+ * Used when nothing is hovered or pinned, and when the selection names a book
+ * the index does not contain.
+ */
+function hoverHint() {
+  return (
+    <div className="dv-inspector">
+      <p>Hover or click a chapter. Arrow keys move through the matrix.</p>
+    </div>
+  );
+}
+
+/**
+ * Print one side's chapter total.
+ * Zero stays the word "no" so an absent side is not shown as a formatted zero.
+ */
+function chapterTotal(count: number, locale?: string): string {
+  return count > 0 ? formatCount(count, locale) : "no";
 }
 
 /** Tip for one flag. Data warnings append the event's notes. */

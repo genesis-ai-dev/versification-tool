@@ -14,9 +14,26 @@ import {
 
 /** What a matrix click or key hands back to the dialog. */
 export interface MatrixSelection {
+  /** Book code of the cell. */
   bookCode: string;
+  /** Chapter of the cell, or null when the cell covers the whole book. */
   chapter: number | null;
+  /** True for the book summary cell, which covers every chapter. */
   summary: boolean;
+  /**
+   * Verse heading for a strip or dot selection, such as ``Exodus 21:1–21:4``.
+   * Absent for a matrix or radial cell. The donut and the event list ignore it.
+   */
+  verseLabel?: string;
+}
+
+/**
+ * Whether the cell covers every chapter of its book.
+ * A book summary does, and so does a cell that has no chapter number.
+ * The donut scope, the heading, and the event list share this rule.
+ */
+export function coversWholeBook(selection: MatrixSelection): boolean {
+  return selection.summary || selection.chapter === null;
 }
 
 /** Props for the chapter matrix. */

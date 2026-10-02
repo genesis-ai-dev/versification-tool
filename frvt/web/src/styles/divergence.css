@@ -1,6 +1,20 @@
 .modal.modal-fullscreen {
   width: min(72rem, calc(100vw - 2rem));
   max-height: calc(100vh - 2rem);
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-fullscreen .modal-header {
+  flex-shrink: 0;
+}
+
+.modal-fullscreen .modal-body {
+  min-width: 0;
+  min-height: 0;
   overflow: auto;
 }
 
@@ -24,7 +38,6 @@
 
 .dv-stage {
   overflow: auto;
-  max-height: calc(100vh - 16rem);
   background: var(--bg);
 }
 
@@ -44,6 +57,32 @@
   width: 100%;
   max-width: 28rem;
   background: var(--surface-raised);
+  cursor: pointer;
+}
+
+.dv-ladder-name,
+.dv-ladder-place {
+  margin: 0.35rem 0;
+}
+
+.dv-ladder-place {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.dv-ladder-stage {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.dv-ladder path {
+  cursor: pointer;
+}
+
+.dv-ladder path.dv-selected {
+  stroke: var(--dv-accent);
+  stroke-width: 2;
 }
 
 .dv-table {
@@ -59,9 +98,55 @@
   text-align: left;
 }
 
+.dv-table tbody tr[aria-selected] {
+  cursor: pointer;
+}
+
+.dv-table tbody tr[aria-selected="true"] {
+  background: color-mix(in srgb, var(--dv-accent) 28%, transparent);
+}
+
 .dv-loading p,
 .dv-empty {
   margin: 0;
+}
+
+.dv-inspector-head {
+  display: flex;
+  align-self: stretch;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 0 0.35rem;
+}
+
+.dv-inspector-head.is-centered {
+  justify-content: center;
+}
+
+.dv-inspector-head.is-centered h2 {
+  flex: 1;
+  text-align: center;
+}
+
+.dv-inspector-head h2 {
+  margin: 0;
+  min-width: 0;
+}
+
+.dv-inspector-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+}
+
+/* Form buttons pad for a larger hit target. These two sit on the title line. */
+.dv-inspector-actions .btn {
+  align-self: center;
+  line-height: 1.2;
+  padding-block: 0.2rem;
 }
 
 .dv-events {
@@ -104,9 +189,73 @@
   align-items: center;
 }
 
+.dv-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0;
+}
+
+.dv-donut-host {
+  align-self: center;
+}
+
 .dv-donut {
+  display: block;
   width: 14rem;
   height: 14rem;
+}
+
+.dv-key {
+  width: 100%;
+  margin: 0.35rem 0 0;
+}
+
+.dv-key summary {
+  cursor: pointer;
+}
+
+.dv-key-group {
+  margin: 0.35rem 0 0;
+}
+
+.dv-key-group ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dv-key-group h3 {
+  margin: 0 0 0.2rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.dv-key-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.15rem 0;
+}
+
+.dv-swatch {
+  flex-shrink: 0;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 2px;
+}
+
+.dv-slice-tip {
+  position: fixed;
+  z-index: 3;
+  max-width: 18rem;
+  padding: 0.5rem 0.75rem;
+  pointer-events: none;
+  background: var(--panel, #1c212b);
+  border: 1px solid var(--line, #3a4150);
+  border-radius: 0.4rem;
+  color: var(--text);
 }
 
 .dv-tip {
@@ -121,6 +270,18 @@
   font: inherit;
   padding: 0;
   cursor: pointer;
+}
+
+.dv-info-icon {
+  display: block;
+  width: 13px;
+  height: 13px;
+  color: var(--text-faint);
+}
+
+.dv-tip-trigger:hover .dv-info-icon,
+.dv-tip-trigger:focus-visible .dv-info-icon {
+  color: var(--text-muted);
 }
 
 .dv-tip-body {

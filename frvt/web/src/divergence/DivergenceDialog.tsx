@@ -1,20 +1,32 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { ModalShell } from "../manage/modals/ModalShell";
-import { breakdown } from "./breakdown";
+import { breakdown, type BreakdownScope } from "./breakdown";
+import { comparisonTotal } from "./counts";
 import { DetailView } from "./DetailView";
 import { Donut } from "./Donut";
-import { displayNote, LAYER_HELP } from "./help";
+import { DonutKey } from "./DonutKey";
+import { LAYER_HELP } from "./help";
+import { InfoIcon } from "./InfoIcon";
 import { InfoTip } from "./InfoTip";
 import { Inspector } from "./Inspector";
-import { MatrixView, targetsFor, type MatrixSelection } from "./MatrixView";
-import { moveFocus } from "./model/index";
-import { buildIndex } from "./model/index";
+import { layerToggleLabel } from "./layerLabel";
+import {
+  coversWholeBook,
+  MatrixView,
+  targetsFor,
+  type MatrixSelection,
+} from "./MatrixView";
+import { runPlace, runKey as keyOfRun, scopeRuns } from "./model/detail";
+import { buildIndex, moveFocus } from "./model/index";
 import { RadialView } from "./RadialView";
+import { ScopeHeading, scopeHeading } from "./ScopeHeading";
 import { LAYER_IDS } from "./taxonomy";
 import { useDivergenceReport } from "./useDivergenceReport";
 
 /** Props for the comparison opened from the viewer header. */
 export interface DivergenceDialogProps {
+  /** Source and target names with the versification each column is using. */
+  pairLabel: string;
   fromTranslationId: string;
   toTranslationId: string;
   fromSchemeId: string | null;
@@ -26,9 +38,15 @@ type Tab = "overview" | "radial" | "detail";
 
 /**
  * Full-screen comparison of the two open translations.
- * The donut follows the pinned book, or the whole report when nothing is pinned.
+ * The line under the title names those translations and the versification each column uses.
+ * The donut follows the pinned chapter or book, or the whole report when nothing
+ * is pinned. The heading above it follows the hover or the pin, and names every
+ * deviance when neither is set. A key under the chart names the colors currently
+ * drawn. Layer toggles stay on the whole comparison, and add the pin's own share
+ * while a cell is pinned.
  */
 export function DivergenceDialog({
+  pairLabel,
   fromTranslationId,
   toTranslationId,
   fromSchemeId,
@@ -48,6 +66,7 @@ export function DivergenceDialog({
   const [tab, setTab] = useState<Tab>("overview");
   const [layout, setLayout] = useState<"slices" | "rings">("slices");
   const [detailBook, setDetailBook] = useState<string | null>(null);
+  const [runKey, setRunKey] = useState<string | null>(null);
   const pinRef = useRef(pin);
   pinRef.current = pin;
   const [layersOn, setLayersOn] = useState<Record<string, boolean>>(() =>
@@ -61,14 +80,78 @@ export function DivergenceDialog({
     [layersOn],
   );
   const index = useMemo(() => (report === null ? null : buildIndex(report)), [report]);
+  const scope = useMemo(() => (pin === null ? null : pinScope(pin)), [pin]);
   const chart = useMemo(
-    () =>
-      report === null
-        ? null
-        : breakdown(report, pin?.bookCode ?? null, layersOn, countVerses),
-    [report, pin, layersOn, countVerses],
+    () => (report === null ? null : breakdown(report, scope, layersOn, countVerses)),
+    [report, scope, layersOn, countVerses],
   );
   const shown = pin ?? hover;
+  /**
+   * Pin a chapter from the matrix, the radial chart, or the arrow keys.
+   * Those selections have no verse heading, so the strip highlight is cleared too.
+   */
+  const pinChapter = (selection: MatrixSelection) => {
+    setPin(selection);
+    setRunKey(null);
+  };
+  /**
+   * Highlight from the strip, the dot plot, or the table.
+   * A placed run pins its chapter and shows the verse heading. A run with no
+   * span only toggles the highlight. Passing the active key again clears a placed pin.
+   */
+  const pickRun = useCallback(
+    (key: string | null) => {
+      if (index === null || comparison === undefined) {
+        return;
+      }
+      const books =
+        detailBook !== null ? [detailBook] : index.books.map((item) => item.code);
+      const findRun = (wanted: string | null) => {
+        if (wanted === null) {
+          return undefined;
+        }
+        for (const code of books) {
+          const found = scopeRuns(index, comparison.runs, code, layerSet).find(
+            (run) => keyOfRun(run) === wanted,
+          );
+          if (found !== undefined) {
+            return found;
+          }
+        }
+        return undefined;
+      };
+      if (key === null) {
+        return;
+      }
+      if (key === runKey) {
+        const current = findRun(runKey);
+        setRunKey(null);
+        if (current !== undefined && runPlace(index, current) !== null) {
+          setPin(null);
+          setHover(null);
+          setFocus(null);
+        }
+        return;
+      }
+      const match = findRun(key);
+      setRunKey(key);
+      const place = match === undefined ? null : runPlace(index, match);
+      if (place === null) {
+        return;
+      }
+      if (place.bookCode !== detailBook) {
+        setDetailBook(place.bookCode);
+      }
+      setHover(null);
+      setPin({
+        bookCode: place.bookCode,
+        chapter: place.chapter,
+        summary: false,
+        verseLabel: place.title,
+      });
+    },
+    [comparison, detailBook, index, layerSet, runKey],
+  );
 
   return (
     <ModalShell
@@ -81,6 +164,7 @@ export function DivergenceDialog({
         }
         setPin(null);
         setFocus(null);
+        setRunKey(null);
         return true;
       }}
     >
@@ -110,7 +194,7 @@ export function DivergenceDialog({
           chart !== null &&
           index !== null && (
             <>
-              <p className="dv-note">{displayNote(comparison.note, report.sides)}</p>
+              <p className="dv-note">{pairLabel}</p>
               {comparison.events.length === 0 && (
                 <p className="dv-note">These versifications agree verse for verse.</p>
               )}
@@ -137,7 +221,7 @@ export function DivergenceDialog({
                   aria-pressed={tab === "detail"}
                   onClick={() => setTab("detail")}
                 >
-                  Book detail
+                  Details
                 </button>
                 <button
                   type="button"
@@ -169,16 +253,18 @@ export function DivergenceDialog({
                           }))
                         }
                       />
-                      {layer.label}{" "}
-                      {layer.count === 0
-                        ? "None in this comparison."
-                        : `${layer.count} (${Math.round(layer.percent)}%)`}
+                      {layerToggleLabel(
+                        layer.label,
+                        layer,
+                        chart.selectionStats?.find((item) => item.id === layer.id) ??
+                          null,
+                      )}
                     </label>
                     <InfoTip
                       label={`${layer.label} explanation`}
                       text={LAYER_HELP[layer.id]}
                     >
-                      ?
+                      <InfoIcon />
                     </InfoTip>
                   </span>
                 ))}
@@ -231,7 +317,7 @@ export function DivergenceDialog({
                       setFocus(next);
                       const target = next === null ? undefined : targets[next];
                       if (target !== undefined) {
-                        setPin({
+                        pinChapter({
                           bookCode: target.bookCode,
                           chapter: target.chapter,
                           summary: false,
@@ -249,6 +335,7 @@ export function DivergenceDialog({
                       event.stopPropagation();
                       setPin(null);
                       setFocus(null);
+                      setRunKey(null);
                     }
                   }}
                 >
@@ -258,7 +345,7 @@ export function DivergenceDialog({
                       layersOn={layerSet}
                       focus={focus}
                       onSelect={(selection) => {
-                        setPin(selection);
+                        pinChapter(selection);
                         setHover(null);
                         const next = targetsFor(index, layerSet).findIndex(
                           (target) =>
@@ -282,7 +369,7 @@ export function DivergenceDialog({
                       layersOn={layerSet}
                       layout={layout}
                       pinned={pin !== null}
-                      onSelect={(selection) => setPin(selection)}
+                      onSelect={(selection) => pinChapter(selection)}
                       onHover={(selection) => {
                         if (pinRef.current === null) {
                           setHover(selection);
@@ -299,30 +386,39 @@ export function DivergenceDialog({
                       book={detailBook}
                       sideNames={{ a: comparison.a, b: comparison.b }}
                       onBook={setDetailBook}
+                      highlight={{ activeKey: runKey, onPick: pickRun }}
                     />
                   )}
                 </div>
                 <aside>
-                  <Donut
-                    layers={chart.layers}
-                    types={chart.types}
-                    scope={pin === null ? "this comparison" : "this book"}
-                  />
+                  <figure className="dv-summary">
+                    <ScopeHeading
+                      {...scopeHeading(shown, index, comparisonTotal(chart.layerStats))}
+                      showDetails={tab !== "detail"}
+                      onOpenBook={(code) => {
+                        setDetailBook(code);
+                        setTab("detail");
+                      }}
+                      onClear={() => {
+                        setPin(null);
+                        setHover(null);
+                        setFocus(null);
+                        setRunKey(null);
+                      }}
+                    />
+                    <Donut
+                      layers={chart.layers}
+                      types={chart.types}
+                      scope={pinScopeLabel(pin)}
+                    />
+                  </figure>
+                  <DonutKey layers={chart.layers} types={chart.types} />
                   <Inspector
                     index={index}
                     selection={shown}
                     layersOn={layerSet}
                     notes={report.eventNotes}
                     sideNames={{ a: comparison.a, b: comparison.b }}
-                    onOpenBook={(code) => {
-                      setDetailBook(code);
-                      setTab("detail");
-                    }}
-                    onClear={() => {
-                      setPin(null);
-                      setHover(null);
-                      setFocus(null);
-                    }}
                   />
                 </aside>
               </div>
@@ -331,4 +427,26 @@ export function DivergenceDialog({
       </div>
     </ModalShell>
   );
+}
+
+/**
+ * The cell the donut and the selection counts follow.
+ * A book summary, or a pin without a chapter, covers the whole book.
+ */
+function pinScope(pin: MatrixSelection): BreakdownScope {
+  return {
+    book: pin.bookCode,
+    chapter: coversWholeBook(pin) ? null : pin.chapter,
+  };
+}
+
+/**
+ * Donut tip scope for the current pin.
+ * Slice tips and the empty message use this wording.
+ */
+function pinScopeLabel(pin: MatrixSelection | null): string {
+  if (pin === null) {
+    return "this comparison";
+  }
+  return pinScope(pin).chapter === null ? "this book" : "this chapter";
 }
