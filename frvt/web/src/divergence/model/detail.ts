@@ -225,6 +225,16 @@ export interface RunPlace {
 }
 
 /**
+ * Whether the detail view may select this run.
+ * Pass a scoped run, or a dot stroke that carries the same type string.
+ * Unchanged numbering is ``SAME``, and a hidden layer is rewritten to that type.
+ * The mark stays visible. A click on it must not highlight the run or pin its chapter.
+ */
+export function runSelectable(run: { type: string }): boolean {
+  return run.type !== "SAME";
+}
+
+/**
  * Where a selected run sits, for the column heading and the chapter pin.
  * Side A is preferred. A run with neither side returns null, including a ``SAME`` run that has no spans.
  */
@@ -332,6 +342,28 @@ export function nearestSegment(
     bestDistance = distance;
   }
   return bestKey;
+}
+
+/**
+ * Deviance under a dot-plot click.
+ * The nearest stroke within ``slop`` wins, the same measurement as ``nearestSegment``.
+ * An unchanged stroke returns null, including when a deviance is farther away but still inside the slop.
+ */
+export function selectedDotKey(
+  segments: readonly DotSegment[],
+  x: number,
+  y: number,
+  slop: number,
+): string | null {
+  const key = nearestSegment(segments, x, y, slop);
+  if (key === null) {
+    return null;
+  }
+  const segment = segments.find((item) => item.key === key);
+  if (segment === undefined || !runSelectable(segment)) {
+    return null;
+  }
+  return key;
 }
 
 /**

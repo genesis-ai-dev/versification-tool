@@ -9,11 +9,12 @@ import {
   drawDotPlot,
   eventForRun,
   ladderWindow,
-  nearestSegment,
   panOrigin,
   runForEvent,
   runKey,
+  runSelectable,
   scopeRuns,
+  selectedDotKey,
   visibleChapters,
   type DotSegment,
   type ScopedRun,
@@ -59,7 +60,8 @@ export interface DetailViewProps {
 
 /**
  * Details tab: a three-axis ladder, a dot plot, and the event table.
- * Clicking a ribbon, a dot-plot stroke, or a table row highlights that run in all three.
+ * Clicking a deviance ribbon, a deviance dot-plot stroke, or a table row highlights that run in all three.
+ * An unchanged run is not a deviance, so its ribbon and stroke do not select.
  * Clicking the highlighted run again clears it. Dragging the strip background pans a zoomed window.
  * The dot plot skips drawing when the canvas has no 2D context.
  */
@@ -98,7 +100,8 @@ export function DetailView({
   );
   const events = bookCode === "" ? [] : bookEvents(index, bookCode, layersOn);
   const activeKey =
-    highlight.activeKey !== null && scoped.some((run) => runKey(run) === highlight.activeKey)
+    highlight.activeKey !== null &&
+    scoped.some((run) => runSelectable(run) && runKey(run) === highlight.activeKey)
       ? highlight.activeKey
       : null;
   const activeRun =
@@ -203,6 +206,7 @@ export function DetailView({
 /**
  * Three horizontal axes. Zoom 1 shows the whole book. Zoom 400 shows a thin window.
  * Translation names sit outside the drawing. Dragging the background pans that window.
+ * An unchanged ribbon is not a hit target, so a chapter with no deviance cannot be selected here.
  */
 function Ladder({
   runs,
@@ -344,7 +348,8 @@ function Ladder({
         const yTop = item === 0 ? 50 : 148;
         const yBottom = item === 0 ? 136 : 234;
         const key = runKey(run);
-        svg
+        const selectable = runSelectable(run);
+        const ribbon = svg
           .append("path")
           .attr(
             "d",
@@ -355,11 +360,14 @@ function Ladder({
             run.type === "SAME" ? NEUTRAL : severityColor(severityOf(index, run.type)),
           )
           .attr("fill-opacity", 0.85)
-          .classed("dv-selected", key === activeKey)
-          .on("pointerdown", (event: PointerEvent) => {
+          .classed("dv-pick", selectable)
+          .classed("dv-selected", key === activeKey);
+        if (selectable) {
+          ribbon.on("pointerdown", (event: PointerEvent) => {
             event.stopPropagation();
-          })
-          .on("click", () => pick(key));
+          });
+          ribbon.on("click", () => pick(key));
+        }
       }
     });
   }, [activeKey, index, org, origin, pick, runs, sideA, zoom]);
@@ -402,6 +410,7 @@ function placeCaption(
 /**
  * Square plot of side A against side B.
  * A null canvas context leaves the plot blank and ignores clicks.
+ * A click selects the nearest deviance stroke. A nearer unchanged stroke does not select.
  */
 function DotPlot({
   runs,
@@ -461,7 +470,7 @@ function DotPlot({
       ref={ref}
       onClick={(event) => {
         pick(
-          nearestSegment(
+          selectedDotKey(
             segmentsRef.current,
             event.nativeEvent.offsetX,
             event.nativeEvent.offsetY,

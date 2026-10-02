@@ -76,7 +76,11 @@
   user-select: none;
 }
 
-.dv-ladder path {
+.dv-ladder path:not(.dv-pick) {
+  pointer-events: none;
+}
+
+.dv-ladder path.dv-pick {
   cursor: pointer;
 }
 

@@ -16,7 +16,7 @@ import {
   targetsFor,
   type MatrixSelection,
 } from "./MatrixView";
-import { runPlace, runKey as keyOfRun, scopeRuns } from "./model/detail";
+import { runPlace, runKey as keyOfRun, runSelectable, scopeRuns } from "./model/detail";
 import { buildIndex, moveFocus } from "./model/index";
 import { RadialView } from "./RadialView";
 import { ScopeHeading, scopeHeading } from "./ScopeHeading";
@@ -97,7 +97,8 @@ export function DivergenceDialog({
   /**
    * Highlight from the strip, the dot plot, or the table.
    * A placed run pins its chapter and shows the verse heading. A run with no
-   * span only toggles the highlight. Passing the active key again clears a placed pin.
+   * span only toggles the highlight. An unknown key or an unchanged run does
+   * nothing. Passing the active key again clears a placed pin.
    */
   const pickRun = useCallback(
     (key: string | null) => {
@@ -123,19 +124,21 @@ export function DivergenceDialog({
       if (key === null) {
         return;
       }
+      const match = findRun(key);
+      if (match === undefined || !runSelectable(match)) {
+        return;
+      }
       if (key === runKey) {
-        const current = findRun(runKey);
         setRunKey(null);
-        if (current !== undefined && runPlace(index, current) !== null) {
+        if (runPlace(index, match) !== null) {
           setPin(null);
           setHover(null);
           setFocus(null);
         }
         return;
       }
-      const match = findRun(key);
       setRunKey(key);
-      const place = match === undefined ? null : runPlace(index, match);
+      const place = runPlace(index, match);
       if (place === null) {
         return;
       }

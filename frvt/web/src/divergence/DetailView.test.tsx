@@ -112,6 +112,53 @@ describe("DetailView selection", () => {
     expect(chapterRow(1)).toHaveAttribute("aria-selected", "false");
   });
 
+  it("does not select an unchanged chapter", async () => {
+    const same: RunRow = [
+      ["GEN", 3, 1, 3, 4],
+      ["GEN", 3, 1, 3, 4],
+      ["GEN", 3, 1, 3, 4],
+      -1,
+      "",
+      "",
+      "",
+    ];
+    const comparison = report.comparisons[0];
+    if (comparison === undefined) {
+      throw new Error("comparison missing");
+    }
+    const index = buildIndex({
+      ...report,
+      comparisons: [
+        {
+          ...comparison,
+          books: [{ code: "GEN", name: "Genesis", section: "OT", a: [31, 25, 22], b: [31, 25, 22] }],
+          events: [event(1)],
+          runs: [run, same],
+        },
+      ],
+      org: { GEN: [31, 25, 22] },
+    });
+    const { container } = render(
+      <Harness
+        index={index}
+        runs={[run, same]}
+        org={{ GEN: [31, 25, 22] }}
+        layersOn={new Set(["scheme"])}
+        book="GEN"
+        sideNames={{ a: "Source Name", b: "Target Name" }}
+        onBook={() => undefined}
+      />,
+    );
+    await waitFor(() => {
+      expect(container.querySelector(".dv-ladder path.dv-pick")).not.toBeNull();
+    });
+    const unchanged = container.querySelector(".dv-ladder path:not(.dv-pick)");
+    expect(unchanged).not.toBeNull();
+    fireEvent.click(unchanged!);
+    expect(chapterRow(1)).toHaveAttribute("aria-selected", "false");
+    expect(container.querySelector(".dv-selected")).toBeNull();
+  });
+
   it("leaves a row with no overlapping run unselected", () => {
     renderDetail();
     const row = chapterRow(2);

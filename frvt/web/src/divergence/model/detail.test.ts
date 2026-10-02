@@ -8,9 +8,11 @@ import {
   ladderWindow,
   nearestSegment,
   panOrigin,
+  selectedDotKey,
   runForEvent,
   runKey,
   runPlace,
+  runSelectable,
   visibleChapters,
   type DotSegment,
   type ScopedRun,
@@ -112,6 +114,20 @@ describe("nearestSegment", () => {
   });
 });
 
+describe("selectedDotKey", () => {
+  const deviance: DotSegment = { key: "dev", type: "RENUMBER", x0: 0, y0: 6, x1: 10, y1: 6 };
+  const unchanged: DotSegment = { key: "same", type: "SAME", x0: 0, y0: 0, x1: 10, y1: 0 };
+
+  it("returns the nearest deviance", () => {
+    expect(selectedDotKey([unchanged, deviance], 5, 6, 8)).toBe("dev");
+  });
+
+  it("returns null when the nearer stroke is unchanged, even if a deviance is inside the slop", () => {
+    expect(selectedDotKey([unchanged, deviance], 5, 0, 8)).toBeNull();
+    expect(nearestSegment([unchanged, deviance], 5, 0, 8)).toBe("same");
+  });
+});
+
 describe("dotSegments", () => {
   it("returns one stroke for a run with both sides", () => {
     const sample = run("RENUMBER");
@@ -165,6 +181,13 @@ describe("visibleChapters", () => {
     });
     expect(visibleChapters(axis, 5, 15)?.last).toBe(2);
     expect(visibleChapters(axis, -1, 5)).toBeNull();
+  });
+});
+
+describe("runSelectable", () => {
+  it("keeps a deviance and rejects an unchanged run", () => {
+    expect(runSelectable(run("RENUMBER"))).toBe(true);
+    expect(runSelectable(run("SAME"))).toBe(false);
   });
 });
 
