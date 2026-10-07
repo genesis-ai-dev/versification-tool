@@ -1,5 +1,6 @@
+/* 10% wider than the 72rem dialog. The selection panel stays a fixed width. */
 .modal.modal-fullscreen {
-  width: min(72rem, calc(100vw - 2rem));
+  width: min(79.2rem, calc(100vw - 2rem));
   max-height: calc(100vh - 2rem);
   min-width: 0;
   min-height: 0;
@@ -29,6 +30,7 @@
   font-family: var(--font-ui);
 }
 
+/* The second track is the selection panel. Added width goes to the chart column. */
 .dv-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 19.8rem;
@@ -132,6 +134,11 @@
 
 .dv-sidetab[aria-selected="true"] {
   border-color: var(--dv-accent);
+}
+
+/* A wide table scrolls inside the panel instead of widening the strip above it. */
+.dv-sidetabs-panel {
+  min-width: 0;
 }
 
 .dv-dot-panel {

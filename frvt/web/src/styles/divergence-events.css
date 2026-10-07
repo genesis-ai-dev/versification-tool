@@ -118,6 +118,7 @@
 
 .dv-table-wrap {
   max-height: 420px;
+  min-width: 0;
   overflow: auto;
 }
 
@@ -132,6 +133,35 @@
 .dv-table td,
 .dv-table th {
   white-space: nowrap;
+}
+
+/* The verse reference sets the width. The translation name is taken out of that
+   measurement and cut off when it is longer than the reference. The sticky header
+   is its positioning box, so the name stays in the cell. With no references, the
+   header keeps enough width to show a shortened name. */
+.dv-table :is(th, td).dv-loc {
+  width: 1px;
+}
+
+.dv-table:not(:has(td.dv-loc)) th.dv-loc {
+  min-width: 8rem;
+}
+
+.dv-loc-name {
+  position: absolute;
+  left: 0.4rem;
+  right: 0.4rem;
+  top: 50%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transform: translateY(-50%);
+}
+
+/* A flag can name a translation. Wrapping it keeps that name from widening the table. */
+.dv-table td.dv-flags {
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 
 .dv-table .dv-swatch {

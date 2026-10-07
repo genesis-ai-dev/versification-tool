@@ -54,7 +54,8 @@ export function RadialView({
       return;
     }
     const proposed = layout === "slices";
-    const size = Math.max(320, Math.min(760, host.clientWidth || 700));
+    // Fill the chart column. A wider dialog draws a larger chart. 320 keeps a narrow column readable.
+    const size = Math.max(320, host.clientWidth || 700);
     const radius = size / 2 - 34;
     const inner = radius * 0.22;
     const root = select(host);

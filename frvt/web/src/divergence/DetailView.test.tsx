@@ -122,6 +122,16 @@ async function ladderPath() {
 }
 
 describe("DetailView selection", () => {
+  it("keeps each translation name on its location column", () => {
+    renderDetail();
+    expect(screen.getByRole("columnheader", { name: "Source Name" })).toHaveClass(
+      "dv-loc",
+    );
+    expect(screen.getByRole("columnheader", { name: "Target Name" })).toHaveClass(
+      "dv-loc",
+    );
+  });
+
   it("selects a table row and clears it on the second click", () => {
     renderDetail();
     const row = chapterRow(1);

@@ -6,6 +6,7 @@ import {
   typeLabel,
   type SideNames,
 } from "./eventFormat";
+import { HoverTip } from "./HoverTip";
 import type { IndexedEvent } from "./model/index";
 
 /** Props for the event table under the strip. */
@@ -30,6 +31,8 @@ export interface EventTableProps {
 /**
  * Table of one book's events.
  * A row is selected with a click, Enter, or Space. The header stays visible while the body scrolls.
+ * Each translation column is only as wide as its references. A longer name is cut off, and resting
+ * on it shows the full name. With no references, the header keeps a shortened name visible.
  */
 export function EventTable({
   events,
@@ -46,9 +49,17 @@ export function EventTable({
           <tr>
             <th>Type</th>
             <th>Sev.</th>
-            <th>{sideNames.a}</th>
+            <th className="dv-loc">
+              <HoverTip className="dv-loc-name" text={sideNames.a}>
+                {sideNames.a}
+              </HoverTip>
+            </th>
             <th>org</th>
-            <th>{sideNames.b}</th>
+            <th className="dv-loc">
+              <HoverTip className="dv-loc-name" text={sideNames.b}>
+                {sideNames.b}
+              </HoverTip>
+            </th>
             <th>Verses</th>
             <th>Flags</th>
           </tr>
@@ -83,13 +94,15 @@ export function EventTable({
                   {typeLabel(event.type)}
                 </td>
                 <td>{event.severity}</td>
-                <td>{formatRef(event.a)}</td>
+                <td className="dv-loc">{formatRef(event.a)}</td>
                 <td>{formatRef(event.o)}</td>
-                <td>{formatRef(event.b)}</td>
+                <td className="dv-loc">{formatRef(event.b)}</td>
                 <td>
                   {formatCount(event.n, locale)} ({event.rel})
                 </td>
-                <td>{event.flags.map((flag) => flagText(flag, sideNames)).join(", ")}</td>
+                <td className="dv-flags">
+                  {event.flags.map((flag) => flagText(flag, sideNames)).join(", ")}
+                </td>
               </tr>
             ))
           )}
