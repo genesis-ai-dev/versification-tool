@@ -7,7 +7,7 @@ import { coversWholeBook, pinnedEvent, type MatrixSelection } from "./model/sele
 
 /**
  * Props for the title row above the donut.
- * The comparison title is centered. A selection is left-aligned.
+ * Every title is centered over the donut.
  */
 export interface ScopeHeadingProps {
   /** Book or chapter name, or the whole-comparison title. */
@@ -18,8 +18,6 @@ export interface ScopeHeadingProps {
    * event lists its verse reference. Null, omitted, or blank draws no control.
    */
   subtitle?: string | null;
-  /** True for the comparison title, which is centered. */
-  centered: boolean;
 }
 
 /** Everything the column needs to describe the hovered or pinned scope. */
@@ -28,21 +26,19 @@ export interface ScopeHeadingModel {
   title: string;
   /** Explanation opened from the info control beside the title, or null when nothing is selected. */
   subtitle: string | null;
-  /** True for the comparison title, which is centered. */
-  centered: boolean;
   /** Book the column describes, or null when nothing is selected. ``ScopeActions`` reads it. */
   bookCode: string | null;
 }
 
 /**
  * Title row above the donut.
- * The comparison title is centered and has no explanation. A selection is
- * left-aligned, and its explanation opens from the info control beside the title.
+ * Every title is centered over the donut. The comparison title has no explanation.
+ * A selection's explanation opens from the info control beside the title.
  */
-export function ScopeHeading({ title, subtitle = null, centered }: ScopeHeadingProps) {
+export function ScopeHeading({ title, subtitle = null }: ScopeHeadingProps) {
   const detail = subtitle?.trim() ? subtitle : null;
   return (
-    <header className={centered ? "dv-inspector-head is-centered" : "dv-inspector-head"}>
+    <header className="dv-inspector-head">
       <h2>{title}</h2>
       {detail !== null && (
         <InfoTip label={`${title} details`} text={detail}>
@@ -55,7 +51,7 @@ export function ScopeHeading({ title, subtitle = null, centered }: ScopeHeadingP
 
 /**
  * Heading above the donut for the hovered or pinned cell.
- * Nothing selected, or a book the index does not know, centers the comparison
+ * Nothing selected, or a book the index does not know, shows the comparison
  * total and names no book, so the column shows no buttons. A verse label replaces the chapter name
  * and the explanation stays the chapter. A book summary, or a cell with no chapter,
  * uses the book name and the whole-book counts. A selected event uses its catalog
@@ -75,7 +71,6 @@ export function scopeHeading(
     return {
       title: comparisonTitle(total, locale),
       subtitle: null,
-      centered: true,
       bookCode: null,
     };
   }
@@ -85,7 +80,6 @@ export function scopeHeading(
     return {
       title: typeLabel(chosen.type),
       subtitle: verse.length > 0 ? verse : book.name,
-      centered: false,
       bookCode: book.code,
     };
   }
@@ -97,7 +91,7 @@ export function scopeHeading(
     whole || shown.chapter === null
       ? bookLine(book, sideNames, locale)
       : chapterLine(book, shown.chapter, sideNames, locale);
-  return { title, subtitle, centered: false, bookCode: book.code };
+  return { title, subtitle, bookCode: book.code };
 }
 
 /**

@@ -1,4 +1,13 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { createPortal } from "react-dom";
+import { placeTip, type TipPlace } from "./tipPlace";
 
 /** Props for an explanation that opens from a legend item. */
 export interface InfoTipProps {
@@ -12,12 +21,43 @@ export interface InfoTipProps {
 
 /**
  * Click-to-open explanation.
- * Escape and a click outside close the tip without closing the dialog.
+ * The tip is drawn on the document body, so the dialog cannot clip it, and it
+ * may extend past the dialog. Escape and a click outside close the tip without
+ * closing the dialog.
  */
 export function InfoTip({ label, text, children }: InfoTipProps) {
   const [open, setOpen] = useState(false);
+  const [place, setPlace] = useState<TipPlace | null>(null);
   const tipId = useId();
   const rootRef = useRef<HTMLSpanElement>(null);
+  const tipRef = useRef<HTMLSpanElement>(null);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      return;
+    }
+    /** Follow the trigger while the dialog scrolls or the window changes size. */
+    const update = () => {
+      const button = rootRef.current?.querySelector("button");
+      const tip = tipRef.current;
+      if (button === null || button === undefined || tip === null) {
+        return;
+      }
+      setPlace(
+        placeTip(button.getBoundingClientRect(), tip.getBoundingClientRect(), {
+          width: window.innerWidth,
+          height: window.innerHeight,
+        }),
+      );
+    };
+    update();
+    window.addEventListener("resize", update);
+    document.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      document.removeEventListener("scroll", update, true);
+    };
+  }, [open, text]);
 
   useEffect(() => {
     if (!open) {
@@ -33,9 +73,11 @@ export function InfoTip({ label, text, children }: InfoTipProps) {
       setOpen(false);
     };
     const onPointer = (event: MouseEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(false);
+      const target = event.target as Node;
+      if (rootRef.current?.contains(target) || tipRef.current?.contains(target)) {
+        return;
       }
+      setOpen(false);
     };
     document.addEventListener("keydown", onKey, true);
     document.addEventListener("mousedown", onPointer);
@@ -57,11 +99,19 @@ export function InfoTip({ label, text, children }: InfoTipProps) {
       >
         {children}
       </button>
-      {open && (
-        <span id={tipId} role="tooltip" className="dv-tip-body">
-          {text}
-        </span>
-      )}
+      {open &&
+        createPortal(
+          <span
+            id={tipId}
+            ref={tipRef}
+            role="tooltip"
+            className="dv-tip-body"
+            style={place === null ? undefined : { left: place.left, top: place.top }}
+          >
+            {text}
+          </span>,
+          document.body,
+        )}
     </span>
   );
 }

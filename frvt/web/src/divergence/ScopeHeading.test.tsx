@@ -9,17 +9,18 @@ import type { DivergenceReport } from "./types";
 const index = buildIndex(indexReport());
 
 describe("ScopeHeading", () => {
-  it("centers the comparison title", () => {
-    render(<ScopeHeading title="All Deviances (None)" centered />);
-    const heading = screen.getByRole("heading", { name: "All Deviances (None)" });
-    expect(heading.closest("header")).toHaveClass("is-centered");
+  it("draws no info control for the comparison title", () => {
+    render(<ScopeHeading title="All Deviances (None)" />);
+    expect(
+      screen.getByRole("heading", { name: "All Deviances (None)" }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("opens the subtitle from an info control beside the title", async () => {
     const user = userEvent.setup();
     const subtitle = "Chapter 3: A 27 verses; B 27 verses";
-    render(<ScopeHeading title="2 Kings 3" subtitle={subtitle} centered={false} />);
+    render(<ScopeHeading title="2 Kings 3" subtitle={subtitle} />);
     expect(screen.queryByText(subtitle)).not.toBeInTheDocument();
     const button = screen.getByRole("button", { name: "2 Kings 3 details" });
     expect(screen.getByRole("heading").closest("header")).toContainElement(button);
@@ -28,7 +29,7 @@ describe("ScopeHeading", () => {
   });
 
   it("draws no info control for a blank subtitle", () => {
-    render(<ScopeHeading title="Genesis" subtitle="   " centered={false} />);
+    render(<ScopeHeading title="Genesis" subtitle="   " />);
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });
@@ -41,7 +42,6 @@ describe("scopeHeading", () => {
     expect(scopeHeading(null, index, 1234, sides, layers, "en-US")).toEqual({
       title: "All Deviances (1,234)",
       subtitle: null,
-      centered: true,
       bookCode: null,
     });
     expect(scopeHeading(null, index, 0, sides, layers, "en-US").title).toBe(
@@ -67,7 +67,6 @@ describe("scopeHeading", () => {
     ).toEqual({
       title: "Genesis 21:1–21:4",
       subtitle: "Chapter 21: A absent; B absent",
-      centered: false,
       bookCode: "GEN",
     });
   });
@@ -85,7 +84,6 @@ describe("scopeHeading", () => {
     ).toEqual({
       title: "Genesis 1000",
       subtitle: "Chapter 1000: A absent; B absent",
-      centered: false,
       bookCode: "GEN",
     });
   });
@@ -94,7 +92,6 @@ describe("scopeHeading", () => {
     const whole = {
       title: "Genesis",
       subtitle: "Whole book: 1 chapters in A, 1 in B",
-      centered: false,
       bookCode: "GEN",
     };
     expect(
@@ -208,7 +205,7 @@ describe("scopeHeading", () => {
     ).toMatchObject({ title: "Chapter move", subtitle: "Genesis 1:1–1:2" });
   });
 
-  it("centers the comparison title when the book is missing", () => {
+  it("shows the comparison title when the book is missing", () => {
     expect(
       scopeHeading(
         { bookCode: "ZZZ", chapter: 1, summary: false },
@@ -221,7 +218,6 @@ describe("scopeHeading", () => {
     ).toEqual({
       title: "All Deviances (None)",
       subtitle: null,
-      centered: true,
       bookCode: null,
     });
   });

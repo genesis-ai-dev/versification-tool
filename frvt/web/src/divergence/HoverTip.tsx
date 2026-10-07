@@ -1,4 +1,6 @@
-import type { ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { keepOnScreen, type TipPlace } from "./tipPlace";
 import { useHoverTip, type HoverTipState } from "./useHoverTip";
 
 /** Props for the tip box drawn from a ``useHoverTip`` result. */
@@ -9,17 +11,38 @@ export interface HoverTipBodyProps {
 
 /**
  * Tip box for a ``useHoverTip`` state, or nothing while the tip is closed.
- * It renders in place with ``position: fixed``, so a clipping ancestor such as a
- * truncated label does not cut it off, and it stays inside the dialog's stacking context.
+ * It is drawn on the document body, so a clipping ancestor such as the dialog
+ * or a truncated label does not cut it off. It may extend past the dialog.
  */
 export function HoverTipBody({ tip }: HoverTipBodyProps) {
+  const tipRef = useRef<HTMLSpanElement>(null);
+  const [place, setPlace] = useState<TipPlace | null>(null);
+  useLayoutEffect(() => {
+    const node = tipRef.current;
+    if (tip === null || node === null) {
+      return;
+    }
+    const box = node.getBoundingClientRect();
+    setPlace(
+      keepOnScreen(tip.x, tip.y, box.width, box.height, {
+        width: window.innerWidth,
+        height: window.innerHeight,
+      }),
+    );
+  }, [tip]);
   if (tip === null) {
     return null;
   }
-  return (
-    <span className="dv-hover-tip" role="tooltip" style={{ left: tip.x, top: tip.y }}>
+  return createPortal(
+    <span
+      ref={tipRef}
+      className="dv-hover-tip"
+      role="tooltip"
+      style={{ left: place?.left ?? tip.x, top: place?.top ?? tip.y }}
+    >
       {tip.text}
-    </span>
+    </span>,
+    document.body,
   );
 }
 
@@ -31,9 +54,8 @@ export interface HoverTipProps {
   children: ReactNode;
   /**
    * Class on the visible wrapper.
-   * Use it to ellipsize a translation name. The tip itself stays fixed, so this
-   * clip does not hide the full name. Do not combine it with a transform, filter,
-   * or contain, because those would trap the tip inside the clipped name.
+   * Use it to ellipsize a translation name. The tip is drawn on the document
+   * body, so this clip does not hide the full name.
    */
   className?: string;
 }
@@ -41,8 +63,8 @@ export interface HoverTipProps {
 /**
  * Inline wrapper that shows ``text`` in a tip after the pointer rests on ``children``.
  * Use it for content cut short on screen, such as a long translation name.
- * Leaving the content cancels or closes the tip. The tip is fixed so a clipping
- * class on the wrapper does not cut it off.
+ * Leaving the content cancels or closes the tip. The tip is drawn on the
+ * document body, so a clipping class on the wrapper does not cut it off.
  */
 export function HoverTip({ text, children, className }: HoverTipProps) {
   const { tip, show, hide } = useHoverTip();

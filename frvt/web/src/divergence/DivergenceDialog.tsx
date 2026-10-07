@@ -451,11 +451,7 @@ export function DivergenceDialog({
                 </div>
                 <aside className="dv-column">
                   <figure className="dv-summary">
-                    <ScopeHeading
-                      title={heading.title}
-                      subtitle={heading.subtitle}
-                      centered={heading.centered}
-                    />
+                    <ScopeHeading title={heading.title} subtitle={heading.subtitle} />
                     <Donut
                       layers={chart.layers}
                       types={chart.types}

@@ -1,9 +1,10 @@
 import { schemeSet3 } from "d3";
 import type { Slice } from "./breakdown";
 import { LAYER_COLORS, sliceColor } from "./Donut";
-import { LAYER_HELP } from "./help";
+import { LAYER_HELP, TYPE_HELP } from "./help";
 import { InfoIcon } from "./InfoIcon";
 import { InfoTip } from "./InfoTip";
+import { TYPE_IDS } from "./taxonomy";
 
 /** Props for the color key under the donut. */
 export interface DonutKeyProps {
@@ -15,7 +16,7 @@ export interface DonutKeyProps {
 
 /**
  * Collapsed key for the colors on the donut.
- * It starts closed. Layer rows reuse the checkbox explanation. Type rows are the label only.
+ * It starts closed. Each layer and type opens its explanation from the info control.
  */
 export function DonutKey({ layers, types }: DonutKeyProps) {
   const empty = layers.length === 0 && types.length === 0;
@@ -30,14 +31,8 @@ export function DonutKey({ layers, types }: DonutKeyProps) {
             heading="Inner ring: layers"
             slices={layers}
             colors={LAYER_COLORS}
-            withHelp
           />
-          <SliceGroup
-            heading="Outer ring: types"
-            slices={types}
-            colors={schemeSet3}
-            withHelp={false}
-          />
+          <SliceGroup heading="Outer ring: types" slices={types} colors={schemeSet3} />
         </>
       )}
     </details>
@@ -46,13 +41,12 @@ export function DonutKey({ layers, types }: DonutKeyProps) {
 
 /**
  * One group of swatches.
- * An empty group renders nothing. Help icons are only for layers that have a stored explanation.
+ * An empty group renders nothing. A slice with a stored explanation gets an info control.
  */
 function SliceGroup({
   heading,
   slices,
   colors,
-  withHelp,
 }: {
   /** Group name, naming the ring the swatches belong to. */
   heading: string;
@@ -60,8 +54,6 @@ function SliceGroup({
   slices: Slice[];
   /** Palette ``sliceColor`` uses for this ring. */
   colors: readonly string[];
-  /** True for the layer ring, which can show the stored explanation. */
-  withHelp: boolean;
 }) {
   if (slices.length === 0) {
     return null;
@@ -71,7 +63,7 @@ function SliceGroup({
       <h3>{heading}</h3>
       <ul>
         {slices.map((slice) => {
-          const help = withHelp ? layerHelp(slice.key) : undefined;
+          const help = sliceHelp(slice.key);
           return (
             <li key={slice.key} className="dv-key-row">
               <span
@@ -94,12 +86,17 @@ function SliceGroup({
 }
 
 /**
- * Stored explanation for a layer slice, if the key names one.
- * The id is the key with the ``layer-`` prefix removed.
+ * Stored explanation for a layer or type slice, if the key names one.
+ * A layer key is ``layer-`` plus the layer id. A type key is ``type-`` plus the
+ * type index. Anything else has no explanation.
  */
-function layerHelp(key: string): string | undefined {
-  if (!key.startsWith("layer-")) {
+function sliceHelp(key: string): string | undefined {
+  if (key.startsWith("layer-")) {
+    return LAYER_HELP[key.slice("layer-".length)];
+  }
+  if (!key.startsWith("type-")) {
     return undefined;
   }
-  return LAYER_HELP[key.slice("layer-".length)];
+  const id = TYPE_IDS[Number(key.slice("type-".length))];
+  return id === undefined ? undefined : TYPE_HELP[id];
 }
