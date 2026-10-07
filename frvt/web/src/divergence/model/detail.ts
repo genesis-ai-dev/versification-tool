@@ -1,5 +1,4 @@
-import { scaleLinear } from "d3-scale";
-import { bookOrder, type ComparisonIndex, type IndexedEvent } from "./index";
+import { bookEvents, bookOrder, type ComparisonIndex, type IndexedEvent } from "./index";
 import type { RunRow, Span } from "../types";
 
 /** One ladder run after the type index is resolved. */
@@ -135,19 +134,72 @@ export function axisFor(
   };
 }
 
+/** Highest strip zoom. Zoom 1 shows the whole axis. */
+export const MAX_LADDER_ZOOM = 100;
+
+/**
+ * Zoom factor and first visible verse of the strip.
+ * Kept in one value so a zoom and its new origin always paint together.
+ */
+export interface LadderView {
+  /** Zoom factor from 1 to ``MAX_LADDER_ZOOM``. Fractional after a wheel zoom. */
+  zoom: number;
+  /** First visible verse on axis A. Ignored at zoom 1. */
+  origin: number;
+}
+
+/** Keep a zoom factor between 1 and ``MAX_LADDER_ZOOM``. */
+export function clampZoom(zoom: number): number {
+  return Math.min(MAX_LADDER_ZOOM, Math.max(1, zoom));
+}
+
 /**
  * Visible verse window at a zoom factor.
- * Zoom 1 shows the whole axis. Zoom 400 shows one four-hundredth of it.
+ * Zoom 1 shows the whole axis. The highest zoom, MAX_LADDER_ZOOM, shows one hundredth of it.
  * ``origin`` is the first verse to show. The window is clamped inside the axis.
  */
 export function ladderWindow(length: number, zoom: number, origin = 0): [number, number] {
-  const scale = Math.min(400, Math.max(1, zoom));
+  const scale = clampZoom(zoom);
   const span = length / scale;
   if (scale === 1) {
     return [0, length];
   }
   const start = Math.min(Math.max(0, origin), Math.max(0, length - span));
   return [start, start + span];
+}
+
+/** Side A length above which a book opens on a window instead of the whole axis. */
+export const LONG_BOOK_VERSES = 1200;
+
+/** Width of the opening window for a long book, in verses. */
+export const OPENING_WINDOW_VERSES = 300;
+
+/** Verses shown before the first divergence in the opening window. */
+export const OPENING_LEAD_VERSES = 20;
+
+/**
+ * Strip view a book opens on.
+ * A book of at most 1200 verses opens on the whole axis. A longer book opens on a
+ * 300-verse window that starts 20 verses before the first divergence on side A.
+ * The window is wider when that zoom would pass the strip maximum.
+ */
+export function initialLadderView(
+  axis: LadderAxis,
+  runs: readonly ScopedRun[],
+): LadderView {
+  if (axis.length <= LONG_BOOK_VERSES) {
+    return { zoom: 1, origin: 0 };
+  }
+  const first = runs.reduce(
+    (min, run) =>
+      run.type === "SAME" || run.a === null
+        ? min
+        : Math.min(min, axis.position(run.a, false)),
+    Number.POSITIVE_INFINITY,
+  );
+  const zoom = clampZoom(axis.length / OPENING_WINDOW_VERSES);
+  const start = Number.isFinite(first) ? first - OPENING_LEAD_VERSES : 0;
+  return { zoom, origin: ladderWindow(axis.length, zoom, start)[0] };
 }
 
 /** Chapters that contain a strip window. ``book`` and ``endBook`` are book codes. */
@@ -179,7 +231,12 @@ export function visibleChapters(
     return null;
   }
   const last = latestTickAtOrBefore(ticks, end) ?? first;
-  return { book: first.book, first: first.chapter, last: last.chapter, endBook: last.book };
+  return {
+    book: first.book,
+    first: first.chapter,
+    last: last.chapter,
+    endBook: last.book,
+  };
 }
 
 /**
@@ -212,6 +269,44 @@ export function panOrigin(
 ): number {
   const deltaVerses = pxPerVerse > 0 ? -deltaPx / pxPerVerse : 0;
   return ladderWindow(length, zoom, origin + deltaVerses)[0];
+}
+
+/**
+ * Strip view after zooming to ``nextZoom`` around one point of the plot.
+ * ``fraction`` is that point's share of the plot width, from 0 at the left to 1 at the right,
+ * and is clamped to that range. The verse under it stays under it, unless the window
+ * would leave the axis; the result is clamped inside the axis.
+ * Use 0.5 to zoom around the center, as the slider does.
+ */
+export function zoomAround(
+  length: number,
+  view: LadderView,
+  nextZoom: number,
+  fraction: number,
+): LadderView {
+  const zoom = clampZoom(nextZoom);
+  const [start, end] = ladderWindow(length, view.zoom, view.origin);
+  const share = Math.min(1, Math.max(0, fraction));
+  const anchor = start + share * (end - start);
+  return {
+    zoom,
+    origin: ladderWindow(length, zoom, anchor - share * (length / zoom))[0],
+  };
+}
+
+/**
+ * Zoom multiplier for one wheel event, on d3-zoom's default curve so the wheel feels like other d3 charts.
+ * A negative ``deltaY`` (wheel away from the user) zooms in. ``deltaMode`` 0 is pixels,
+ * 1 is lines, and 2 is pages. ``ctrlKey`` marks a trackpad pinch, which zooms 10 times faster.
+ * A zero ``deltaY`` returns 1.
+ */
+export function wheelZoomFactor(
+  deltaY: number,
+  deltaMode: number,
+  ctrlKey: boolean,
+): number {
+  const perUnit = deltaMode === 1 ? 0.05 : deltaMode === 0 ? 0.002 : 1;
+  return 2 ** (-deltaY * perUnit * (ctrlKey ? 10 : 1));
 }
 
 /** Chapter pin and heading for one selected run. */
@@ -278,20 +373,25 @@ export function eventForRun(
   return bestOverlap > 0 ? best : null;
 }
 
-/** One dot-plot stroke in canvas pixels. ``key`` matches ``runKey`` for that run. */
-export interface DotSegment {
-  /** Identity shared with the ladder ribbon and the table row. */
-  key: string;
-  /** Run type, ``SAME`` when the layer is hidden. The plot uses it for the stroke color. */
-  type: string;
-  /** Canvas x of the side A start. */
-  x0: number;
-  /** Canvas y of the side B start. */
-  y0: number;
-  /** Canvas x of the side A end. */
-  x1: number;
-  /** Canvas y of the side B end. */
-  y1: number;
+/**
+ * Book to open when the dialog has not chosen one: the first book with a visible
+ * divergence, else the first book with chapters, else an empty string.
+ */
+export function defaultBook(
+  index: ComparisonIndex,
+  layersOn: ReadonlySet<string>,
+): string {
+  const choices = index.books.filter((item) => item.slots > 0);
+  return (
+    choices.find((item) => bookEvents(index, item.code, layersOn).length > 0)?.code ??
+    choices[0]?.code ??
+    ""
+  );
+}
+
+/** Severity for a run type, or 0 when the type is unchanged or unknown. */
+export function severityOf(index: ComparisonIndex, type: string): number {
+  return index.types.find((item) => item.id === type)?.severity ?? 0;
 }
 
 /**
@@ -319,120 +419,6 @@ export function runForEvent(
     }
   }
   return null;
-}
-
-/**
- * Segment under a dot-plot click, or null when none is within ``slop`` pixels.
- * Distance is measured to the finite segment. The nearer segment wins.
- */
-export function nearestSegment(
-  segments: readonly DotSegment[],
-  x: number,
-  y: number,
-  slop: number,
-): string | null {
-  let bestKey: string | null = null;
-  let bestDistance = slop;
-  for (const segment of segments) {
-    const distance = segmentDistance(segment, x, y);
-    if (distance > slop || (bestKey !== null && distance >= bestDistance)) {
-      continue;
-    }
-    bestKey = segment.key;
-    bestDistance = distance;
-  }
-  return bestKey;
-}
-
-/**
- * Deviance under a dot-plot click.
- * The nearest stroke within ``slop`` wins, the same measurement as ``nearestSegment``.
- * An unchanged stroke returns null, including when a deviance is farther away but still inside the slop.
- */
-export function selectedDotKey(
-  segments: readonly DotSegment[],
-  x: number,
-  y: number,
-  slop: number,
-): string | null {
-  const key = nearestSegment(segments, x, y, slop);
-  if (key === null) {
-    return null;
-  }
-  const segment = segments.find((item) => item.key === key);
-  if (segment === undefined || !runSelectable(segment)) {
-    return null;
-  }
-  return key;
-}
-
-/**
- * Strokes for the dot plot, in run order.
- * A run with either side missing is omitted. ``magnify`` applies the offset scale the plot draws.
- */
-export function dotSegments(
-  runs: readonly ScopedRun[],
-  index: ComparisonIndex,
-  magnify: boolean,
-  size: number,
-): DotSegment[] {
-  const sideA = axisFor(index, runs, "a", (code) => index.byCode.get(code)?.a);
-  const sideB = axisFor(index, runs, "b", (code) => index.byCode.get(code)?.b);
-  const x = scaleLinear().domain(ladderWindow(sideA.length, 1)).range([14, size - 4]);
-  const y = scaleLinear().domain(ladderWindow(sideB.length, 1)).range([size - 14, 4]);
-  const perVerse = (size - 18) / Math.max(1, sideB.length);
-  let maxOffset = 0;
-  for (const run of runs) {
-    if (run.a !== null && run.b !== null && run.a[0] === run.b[0]) {
-      maxOffset = Math.max(
-        maxOffset,
-        Math.abs(sideB.position(run.b, false) - sideA.position(run.a, false)),
-        Math.abs(sideB.position(run.b, true) - sideA.position(run.a, true)),
-      );
-    }
-  }
-  const head = 0.3 * (size - 18);
-  const magnification = maxOffset > 0 ? Math.min(400, head / (maxOffset * perVerse)) : 1;
-  const top = 4 + head;
-  const bottom = size - 14 - head;
-  const baseline = (position: number) =>
-    bottom + (position / Math.max(1, sideA.length)) * (top - bottom);
-  const magnifiedY = (aPos: number, bPos: number) =>
-    Math.max(
-      4,
-      Math.min(size - 14, baseline(aPos) - (bPos - aPos) * perVerse * magnification),
-    );
-  const segments: DotSegment[] = [];
-  for (const run of runs) {
-    if (run.a === null || run.b === null) {
-      continue;
-    }
-    const a0 = sideA.position(run.a, false);
-    const a1 = sideA.position(run.a, true);
-    const b0 = sideB.position(run.b, false);
-    const b1 = sideB.position(run.b, true);
-    segments.push({
-      key: runKey(run),
-      type: run.type,
-      x0: x(a0),
-      y0: magnify ? magnifiedY(a0, b0) : y(b0),
-      x1: x(a1),
-      y1: magnify ? magnifiedY(a1, b1) : y(b1),
-    });
-  }
-  return segments;
-}
-
-/** Draw nothing when the canvas cannot supply a 2D context. */
-export function drawDotPlot(
-  canvas: HTMLCanvasElement,
-  paint: (context: CanvasRenderingContext2D) => void,
-): void {
-  const context = canvas.getContext("2d");
-  if (context === null) {
-    return;
-  }
-  paint(context);
 }
 
 /** Chapter ticks in axis order, carrying the book that each tick belongs to. */
@@ -467,8 +453,11 @@ function latestTickAtOrBefore(
   return found;
 }
 
-/** ``Book chapter:verse`` or ``Book chapter:verse–chapter:verse``. */
-function verseTitle(name: string, span: Span): string {
+/**
+ * ``Book chapter:verse`` or ``Book chapter:verse–chapter:verse``.
+ * Used by a run's heading and by an event selected from a ribbon or a row.
+ */
+export function verseTitle(name: string, span: Span): string {
   const start = `${span[1]}:${span[2]}`;
   const end = `${span[3]}:${span[4]}`;
   if (start === end) {
@@ -483,18 +472,6 @@ function spanKey(span: Span | null): string {
     return "-";
   }
   return `${span[0]}:${span[1]}:${span[2]}:${span[3]}:${span[4]}`;
-}
-
-/** Distance from a point to a finite segment. A zero-length segment is a point. */
-function segmentDistance(segment: DotSegment, x: number, y: number): number {
-  const dx = segment.x1 - segment.x0;
-  const dy = segment.y1 - segment.y0;
-  const lengthSq = dx * dx + dy * dy;
-  if (lengthSq === 0) {
-    return Math.hypot(x - segment.x0, y - segment.y0);
-  }
-  const t = Math.max(0, Math.min(1, ((x - segment.x0) * dx + (y - segment.y0) * dy) / lengthSq));
-  return Math.hypot(segment.x0 + t * dx - x, segment.y0 + t * dy - y);
 }
 
 /** Shared verse overlap of two spans in the same book. */

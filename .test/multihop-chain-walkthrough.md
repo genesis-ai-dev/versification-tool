@@ -22,7 +22,7 @@ Connector hop count may differ; **follower verse locations on the right** must m
 
 - **`engdemo`** is a hop-2 **scheme** (`basedOn: org`) with decomposed mappings (e.g. `PSA 3:0 → 3:1 → 3:2`).
 - **`spanish-eng`** is hop-1 (`basedOn: engdemo` **translation name**, not a hyphenated id). Its `mappedVerses` are **inferred** by org-pivot: for each baseline row `S → O`, find the unique engdemo source `E` with `E → O` in engdemo ([`infer_spanish_eng_ingredient`](../frvt/testops/fixtures/multihop_chain_fixtures.py)).
-- **`engdemo`** translation is an **empty shell** (no spans) — it exists only as the `basedOn` numbering-space node for `spanish-eng` ([Server spec ADD-S-001c](.spec/frvt-3-server-and-api-spec-1.md#add-s-001--visual-alignment-and-category-test-coverage)).
+- **`engdemo`** translation is an **empty shell** (no spans) — it exists only as the `basedOn` numbering-space node for `spanish-eng` ([Server spec ADD-S-001c](../.spec/completed/frvt-3/frvt-3-server-and-api-spec-1.md#add-s-001--visual-alignment-and-category-test-coverage)).
 
 ### Load-bearing seed order
 
@@ -48,11 +48,11 @@ Without step 2, `spanish-eng` upload fails (`basedOn` must resolve to the engdem
 
 | Topic | Spec |
 |---|---|
-| Multi-hop / intermediate `basedOn` translation | [Server spec ADD-S-001c](.spec/frvt-3-server-and-api-spec-1.md#add-s-001--visual-alignment-and-category-test-coverage) |
-| Ingredient `basedOn` charset (`engdemo`, not hyphens) | [Server spec ADD-S-001a](.spec/frvt-3-server-and-api-spec-1.md#add-s-001--visual-alignment-and-category-test-coverage) |
-| Shared-ancestor chain walk | [Resolver spec §6.1–§6.2](.spec/frvt-3-resolver-and-etl-spec-1.md#61-orchestration-resolve) |
-| Supplementary parity pytest + this walkthrough | [Server spec ADD-S-001e](.spec/frvt-3-server-and-api-spec-1.md#add-s-001--visual-alignment-and-category-test-coverage), [Resolver spec ADD-R-001d](.spec/frvt-3-resolver-and-etl-spec-1.md#add-r-001--visual-alignment-and-category-test-coverage) |
-| Exclude void presentation (**P-exclude**) | [UI spec §8.5](.spec/frvt-3-ui-spec-1.md#85-exclude--connector-to-void) |
+| Multi-hop / intermediate `basedOn` translation | [Server spec ADD-S-001c](../.spec/completed/frvt-3/frvt-3-server-and-api-spec-1.md#add-s-001--visual-alignment-and-category-test-coverage) |
+| Ingredient `basedOn` charset (`engdemo`, not hyphens) | [Server spec ADD-S-001a](../.spec/completed/frvt-3/frvt-3-server-and-api-spec-1.md#add-s-001--visual-alignment-and-category-test-coverage) |
+| Shared-ancestor chain walk | [Resolver spec §6.1–§6.2](../.spec/completed/frvt-3/frvt-3-resolver-and-etl-spec-1.md#61-orchestration-resolve) |
+| Supplementary parity pytest + this walkthrough | [Server spec ADD-S-001e](../.spec/completed/frvt-3/frvt-3-server-and-api-spec-1.md#add-s-001--visual-alignment-and-category-test-coverage), [Resolver spec ADD-R-001d](../.spec/completed/frvt-3/frvt-3-resolver-and-etl-spec-1.md#add-r-001--visual-alignment-and-category-test-coverage) |
+| Exclude void presentation (**P-exclude**) | [UI spec §8.5](../.spec/completed/frvt-3/frvt-3-ui-spec-1.md#85-exclude--connector-to-void) |
 
 ## Preconditions
 

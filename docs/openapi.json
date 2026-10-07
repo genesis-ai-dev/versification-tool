@@ -813,6 +813,142 @@
         }
       }
     },
+    "/api/versifications/{scheme_id}/source": {
+      "get": {
+        "tags": [
+          "versifications"
+        ],
+        "summary": "Get Versification Source",
+        "description": "Return the verbatim source for one scheme.",
+        "operationId": "get_versification_source_api_versifications__scheme_id__source_get",
+        "parameters": [
+          {
+            "name": "scheme_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Scheme Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersificationSourceOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "versifications"
+        ],
+        "summary": "Put Versification Source",
+        "description": "Attach an original file to a custom scheme that does not have one yet.",
+        "operationId": "put_versification_source_api_versifications__scheme_id__source_put",
+        "parameters": [
+          {
+            "name": "scheme_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Scheme Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_put_versification_source_api_versifications__scheme_id__source_put"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersificationSourceOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/translations/{translation_id}/versifications": {
       "get": {
         "tags": [
@@ -2901,6 +3037,194 @@
           }
         }
       }
+    },
+    "/api/divergence/reports": {
+      "post": {
+        "tags": [
+          "divergence"
+        ],
+        "summary": "Create Divergence Report",
+        "description": "Find or create a report and schedule it when it is not already fresh.",
+        "operationId": "create_divergence_report_api_divergence_reports_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DivergenceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DivergenceStatusOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/divergence/reports/{report_id}": {
+      "get": {
+        "tags": [
+          "divergence"
+        ],
+        "summary": "Get Divergence Report",
+        "description": "Return status and progress for one report.",
+        "operationId": "get_divergence_report_api_divergence_reports__report_id__get",
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Report Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DivergenceStatusOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/divergence/reports/{report_id}/data": {
+      "get": {
+        "tags": [
+          "divergence"
+        ],
+        "summary": "Get Divergence Data",
+        "description": "Return the stored payload bytes. 409 when the report is not ready.",
+        "operationId": "get_divergence_data_api_divergence_reports__report_id__data_get",
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Report Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed. Body is ErrorBody (code validation_failed), not HTTPValidationError.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Basic credentials. code: unauthorized. WWW-Authenticate: Basic realm=\"FRVT\".",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentications from this client IP. code: too_many_requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3146,6 +3470,20 @@
         ],
         "title": "Body_ingest_project_endpoint_api_ingest_project_post"
       },
+      "Body_put_versification_source_api_versifications__scheme_id__source_put": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_put_versification_source_api_versifications__scheme_id__source_put"
+      },
       "Body_upload_versification_endpoint_api_versifications_upload_post": {
         "properties": {
           "file": {
@@ -3231,6 +3569,120 @@
         ],
         "title": "DeltaEntry",
         "description": "One explicit mapping delta between two selected schemes."
+      },
+      "DivergenceRequest": {
+        "properties": {
+          "from_translation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "From Translation Id"
+          },
+          "to_translation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "To Translation Id"
+          },
+          "from_scheme_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Scheme Id"
+          },
+          "to_scheme_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Scheme Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "from_translation_id",
+          "to_translation_id"
+        ],
+        "title": "DivergenceRequest",
+        "description": "Body of ``POST /api/divergence/reports``."
+      },
+      "DivergenceStatusOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "stalled": {
+            "type": "boolean",
+            "title": "Stalled"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "stage_index": {
+            "type": "integer",
+            "title": "Stage Index"
+          },
+          "stage_count": {
+            "type": "integer",
+            "title": "Stage Count"
+          },
+          "completed": {
+            "type": "integer",
+            "title": "Completed"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "stalled",
+          "stage",
+          "stage_index",
+          "stage_count",
+          "completed",
+          "total",
+          "error"
+        ],
+        "title": "DivergenceStatusOut",
+        "description": "Progress payload for one report. ``payload`` is a different route."
       },
       "IndexCreate": {
         "properties": {
@@ -3415,6 +3867,16 @@
           "reclaim_pending": {
             "type": "integer",
             "title": "Reclaim Pending"
+          },
+          "divergence_reports": {
+            "type": "integer",
+            "title": "Divergence Reports",
+            "default": 0
+          },
+          "divergence_bytes": {
+            "type": "integer",
+            "title": "Divergence Bytes",
+            "default": 0
           }
         },
         "type": "object",
@@ -4055,6 +4517,16 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Ingredient"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VersificationSourceMetaOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -4139,6 +4611,100 @@
         ],
         "title": "VersificationOut",
         "description": "Scheme summary without the full ingredient payload."
+      },
+      "VersificationSourceMetaOut": {
+        "properties": {
+          "format": {
+            "type": "string",
+            "title": "Format"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "sha256": {
+            "type": "string",
+            "title": "Sha256"
+          },
+          "document_bytes": {
+            "type": "integer",
+            "title": "Document Bytes"
+          },
+          "companion_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Companion Bytes"
+          },
+          "captured_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Captured At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "format",
+          "filename",
+          "sha256",
+          "document_bytes",
+          "companion_bytes",
+          "captured_at"
+        ],
+        "title": "VersificationSourceMetaOut",
+        "description": "Source metadata nested on a versification detail response.\n\nThe document text itself is a separate route, so list and detail payloads\nstay small. Field names are snake_case, matching the rest of the API."
+      },
+      "VersificationSourceOut": {
+        "properties": {
+          "format": {
+            "type": "string",
+            "title": "Format"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "sha256": {
+            "type": "string",
+            "title": "Sha256"
+          },
+          "document_text": {
+            "type": "string",
+            "title": "Document Text"
+          },
+          "companion_vrs_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Companion Vrs Text"
+          },
+          "captured_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Captured At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "format",
+          "filename",
+          "sha256",
+          "document_text",
+          "companion_vrs_text",
+          "captured_at"
+        ],
+        "title": "VersificationSourceOut",
+        "description": "Verbatim source texts for one scheme."
       },
       "VersificationUpdate": {
         "properties": {

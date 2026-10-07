@@ -1,7 +1,7 @@
 import { arc, type DefaultArcObject } from "d3-shape";
 import { select } from "d3-selection";
 import { useEffect, useId, useRef } from "react";
-import { devianceColor, HATCH, NEUTRAL, severityColor } from "./model/colors";
+import { ACCENT, devianceColor, HATCH, NEUTRAL } from "./model/colors";
 import {
   bookState,
   cellState,
@@ -11,7 +11,14 @@ import {
   type ComparisonIndex,
   type IndexedBook,
 } from "./model/index";
-import type { MatrixSelection } from "./MatrixView";
+import { eventSelection, type MatrixSelection } from "./model/selection";
+import {
+  bookLabelTransform,
+  isRibbonType,
+  ribbonCurve,
+  ribbonStyle,
+  ribbonWidth,
+} from "./model/radial";
 
 /** Props for the two radial layouts. */
 export interface RadialViewProps {
@@ -150,7 +157,15 @@ export function RadialView({
             svg
               .append("path")
               .attr("d", shape(geo) ?? "")
-              .attr("fill", `url(#${hatchId})`);
+              .attr("fill", `url(#${hatchId})`)
+              .attr("pointer-events", "none");
+          }
+          if (state.warning) {
+            svg
+              .append("path")
+              .attr("d", shape({ ...geo, innerRadius: geo.outerRadius - 1.6 }) ?? "")
+              .attr("fill", ACCENT)
+              .attr("pointer-events", "none");
           }
         }
         const selection = { bookCode: unit.book.code, chapter, summary: false };
@@ -180,85 +195,146 @@ export function RadialView({
           .attr("d", shape(ring) ?? "")
           .attr("fill", summary.severity ? devianceColor(summary.deviance) : NEUTRAL)
           .attr("pointer-events", "none");
+        if (summary.oneSided) {
+          svg
+            .append("path")
+            .attr("d", shape(ring) ?? "")
+            .attr("fill", `url(#${hatchId})`)
+            .attr("pointer-events", "none");
+        }
         const bookSelection = { bookCode: unit.book.code, chapter: null, summary: true };
         svg
           .append("path")
           .attr("d", shape(ring) ?? "")
           .attr("fill", "transparent")
           .style("cursor", "pointer")
+          .on("mouseenter", () => {
+            if (!handlers.current.pinned) {
+              handlers.current.onHover(bookSelection);
+            }
+          })
           .on("click", () => handlers.current.onSelect(bookSelection));
         const mid = (ring.startAngle + ring.endAngle) / 2;
-        svg
-          .append("text")
-          .attr("class", "dv-code")
-          .attr("font-size", 8.5)
-          .attr(
-            "transform",
-            `rotate(${(mid * 180) / Math.PI - 90}) translate(${radius + 8},0)`,
-          )
-          .attr("dy", "0.32em")
-          .text(unit.book.code);
+        if (per * radius > 7) {
+          const label = bookLabelTransform(mid, radius);
+          svg
+            .append("text")
+            .attr("class", "dv-code")
+            .attr("font-size", 8.5)
+            .attr("transform", label.transform)
+            .attr("text-anchor", label.anchor)
+            .attr("dy", "0.32em")
+            .text(unit.book.code);
+        }
       }
     });
+    const markers = new Map<string, string>();
+    /**
+     * Arrowhead for one ribbon color, created the first time that color is used.
+     * Moves share a marker per color so the head matches the stroke.
+     */
+    const markerFor = (color: string) => {
+      const existing = markers.get(color);
+      if (existing !== undefined) {
+        return existing;
+      }
+      const id = `${hatchId}-arrow-${markers.size}`;
+      svg
+        .select("defs")
+        .append("marker")
+        .attr("id", id)
+        .attr("viewBox", "0 0 10 10")
+        .attr("refX", 8.5)
+        .attr("refY", 5)
+        .attr("markerWidth", 9)
+        .attr("markerHeight", 9)
+        .attr("markerUnits", "userSpaceOnUse")
+        .attr("orient", "auto")
+        .append("path")
+        .attr("d", "M0,1 L9,5 L0,9 L2.6,5 Z")
+        .attr("fill", color);
+      markers.set(color, id);
+      return id;
+    };
     const ribbon = svg.append("g").attr("fill", "none");
     for (const event of index.events) {
       if (
         !layersOn.has(event.layer) ||
         event.a === null ||
         event.b === null ||
-        !["CROSS_BOOK", "CHAPTER_MOVE", "ORDER_INVERSION"].includes(event.type)
+        !isRibbonType(event.type)
       ) {
         continue;
       }
-      ribbon
+      const start = chapterPoint(units, event.a, geometry);
+      const end = chapterPoint(units, event.b, geometry);
+      if (start === null || end === null) {
+        continue;
+      }
+      const style = ribbonStyle(event.type, event.severity);
+      const curve = ribbonCurve(start, end, style.arrow);
+      if (curve === null) {
+        continue;
+      }
+      const path = ribbon
         .append("path")
-        .attr("stroke", severityColor(event.severity))
+        .attr("d", curve)
+        .attr("stroke", style.color)
         .attr("stroke-opacity", 0.55)
-        .attr("d", ribbonPath(units, event.a, event.b, geometry))
-        .attr("pointer-events", "stroke");
+        .attr("stroke-width", ribbonWidth(event.n))
+        .attr("pointer-events", "stroke")
+        .style("cursor", "pointer");
+      if (style.arrow) {
+        path.attr("marker-end", `url(#${markerFor(style.color)})`);
+      }
+      const selection = eventSelection(index, event, null);
+      if (selection === null) {
+        continue;
+      }
+      path
+        .on("mouseenter", (pointer: MouseEvent) => {
+          if (pointer.currentTarget instanceof SVGPathElement) {
+            select(pointer.currentTarget).attr("stroke-opacity", 1);
+          }
+          if (!handlers.current.pinned) {
+            handlers.current.onHover(selection);
+          }
+        })
+        .on("mouseleave", (pointer: MouseEvent) => {
+          if (pointer.currentTarget instanceof SVGPathElement) {
+            select(pointer.currentTarget).attr("stroke-opacity", 0.55);
+          }
+        })
+        .on("click", () => handlers.current.onSelect(selection));
     }
   }, [hatchId, index, layersOn, layout]);
 
   return (
-    <div className="dv-radial" ref={hostRef}>
-      <p className="dv-caption">
-        {layout === "slices"
-          ? "Each book gets an equal sector. Its chapters divide that sector’s radius."
-          : "Long books wrap into several sectors. Each chapter is one ring of fixed thickness."}
-      </p>
+    <div className="dv-radial">
+      <div ref={hostRef} />
     </div>
   );
 }
 
-/** Quadratic ribbon between two chapter positions. Empty when either chapter is absent. */
-function ribbonPath(
+/** Point at the middle of one chapter, or null when that chapter is not drawn. */
+function chapterPoint(
   units: { book: IndexedBook; first: number; last: number }[],
-  from: [string, number, number, number, number],
-  to: [string, number, number, number, number],
+  span: [string, number, number, number, number],
   geometry: (
     unit: { book: IndexedBook; first: number; last: number },
     item: number,
     chapter: number,
   ) => { innerRadius: number; outerRadius: number; startAngle: number; endAngle: number },
-): string {
-  const point = (span: [string, number, number, number, number]) => {
-    const item = units.findIndex(
-      (unit) =>
-        unit.book.code === span[0] && span[1] >= unit.first && span[1] <= unit.last,
-    );
-    const unit = units[item];
-    if (unit === undefined) {
-      return null;
-    }
-    const geo = geometry(unit, item, span[1]);
-    const mid = (geo.startAngle + geo.endAngle) / 2;
-    const radius = (geo.innerRadius + geo.outerRadius) / 2;
-    return [Math.sin(mid) * radius, -Math.cos(mid) * radius] as const;
-  };
-  const start = point(from);
-  const end = point(to);
-  if (start === null || end === null) {
-    return "";
+): readonly [number, number] | null {
+  const item = units.findIndex(
+    (unit) => unit.book.code === span[0] && span[1] >= unit.first && span[1] <= unit.last,
+  );
+  const unit = units[item];
+  if (unit === undefined) {
+    return null;
   }
-  return `M${start[0]},${start[1]} Q${(start[0] + end[0]) * 0.12},${(start[1] + end[1]) * 0.12} ${end[0]},${end[1]}`;
+  const geo = geometry(unit, item, span[1]);
+  const mid = (geo.startAngle + geo.endAngle) / 2;
+  const at = (geo.innerRadius + geo.outerRadius) / 2;
+  return [Math.sin(mid) * at, -Math.cos(mid) * at];
 }

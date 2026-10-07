@@ -7,7 +7,7 @@ export interface Slice {
   key: string;
   /** Legend label. */
   label: string;
-  /** Event count or summed verse count. */
+  /** Event count. */
   value: number;
   /** Share of the visible total, 0 when the total is 0. */
   percent: number;
@@ -15,14 +15,14 @@ export interface Slice {
 
 /**
  * Counts for one layer toggle, including a layer that is switched off.
- * The count covers the whole comparison, under the same event or verse measure as the rings.
+ * The count covers the whole comparison and counts events, as the rings do.
  */
 export interface LayerStat {
   /** Toggle this total belongs to. It matches the selection stat with the same id. */
   id: LayerId;
   /** Checkbox name, without the count. */
   label: string;
-  /** Events or verses in this layer across the whole comparison. */
+  /** Events in this layer across the whole comparison. */
   count: number;
   /** This layer's share of the comparison, from 0 to 100. The caller rounds it. */
   percent: number;
@@ -46,7 +46,7 @@ export interface BreakdownScope {
 export interface SelectionStat {
   /** Layer this pin total belongs to. It matches the toggle with the same id. */
   id: LayerId;
-  /** Events or verses in this layer inside the pin. */
+  /** Events in this layer inside the pin. */
   count: number;
   /** Share of the pin, from 0 to 100. The caller rounds it. */
   percent: number;
@@ -66,7 +66,7 @@ export interface Breakdown {
 }
 
 /**
- * Count events, or the verses they name.
+ * Count events by type and layer. Every count in the result is an event count.
  * The rings and selection stats follow the pinned cell. The layer toggles always
  * count the whole comparison, because they filter the heatmap and the radial chart.
  * Rings omit layers that are switched off. Toggle and selection percents still include them.
@@ -75,11 +75,10 @@ export function breakdown(
   report: DivergenceReport,
   scope: BreakdownScope | null,
   layersOn: Readonly<Record<string, boolean>>,
-  countVerses: boolean,
 ): Breakdown {
   const events = report.comparisons[0]?.events ?? [];
-  const rings = typeTotals(events, scope, countVerses);
-  const toggles = scope === null ? rings : typeTotals(events, null, countVerses);
+  const rings = typeTotals(events, scope);
+  const toggles = scope === null ? rings : typeTotals(events, null);
   const ringLayers = rollupLayers(report, rings);
   const toggleLayers = scope === null ? ringLayers : rollupLayers(report, toggles);
   const visible = LAYER_IDS.reduce(
@@ -117,15 +116,11 @@ export function breakdown(
 }
 
 /**
- * Sum events into per-type totals for one scope.
+ * Count events into per-type totals for one scope.
  * Pass a pin to keep events on that cell, or null for every event.
- * The verse measure adds each event's verse count, and a count of zero still adds one.
+ * An event with an unknown type index is skipped.
  */
-function typeTotals(
-  events: readonly EventRow[],
-  scope: BreakdownScope | null,
-  countVerses: boolean,
-): number[] {
+function typeTotals(events: readonly EventRow[], scope: BreakdownScope | null): number[] {
   const totals = new Array<number>(TYPE_LABELS.length).fill(0);
   for (const event of events) {
     if (scope !== null && !eventInScope(event, scope)) {
@@ -135,7 +130,7 @@ function typeTotals(
     if (typeIndex < 0 || typeIndex >= totals.length) {
       continue;
     }
-    totals[typeIndex] += countVerses ? Math.max(event[4], 1) : 1;
+    totals[typeIndex] += 1;
   }
   return totals;
 }

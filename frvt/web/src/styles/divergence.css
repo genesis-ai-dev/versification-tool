@@ -31,7 +31,7 @@
 
 .dv-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 22rem;
+  grid-template-columns: minmax(0, 1fr) 19.8rem;
   gap: 1rem;
   align-items: start;
 }
@@ -41,11 +41,22 @@
   background: var(--bg);
 }
 
+.dv-stage.is-detail {
+  background: var(--surface-raised);
+}
+
 .dv-matrix text,
 .dv-radial text,
 .dv-ladder text {
   fill: var(--text-muted);
   font-size: 11px;
+}
+
+.dv-ladder text.dv-tick {
+  paint-order: stroke;
+  stroke: var(--surface-raised);
+  stroke-width: 3px;
+  stroke-linejoin: round;
 }
 
 .dv-focus {
@@ -56,18 +67,123 @@
 .dv-dot {
   width: 100%;
   max-width: 28rem;
+  aspect-ratio: 1;
   background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
   cursor: pointer;
 }
 
-.dv-ladder-name,
-.dv-ladder-place {
-  margin: 0.35rem 0;
+.dv-detail-toolbar {
+  /* The inset is both the end padding and the gap between the book menu and the zoom control. */
+  --dv-toolbar-inset: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  column-gap: var(--dv-toolbar-inset);
+  row-gap: 0.75rem;
+  padding-inline: var(--dv-toolbar-inset);
 }
 
+/* Overrides the stacked-field margin from `.modal-body label` in modal.css. */
+.modal-body .dv-detail-toolbar label {
+  margin-bottom: 0;
+}
+
+.dv-detail-book {
+  flex: 0 1 28rem;
+  min-width: min(100%, 12rem);
+}
+
+.dv-detail-zoom {
+  flex: 1 1 12rem;
+}
+
+.dv-detail-zoom input {
+  width: 100%;
+}
+
+.dv-sidetabs {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: start;
+  margin-top: 0.5rem;
+}
+
+.dv-sidetabs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.dv-sidetab {
+  padding: 0.75rem 0.35rem;
+}
+
+/* Rotating vertical text makes the label read from bottom to top. */
+.dv-sidetab-label {
+  display: block;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
+}
+
+.dv-sidetab[aria-selected="true"] {
+  border-color: var(--dv-accent);
+}
+
+.dv-dot-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Right padding matches LADDER_RIGHT in Ladder.tsx, so the names end where the axes end.
+   The stacking context keeps the axes explanation above the strip it opens over. */
+.dv-ladder-head {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  margin: 0.5rem 0 0.25rem;
+  padding-right: 14px;
+}
+
+.dv-ladder-place,
+.dv-ladder-name {
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+/* Matches AXIS_LABEL_X, set on .dv-ladder, so the range text lines up with org. */
 .dv-ladder-place {
-  color: var(--text-muted);
-  font-size: 0.85rem;
+  padding-left: var(--dv-axis-label-x);
+}
+
+.dv-ladder-place,
+.dv-dot-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* The explanation opens over the plot, so this row paints above the canvas. */
+.dv-dot-option {
+  position: relative;
+  z-index: 1;
+}
+
+.dv-ladder-name {
+  text-align: right;
+}
+
+.dv-ladder > .dv-ladder-name {
+  padding-right: 14px;
 }
 
 .dv-ladder-stage {
@@ -76,38 +192,17 @@
   user-select: none;
 }
 
-.dv-ladder path:not(.dv-pick) {
+.dv-ladder :is(path, rect):not(.dv-pick) {
   pointer-events: none;
 }
 
-.dv-ladder path.dv-pick {
+.dv-ladder .dv-pick {
   cursor: pointer;
 }
 
-.dv-ladder path.dv-selected {
+.dv-ladder .dv-selected {
   stroke: var(--dv-accent);
   stroke-width: 2;
-}
-
-.dv-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.85rem;
-}
-
-.dv-table th,
-.dv-table td {
-  border-bottom: 1px solid var(--border);
-  padding: 0.25rem 0.4rem;
-  text-align: left;
-}
-
-.dv-table tbody tr[aria-selected] {
-  cursor: pointer;
-}
-
-.dv-table tbody tr[aria-selected="true"] {
-  background: color-mix(in srgb, var(--dv-accent) 28%, transparent);
 }
 
 .dv-loading p,
@@ -115,55 +210,43 @@
   margin: 0;
 }
 
+/* The stacking context keeps the explanation above the donut it opens over. */
 .dv-inspector-head {
+  position: relative;
+  z-index: 1;
   display: flex;
-  align-self: stretch;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin: 0 0 0.35rem;
+  gap: 0.35rem;
+  align-self: stretch;
+  margin: 0 0 0.25rem;
 }
 
 .dv-inspector-head.is-centered {
   justify-content: center;
 }
 
-.dv-inspector-head.is-centered h2 {
-  flex: 1;
-  text-align: center;
-}
-
 .dv-inspector-head h2 {
   margin: 0;
   min-width: 0;
+  overflow-wrap: anywhere;
+  font: 650 1.125rem/1.2 var(--font-serif);
 }
 
-.dv-inspector-actions {
-  display: flex;
+/* The trigger stays beside the title. The explanation is positioned against the
+   header, so a long sentence stays inside the column. */
+.dv-inspector-head .dv-tip {
+  position: static;
   flex-shrink: 0;
-  align-items: center;
-  gap: 0.35rem;
-  margin-left: auto;
 }
 
-/* Form buttons pad for a larger hit target. These two sit on the title line. */
-.dv-inspector-actions .btn {
-  align-self: center;
-  line-height: 1.2;
-  padding-block: 0.2rem;
+.dv-inspector-head .dv-tip-body {
+  left: 0;
+  width: 100%;
 }
 
-.dv-events {
-  margin: 0;
-  padding-left: 1.25rem;
-}
-
-.dv-ref {
-  margin: 0 0.5rem;
-}
-
-.dv-note {
-  margin: 0;
+.dv-muted {
+  color: var(--text-muted);
+  font-size: 0.85rem;
 }
 
 .dv-layer {
@@ -172,7 +255,9 @@
   align-items: center;
 }
 
-.modal-body .dv-layer label {
+/* modal.css stacks every form label. These two sit beside their controls. */
+.modal-body .dv-layer label,
+.modal-body label.dv-check {
   display: inline-flex;
   flex-direction: row;
   align-items: center;
@@ -206,8 +291,53 @@
 
 .dv-donut {
   display: block;
-  width: 14rem;
-  height: 14rem;
+  width: 12.5rem;
+  height: 12.5rem;
+}
+
+.dv-chart-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.dv-chart-key li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.dv-key-swatch,
+.dv-key-mark {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+}
+
+.dv-key-swatch {
+  border-radius: 2px;
+}
+
+.dv-key-scale {
+  width: 42px;
+  height: 14px;
+  border-radius: 2px;
+}
+
+.dv-key-severities {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.dv-key-ribbon {
+  width: 20px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
 .dv-key {
@@ -250,7 +380,7 @@
   border-radius: 2px;
 }
 
-.dv-slice-tip {
+.dv-hover-tip {
   position: fixed;
   z-index: 3;
   max-width: 18rem;
@@ -260,6 +390,7 @@
   border: 1px solid var(--line, #3a4150);
   border-radius: 0.4rem;
   color: var(--text);
+  white-space: normal;
 }
 
 .dv-tip {
@@ -298,4 +429,7 @@
   background: var(--panel, #1c212b);
   border: 1px solid var(--line, #3a4150);
   border-radius: 0.4rem;
+  color: var(--text);
+  white-space: normal;
+  overflow-wrap: anywhere;
 }

@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { DivergenceReport, EventRow } from "../types";
-import { drawDotPlot, ladderWindow } from "./detail";
-import { buildIndex, cellState, matrixTargets, moveFocus, visibleRows } from "./index";
+import { ladderWindow } from "./detail";
+import { drawDotPlot } from "./dotPlot";
+import {
+  buildIndex,
+  cellState,
+  countDotRadius,
+  matrixTargets,
+  moveFocus,
+  visibleRows,
+} from "./index";
 
 const event = (type: number, book: string): EventRow => [
   type,
@@ -65,10 +73,19 @@ describe("comparison index", () => {
   });
 });
 
+describe("countDotRadius", () => {
+  it("draws no dot for one event, a small dot for two, and a larger dot for five", () => {
+    expect(countDotRadius(1)).toBeNull();
+    expect(countDotRadius(2)).toBe(1.5);
+    expect(countDotRadius(5)).toBe(2.3);
+  });
+});
+
 describe("ladderWindow", () => {
-  it("shows the whole axis at zoom 1 and a 400th of it at zoom 400", () => {
+  it("shows the whole axis at zoom 1 and a hundredth of it at the highest zoom", () => {
     expect(ladderWindow(800, 1)).toEqual([0, 800]);
-    expect(ladderWindow(800, 400)).toEqual([0, 2]);
+    expect(ladderWindow(800, 100)).toEqual([0, 8]);
+    expect(ladderWindow(800, 400)).toEqual([0, 8]);
   });
 });
 

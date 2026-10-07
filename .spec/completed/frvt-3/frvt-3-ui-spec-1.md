@@ -1,6 +1,6 @@
 # Versification Viewer: UI Design Specification
 
-**Status:** Draft for review and reconciliation
+**Status:** Archived reconciled design of the viewer. The Divergence dialog is specified by the `frvt-7` plans in [.spec/](../../).
 **Audience:** The developer implementing the React frontend; and the developers writing the server, resolver, and ETL specifications that this document is reconciled against.
 **Scope of this document:** The React single-page application under `frvt/web/`: screens, client state, SVG overlay rendering, and API consumption conventions. It does not specify the HTTP API shapes, the mapping resolver, or ETL/ingest internals. Those are owned by separate specifications and appear here only as consumption contracts and reconciliation items.
 
@@ -14,7 +14,7 @@
 
 ## 1. Overview
 
-This specification describes the frontend for the versification viewer proof-of-concept (POC). The POC displays two Bible translations side by side and aligns them across differing versifications, as described in [research/frvt-versification-viewer-poc-1.md](../research/frvt-versification-viewer-poc-1.md). The HTTP API this UI consumes is defined in [frvt-3-server-and-api-spec-1.md](frvt-3-server-and-api-spec-1.md).
+This specification describes the frontend for the versification viewer proof-of-concept (POC). The POC displays two Bible translations side by side and aligns them across differing versifications, as described in [research/frvt-versification-viewer-poc-1.md](../../../research/frvt-versification-viewer-poc-1.md). The HTTP API this UI consumes is defined in [frvt-3-server-and-api-spec-1.md](frvt-3-server-and-api-spec-1.md).
 
 The frontend has four responsibilities:
 
@@ -82,8 +82,8 @@ Every POC capability the UI owns traces to a screen or component and the API sur
 
 ### 3.1 Sources
 
-- Architecture and capabilities: [research/frvt-versification-viewer-poc-1.md](../research/frvt-versification-viewer-poc-1.md).
-- Domain background: [research/frvt-versification-standards-and-tooling-1.md](../research/frvt-versification-standards-and-tooling-1.md).
+- Architecture and capabilities: [research/frvt-versification-viewer-poc-1.md](../../../research/frvt-versification-viewer-poc-1.md).
+- Domain background: [research/frvt-versification-standards-and-tooling-1.md](../../../research/frvt-versification-standards-and-tooling-1.md).
 - API, auth, error envelope, static mount, and DTOs: [frvt-3-server-and-api-spec-1.md](frvt-3-server-and-api-spec-1.md).
 - Relation vocabulary: server §6.2.
 - Locked product decisions from FRVT-3 UI design review (this document's §3.2).
@@ -715,8 +715,8 @@ Post-reconciliation modifications. Apply subsections in order (`ADD-*-001`, then
 
 | Mod id | Target | Action | Effective text |
 | --- | --- | --- | --- |
-| ADD-U-001a | §11.3 | ADD | Manual overlay QA for relation topologies and jump-menu categories is documented in [`.test/visual-demo-walkthrough.md`](../.test/visual-demo-walkthrough.md) (`C-*`, `CAT-*` case ids) and [`.test/multihop-chain-walkthrough.md`](../.test/multihop-chain-walkthrough.md) (`P-*` parity ids). Automated contract tests for resolve/overlay inputs remain in pytest; walkthroughs are not CI-gated initially. |
-| ADD-U-001b | §6.6 | ADD | Category filter labels map 1:1 to server §7.9 vocabulary: `psalm_title`, `chapter_boundary`, `chapter_count`, `lxx_psalm`, `synodal`, `nt_omission`, `other` (see [`JumpMenu.tsx`](../frvt/web/src/viewer/JumpMenu.tsx)). |
+| ADD-U-001a | §11.3 | ADD | Manual overlay QA for relation topologies and jump-menu categories is documented in [`.test/visual-demo-walkthrough.md`](../../../.test/visual-demo-walkthrough.md) (`C-*`, `CAT-*` case ids) and [`.test/multihop-chain-walkthrough.md`](../../../.test/multihop-chain-walkthrough.md) (`P-*` parity ids). Automated contract tests for resolve/overlay inputs remain in pytest; walkthroughs are not CI-gated initially. |
+| ADD-U-001b | §6.6 | ADD | Category filter labels map 1:1 to server §7.9 vocabulary: `psalm_title`, `chapter_boundary`, `chapter_count`, `lxx_psalm`, `synodal`, `nt_omission`, `other` (see [`JumpMenu.tsx`](../../../frvt/web/src/viewer/JumpMenu.tsx)). |
 
 ### ADD-U-002 — Mapping visibility modes
 

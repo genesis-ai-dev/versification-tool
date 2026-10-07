@@ -8,9 +8,9 @@ translation’s **preferred** scheme. This avoids requiring a full
 N-squared set of pairwise scheme mappings.
 
 The resolver is a Python module invoked in-process by the FastAPI application
-(see [frvt-3-server-and-api-spec-1.md](../frvt-3-server-and-api-spec-1.md)
+(see [frvt-3-server-and-api-spec-1.md](../completed/frvt-3/frvt-3-server-and-api-spec-1.md)
 §8.1 and the resolver specification
-[frvt-3-resolver-and-etl-spec-1.md](../frvt-3-resolver-and-etl-spec-1.md)). HTTP transport,
+[frvt-3-resolver-and-etl-spec-1.md](../completed/frvt-3/frvt-3-resolver-and-etl-spec-1.md)). HTTP transport,
 auth, and persistence ownership stay with the API design; this document and the
 resolver spec own ingest derivation of mapping rows and the resolution
 algorithm.
@@ -125,7 +125,7 @@ section defines required ingest behavior only.
 # Schema
 
 Aligned with the API data model
-([frvt-3-server-and-api-spec-1.md](../frvt-3-server-and-api-spec-1.md)
+([frvt-3-server-and-api-spec-1.md](../completed/frvt-3/frvt-3-server-and-api-spec-1.md)
 §6). Resolver-facing fields only; timestamps and CRUD-only columns omitted.
 
 ```mermaid
@@ -210,7 +210,7 @@ erDiagram
 Ingestion implements the [Ingestion workflow](#ingestion-workflow). It has two
 stages: translation ingest (Path A) and the shared versification pipeline
 (both paths). Callables match the API ingest port
-([frvt-3-server-and-api-spec-1.md](../frvt-3-server-and-api-spec-1.md)
+([frvt-3-server-and-api-spec-1.md](../completed/frvt-3/frvt-3-server-and-api-spec-1.md)
 §8.2).
 
 ## Translation ingest (Path A)
@@ -254,7 +254,7 @@ Failure cases: [Failure / rejection](#failure--rejection).
 ## Contract
 
 Matches the API resolver port
-([frvt-3-server-and-api-spec-1.md](../frvt-3-server-and-api-spec-1.md)
+([frvt-3-server-and-api-spec-1.md](../completed/frvt-3/frvt-3-server-and-api-spec-1.md)
 §8.1).
 
 - **Inputs:** `source_ref` (bcv or bcvRange, A8) plus an optional separate `part`

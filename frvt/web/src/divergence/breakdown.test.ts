@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { breakdown, type BreakdownScope } from "./breakdown";
-import { dataWarningTip, displayNote, legacyFidelitySentence } from "./help";
+import { dataWarningTip } from "./help";
 import { divergenceLauncherEnabled } from "./launcher";
 import type { DivergenceReport, EventRow } from "./types";
 
@@ -82,7 +82,7 @@ function withEvents(events: EventRow[]): DivergenceReport {
 
 describe("breakdown", () => {
   it("counts every layer when nothing is pinned", () => {
-    const chart = breakdown(report, null, allOn, false);
+    const chart = breakdown(report, null, allOn);
     expect(chart.selectionStats).toBeNull();
     expect(chart.types.map((item) => item.value)).toEqual([1, 1]);
     expect(
@@ -91,14 +91,14 @@ describe("breakdown", () => {
   });
 
   it("limits the rings to the pinned book", () => {
-    const chart = breakdown(report, bookPin("PSA"), allOn, true);
+    const chart = breakdown(report, bookPin("PSA"), allOn);
     expect(chart.types).toEqual([
-      expect.objectContaining({ label: "Renumbered run", value: 2, percent: 100 }),
+      expect.objectContaining({ label: "Renumbered run", value: 1, percent: 100 }),
     ]);
   });
 
   it("keeps layer toggles on the whole comparison when a book is pinned", () => {
-    const chart = breakdown(report, bookPin("GEN"), { ...allOn, text: false }, false);
+    const chart = breakdown(report, bookPin("GEN"), { ...allOn, text: false });
     expect(chart.layers).toEqual([]);
     expect(chart.types).toEqual([]);
     expect(chart.layerStats.find((item) => item.id === "scheme")?.count).toBe(1);
@@ -112,8 +112,8 @@ describe("breakdown", () => {
 
   it("limits a chapter pin to that chapter and a book pin to every chapter", () => {
     const scoped = withEvents([event(2, "PSA", 1, 1), event(9, "PSA", 1, 2)]);
-    const chapter = breakdown(scoped, { book: "PSA", chapter: 1 }, allOn, false);
-    const book = breakdown(scoped, bookPin("PSA"), allOn, false);
+    const chapter = breakdown(scoped, { book: "PSA", chapter: 1 }, allOn);
+    const book = breakdown(scoped, bookPin("PSA"), allOn);
     expect(chapter.types.map((item) => item.label)).toEqual(["Renumbered run"]);
     expect(chapter.selectionStats?.find((item) => item.id === "text")?.count).toBe(0);
     expect(book.selectionStats?.find((item) => item.id === "scheme")?.count).toBe(1);
@@ -127,9 +127,9 @@ describe("breakdown", () => {
 
   it("counts a multi-chapter span once for each chapter and once for the book", () => {
     const scoped = withEvents([event(2, "PSA", 3, 1, 2)]);
-    const first = breakdown(scoped, { book: "PSA", chapter: 1 }, allOn, false);
-    const second = breakdown(scoped, { book: "PSA", chapter: 2 }, allOn, false);
-    const book = breakdown(scoped, bookPin("PSA"), allOn, false);
+    const first = breakdown(scoped, { book: "PSA", chapter: 1 }, allOn);
+    const second = breakdown(scoped, { book: "PSA", chapter: 2 }, allOn);
+    const book = breakdown(scoped, bookPin("PSA"), allOn);
     expect(first.selectionStats?.find((item) => item.id === "scheme")?.count).toBe(1);
     expect(second.selectionStats?.find((item) => item.id === "scheme")?.count).toBe(1);
     expect(book.selectionStats?.find((item) => item.id === "scheme")?.count).toBe(1);
@@ -137,36 +137,20 @@ describe("breakdown", () => {
 
   it("matches a chapter from the side that has a span", () => {
     const oneSide: EventRow = [2, null, null, ["GEN", 4, 1, 4, 1], 1, "renumber", []];
-    const chart = breakdown(
-      withEvents([oneSide]),
-      { book: "GEN", chapter: 4 },
-      allOn,
-      false,
-    );
+    const chart = breakdown(withEvents([oneSide]), { book: "GEN", chapter: 4 }, allOn);
     expect(chart.selectionStats?.find((item) => item.id === "scheme")?.count).toBe(1);
   });
 
   it("ignores a span that exists only on the org side", () => {
     const orgOnly: EventRow = [2, null, ["PSA", 1, 1, 1, 1], null, 1, "renumber", []];
-    const chart = breakdown(withEvents([orgOnly]), bookPin("PSA"), allOn, false);
+    const chart = breakdown(withEvents([orgOnly]), bookPin("PSA"), allOn);
     expect(chart.types).toEqual([]);
     expect(chart.selectionStats?.find((item) => item.id === "scheme")?.count).toBe(0);
   });
 
-  it("counts a zero verse total as one when measuring verses", () => {
-    const chart = breakdown(
-      withEvents([event(2, "PSA", 0), event(9, "PSA", 4)]),
-      { book: "PSA", chapter: 1 },
-      allOn,
-      true,
-    );
-    expect(chart.selectionStats?.find((item) => item.id === "scheme")?.count).toBe(1);
-    expect(chart.selectionStats?.find((item) => item.id === "text")?.count).toBe(4);
-  });
-
   it("returns the full totals after the selection is cleared", () => {
-    const pinned = breakdown(report, bookPin("PSA"), allOn, false);
-    const cleared = breakdown(report, null, allOn, false);
+    const pinned = breakdown(report, bookPin("PSA"), allOn);
+    const cleared = breakdown(report, null, allOn);
     expect(pinned.types).toHaveLength(1);
     expect(pinned.selectionStats).not.toBeNull();
     expect(cleared.types).toHaveLength(2);
@@ -174,7 +158,7 @@ describe("breakdown", () => {
   });
 
   it("excludes a hidden layer from the rings but keeps its toggle count", () => {
-    const chart = breakdown(report, null, { ...allOn, text: false }, false);
+    const chart = breakdown(report, null, { ...allOn, text: false });
     expect(chart.types.map((item) => item.label)).toEqual(["Renumbered run"]);
     expect(chart.layerStats.find((item) => item.id === "text")?.count).toBe(1);
   });
@@ -195,11 +179,5 @@ describe("dataWarningTip", () => {
     const detail =
       "The two ranges have different lengths and were aligned verse by verse. Treat the pairing as approximate.";
     expect(dataWarningTip([detail])).toContain(detail);
-  });
-});
-
-describe("displayNote", () => {
-  it("emits the legacy sentence when the engine note is empty", () => {
-    expect(displayNote("", report.sides)).toBe(legacyFidelitySentence("A"));
   });
 });

@@ -2,7 +2,7 @@
 
 **Document:** `frvt-11-test-plan-auth-hardening-1`
 **Product spec:** [frvt-11-api-auth-hardening-spec-1.md](./frvt-11-api-auth-hardening-spec-1.md) (wins if a case is ambiguous)
-**Implementation:** [`frvt/tests/test_health_auth.py`](../frvt/tests/test_health_auth.py), [`frvt/tests/test_auth_hardening.py`](../frvt/tests/test_auth_hardening.py), [`frvt/web/src/api/errors.test.ts`](../frvt/web/src/api/errors.test.ts)
+**Implementation:** [`frvt/tests/test_health_auth.py`](../../../frvt/tests/test_health_auth.py), [`frvt/tests/test_auth_hardening.py`](../../../frvt/tests/test_auth_hardening.py), [`frvt/web/src/api/errors.test.ts`](../../../frvt/web/src/api/errors.test.ts)
 
 Shared helpers: `basic_auth_header` and `assert_error_envelope` from `frvt.testops.http_client`. Python tests use `create_app(run_startup_seed=False)` and `get_settings.cache_clear()`. Marker: `auth` only.
 

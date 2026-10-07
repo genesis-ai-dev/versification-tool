@@ -2,7 +2,7 @@ import { formatCount } from "./counts";
 
 /** One layer total printed on a checkbox. */
 export interface LayerCount {
-  /** Events or verses in the layer. Zero is printed as None. */
+  /** Events in the layer. Zero is printed as None. */
   count: number;
   /** Unrounded share of that scope, from 0 to 100. The label rounds it. */
   percent: number;

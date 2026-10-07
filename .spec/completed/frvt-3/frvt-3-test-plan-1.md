@@ -1,14 +1,14 @@
 # FRVT-3 Test Plan
 
 **Document:** `frvt-3-test-plan-1`
-**Status:** Draft-complete (agent) — pending owner/peer review
+**Status:** Executed. Case status is in [.test/coverage-matrix.md](../../../.test/coverage-matrix.md).
 **Story ID:** `frvt-3`
 
 This is the **index** document for the FRVT-3 test plan. Detailed test cases live in the per-area files linked in [Section 4](#4-test-case-index); this file owns the summary, assumptions, fixtures, the full traceability matrix, the owner action checklist, and entry/exit criteria. All files share revision `-1`.
 
 ## 1. Summary
 
-This plan covers the FRVT-3 versification viewer end to end: HTTP Basic gate, PostgreSQL-backed API (CRUD, ingest, resolve, navigation/deltas/misalignments), in-process resolver/ETL (including Interim algorithm bindings), and the React desktop viewer (URL session, jump menus, SVG overlay, manage flows). Sources used: authoritative specs [frvt-3-server-and-api-spec-1.md](./frvt-3-server-and-api-spec-1.md), [frvt-3-ui-spec-1.md](./frvt-3-ui-spec-1.md), [frvt-3-resolver-and-etl-spec-1.md](./frvt-3-resolver-and-etl-spec-1.md); supporting research [research/frvt-versification-viewer-poc-1.md](../research/frvt-versification-viewer-poc-1.md) and [research/frvt-versification-standards-and-tooling-1.md](../research/frvt-versification-standards-and-tooling-1.md). Meeting notes were not provided. Per source precedence, **specs win** over POC/standards where they conflict; Interim resolver/ETL behaviors are locked for this plan per owner decision.
+This plan covers the FRVT-3 versification viewer end to end: HTTP Basic gate, PostgreSQL-backed API (CRUD, ingest, resolve, navigation/deltas/misalignments), in-process resolver/ETL (including Interim algorithm bindings), and the React desktop viewer (URL session, jump menus, SVG overlay, manage flows). Sources used: authoritative specs [frvt-3-server-and-api-spec-1.md](./frvt-3-server-and-api-spec-1.md), [frvt-3-ui-spec-1.md](./frvt-3-ui-spec-1.md), [frvt-3-resolver-and-etl-spec-1.md](./frvt-3-resolver-and-etl-spec-1.md); supporting research [research/frvt-versification-viewer-poc-1.md](../../../research/frvt-versification-viewer-poc-1.md) and [research/frvt-versification-standards-and-tooling-1.md](../../../research/frvt-versification-standards-and-tooling-1.md). Meeting notes were not provided. Per source precedence, **specs win** over POC/standards where they conflict; Interim resolver/ETL behaviors are locked for this plan per owner decision.
 
 The plan is split into an index (this file) plus per-area case files because the detailed cases exceed the single-file size limit; see [Section 4](#4-test-case-index).
 

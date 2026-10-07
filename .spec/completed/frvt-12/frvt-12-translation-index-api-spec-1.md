@@ -1,12 +1,12 @@
 # Translation Index API
 
-**Status:** Authoritative contract for the translation index endpoints
+**Status:** Contract for the translation index endpoints. The current HTTP write-up, including `divergence_reports` and `divergence_bytes` on usage, is [docs/api.md](../../../docs/api.md).
 **Audience:** Implementers and reviewers of [frvt-12-acceptance-criteria-1.md](./frvt-12-acceptance-criteria-1.md)
 **Scope:** `/api/indexes` CRUD, status, rebuild, cancel, and usage, plus the index-backed read path in the batch mapping endpoints. Every other route is unchanged.
 
 An **index** is a translation paired with a versification whose verse mappings against every *other* index are pre-created and stored. Mapping a verse between two indexed translations then costs one bulk row read instead of a chain walk and per-verse span queries.
 
-Authentication, the error envelope, pagination bounds, and BCV grammar follow [frvt-3-http-api-spec-1.md](./completed/frvt-3-http-api-spec-1.md) and [frvt-8-batch-mapping-api-spec-1.md](./completed/frvt-8-batch-mapping-api-spec-1.md) except where this document says otherwise.
+Authentication, the error envelope, pagination bounds, and BCV grammar follow [frvt-3-http-api-spec-1.md](../frvt-3/frvt-3-http-api-spec-1.md) and [frvt-8-batch-mapping-api-spec-1.md](../frvt-8/frvt-8-batch-mapping-api-spec-1.md) except where this document says otherwise.
 
 ---
 
@@ -213,7 +213,9 @@ Because a build publishes its `ready` status only if it is still the current req
   "ready_indexes": 2,
   "mapping_rows": 186612,
   "mapping_bytes": 132055040,
-  "reclaim_pending": 0
+  "reclaim_pending": 0,
+  "divergence_reports": 0,
+  "divergence_bytes": 0
 }
 ```
 
@@ -222,6 +224,8 @@ Because a build publishes its `ready` status only if it is still the current req
 | `mapping_rows` | Stored mapping rows across all pairs. |
 | `mapping_bytes` | Postgres `pg_total_relation_size` for `index_mapping` (table plus indexes). Dead tuples remain until `VACUUM`, so this can stay high after `mapping_rows` drops to zero. |
 | `reclaim_pending` | Deleted indexes whose mapping rows are still queued for chunked cleanup. |
+| `divergence_reports` | Cached divergence reports, any status. |
+| `divergence_bytes` | Bytes stored in divergence report payloads. |
 
 Per-index counts are on the index resource as `outbound_mappings` and `inbound_mappings`. They are computed on read, so they are always accurate but cost two counting queries; treat them as an administrative read rather than something to poll aggressively.
 
@@ -279,7 +283,7 @@ Recorded 2026-09-17 on host `dev-frontier-rnd-1` (Linux, 8 CPUs) against a local
 | Ready index pair | 0.1965 s | `true` |
 | Live resolve (indexes deleted) | 1.1280 s | `false` |
 
-The indexed path stayed under one second on this host (about six times faster than live resolve). The live path did not; criterion 5's sub-second target is for a typical AWS deployment, not this development box. Re-run with [`.test/scripts/run-index-benchmark.sh`](../.test/scripts/run-index-benchmark.sh); raise `LOG_LEVEL` above `DEBUG` or logging will dominate the live-path measurement.
+The indexed path stayed under one second on this host (about six times faster than live resolve). The live path did not; criterion 5's sub-second target is for a typical AWS deployment, not this development box. Re-run with [`.test/scripts/run-index-benchmark.sh`](../../../.test/scripts/run-index-benchmark.sh); raise `LOG_LEVEL` above `DEBUG` or logging will dominate the live-path measurement.
 
 ---
 

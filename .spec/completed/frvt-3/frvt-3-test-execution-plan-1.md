@@ -1,7 +1,7 @@
 # FRVT-3 Test Execution Plan
 
 **Document:** `frvt-3-test-execution-plan-1`
-**Status:** Ready for implementation
+**Status:** Implemented
 **Audience:** A coding agent (and reviewers) automating the FRVT-3 test plans end to end.
 **Scope:** Implement automated coverage for **every Required and Optional** case in the test-plan index and area files; fix product defects until green; leave changes uncommitted for owner review.
 
@@ -16,8 +16,8 @@
   - [frvt-3-test-plan-manage-and-oos-1.md](./frvt-3-test-plan-manage-and-oos-1.md)
 - Product specs remain authoritative when a case is ambiguous: [server](./frvt-3-server-and-api-spec-1.md), [UI](./frvt-3-ui-spec-1.md), [resolver/ETL](./frvt-3-resolver-and-etl-spec-1.md). Specs win over POC/research.
 - Work phases **in order**. Do not start phase *N+1* until phase *N* Acceptance passes.
-- Harness scaffolding and runbooks already exist (see [Target layout](#target-layout)). **Fill in test bodies** and update [`.test/coverage-matrix.md`](../.test/coverage-matrix.md) as you complete each case.
-- Follow runbooks under [`.test/runbooks/`](../.test/runbooks/) for environment, per-phase gates, defect loops, and full-suite orchestration.
+- Harness scaffolding and runbooks already exist (see [Target layout](#target-layout)). **Fill in test bodies** and update [`.test/coverage-matrix.md`](../../../.test/coverage-matrix.md) as you complete each case.
+- Follow runbooks under [`.test/runbooks/`](../../../.test/runbooks/) for environment, per-phase gates, defect loops, and full-suite orchestration.
 
 > **Rule 12 (product code).** Phase numbers and plan/workflow identifiers must **never** appear in product application code under `frvt/api`, `frvt/resolver`, `frvt/ingest`, or `frvt/web/src` (including comments, config, migrations, commit messages, and runtime strings).
 >
@@ -33,7 +33,7 @@
 | Defects | Fix product code until the case passes; never commit or push |
 | Browser e2e | Playwright |
 | Server for e2e | **External** — operator (or runbook) starts uvicorn; Playwright does **not** auto-start `webServer` |
-| Traceability | `TC-*` in markers/docstrings + [`.test/coverage-matrix.md`](../.test/coverage-matrix.md) |
+| Traceability | `TC-*` in markers/docstrings + [`.test/coverage-matrix.md`](../../../.test/coverage-matrix.md) |
 
 ---
 
@@ -286,7 +286,7 @@ python -m frvt.testops.run_suite --phase N
 
 **Goal:** Live-server smoke against an **already running** API+UI (external server mode).
 
-**Preconditions:** Follow [`.test/runbooks/env-up.md`](../.test/runbooks/env-up.md); server on `http://localhost:8000` with Basic `admin` / `Admin123!` (or env overrides).
+**Preconditions:** Follow [`.test/runbooks/env-up.md`](../../../.test/runbooks/env-up.md); server on `http://localhost:8000` with Basic `admin` / `Admin123!` (or env overrides).
 
 **Cases:** TC-AUTH-002, TC-SERVER-004 (and optionally start TC-AUTH-013).
 
@@ -357,7 +357,7 @@ python -m frvt.testops.run_suite --phase N
 1. Update `.test/coverage-matrix.md` so every TC is `done` (or explicitly `oos-confirmed` where the case is an out-of-scope confirmation that passed)
 2. Run `python -m frvt.testops.run_suite --all` with Postgres up and (for e2e) server running
 3. Run full quality gates
-4. Follow [`.test/runbooks/full-suite.md`](../.test/runbooks/full-suite.md)
+4. Follow [`.test/runbooks/full-suite.md`](../../../.test/runbooks/full-suite.md)
 
 **Acceptance:**
 
@@ -370,7 +370,7 @@ python -m frvt.testops.run_suite --phase N
 
 ## Defect loop (summary)
 
-See [`.test/runbooks/defect-loop.md`](../.test/runbooks/defect-loop.md). Short form:
+See [`.test/runbooks/defect-loop.md`](../../../.test/runbooks/defect-loop.md). Short form:
 
 1. Reproduce with the smallest command (`pytest -k …` or a single Playwright test)
 2. Fix product code (not the assertion) unless the test plan Expected result is wrong — then escalate
@@ -504,7 +504,7 @@ See [`.test/runbooks/defect-loop.md`](../.test/runbooks/defect-loop.md). Short f
 | TC-OOS-002 | Required | 10 | viewer e2e |
 | TC-OOS-003 | Required | 10 | auth e2e |
 
-**Total:** 120 cases (see [`.test/coverage-matrix.md`](../.test/coverage-matrix.md) for the authoritative row list).
+**Total:** 120 cases (see [`.test/coverage-matrix.md`](../../../.test/coverage-matrix.md) for the authoritative row list).
 
 ---
 

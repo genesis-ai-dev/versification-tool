@@ -1,7 +1,7 @@
 # Versification divergence dialog: phased execution plan
 
 **Document:** `frvt-7-execution-plan-1`
-**Status:** Ready to implement
+**Status:** Implemented. The Playwright spec `frvt/web/e2e/divergence.spec.ts` and `.test/scripts/run-divergence-benchmark.sh` listed in this plan are not in the tree. Later dialog changes are in the other `frvt-7-*-execution-plan-1` files in this directory.
 **Audience:** The agent implementing the divergence dialog, and the owner reviewing that work
 **Scope:** Port the prototype rooted in `versification-divergence-views.html` into the viewer as a full-screen dialog, with the versification source as written as the system of record, a cached report computed from translation indexes when they exist, and Ryder's breakdown and tooltip feedback.
 
@@ -34,7 +34,7 @@ Work the phases in order. Each phase lists its work, its tests, and a gate that 
 | Precompute | When an index becomes ready, schedule both directions against every other ready index. Failures add a build note and never fail the index. |
 | Dialog | Full prototype UI except the h1, the subtitle, the Compare picker, and the light theme. Launched from a toolbar above the side-by-side view. |
 | Look | Tool tokens and fonts on the chrome. Prototype chart constants, severity ramp, and deviance ramp kept. Diagram fidelity outranks chrome styling. |
-| Breakdown | Two-ring donut on every tab (layers inside, 12 types outside), Events / Verses toggle, scoped to the pinned selection. Layer toggles show a share of the total. |
+| Breakdown | Two-ring donut on every tab (layers inside, 12 types outside), counting events as the prototype does, scoped to the pinned selection. Layer toggles show a share of the total. |
 | Tooltips | An accessible tip on every legend item, layer toggle, and flag chip. Data-warning chips include that item's warning codes. |
 | Dependencies | Add `d3` and `@types/d3`. No other new runtime dependency. |
 
@@ -76,7 +76,7 @@ Read these before writing anything. Line references are current at plan time; ve
 - **Index finish** — `_finish` in [`frvt/api/indexing/builder.py`](../frvt/api/indexing/builder.py) (around line 235) commits the index ready. `IndexWorker` in [`frvt/api/indexing/worker.py`](../frvt/api/indexing/worker.py) calls `build_index`. `usage_summary` in [`frvt/api/indexing/registry.py`](../frvt/api/indexing/registry.py). `IndexUsageOut` in schemas.
 - **App** — [`frvt/api/main.py`](../frvt/api/main.py) registers routers and starts `IndexWorker` in the lifespan. [`frvt/api/config.py`](../frvt/api/config.py) holds settings. [`frvt/api/db.py`](../frvt/api/db.py): `get_session` commits on success; a thread must use `get_session_factory()`.
 - **Errors** — `AppError` and `ErrorCode` in [`frvt/api/errors.py`](../frvt/api/errors.py). Add no new error codes; use the existing `not_found`, `conflict`, and `validation_failed` values (confirm the exact literals in that file before raising).
-- **Viewer** — [`frvt/web/src/viewer/ViewerPage.tsx`](../frvt/web/src/viewer/ViewerPage.tsx) renders the toolbar slot above `ViewerWorkspace`. [`ViewerSession.tsx`](../frvt/web/src/viewer/ViewerSession.tsx) is 971 lines and must not grow. `canResolve`, `associationsFor`, and `url` are already on the session value. [`ModalShell.tsx`](../frvt/web/src/components/ModalShell.tsx) is a fixed 28rem dialog. Modal CSS lives near the end of [`styles/app.css`](../frvt/web/src/styles/app.css), which is over 1000 lines and must not grow. Tokens are in [`styles/tokens.css`](../frvt/web/src/styles/tokens.css).
+- **Viewer** — [`frvt/web/src/routes/ViewerPage.tsx`](../frvt/web/src/routes/ViewerPage.tsx) renders the toolbar slot above `ViewerWorkspace`. [`ViewerSession.tsx`](../frvt/web/src/viewer/ViewerSession.tsx) is 971 lines and must not grow. `canResolve`, `associationsFor`, and `url` are already on the session value. [`frvt/web/src/manage/modals/ModalShell.tsx`](../frvt/web/src/manage/modals/ModalShell.tsx) is a fixed 28rem dialog. Modal CSS lives near the end of [`styles/app.css`](../frvt/web/src/styles/app.css), which is over 1000 lines and must not grow. Tokens are in [`styles/tokens.css`](../frvt/web/src/styles/tokens.css).
 - **Tests** — [`frvt/tests/conftest.py`](../frvt/tests/conftest.py): `db_session` restarts a savepoint, so commits are visible to the same connection and invisible to another. `api_client` uses `create_app(run_startup_seed=False, run_index_worker=False)`.
 - **Docs** — [`docs/api.md`](../docs/api.md) and [`docs/export-openapi.py`](../docs/export-openapi.py). Regenerate `docs/openapi.json` with that script; do not hand-edit the generated file.
 - **Anchors** — `GET /api/translations` excludes `is_anchor` rows. The viewer can never select a canonical anchor, so every dialog comparison a user opens is texts mode.
@@ -189,7 +189,7 @@ Add to `Settings` in [`frvt/api/config.py`](../frvt/api/config.py), each with an
 - `frvt/api/schemas/__init__.py` (the `source` field on `VersificationDetailOut`, and re-exports)
 - `frvt/api/routers/versifications.py`, `frvt/api/indexing/worker.py`, `frvt/api/indexing/registry.py`
 - `frvt/api/config.py`, `frvt/api/main.py`, `frvt/pyproject.toml`, `frvt/resources/__init__.py` if it is how packaged files are opened
-- `frvt/web/src/viewer/ViewerPage.tsx`, `ModalShell.tsx`, `frvt/web/package.json`
+- `frvt/web/src/routes/ViewerPage.tsx`, `frvt/web/src/manage/modals/ModalShell.tsx`, `frvt/web/package.json`
 - `docs/api.md`, `docs/openapi.json`
 - frontend API types that mirror `VersificationDetailOut`
 
@@ -419,7 +419,7 @@ Use these strings verbatim. `InfoTip` renders them. Layer toggles append ` None 
 | text | Bridges and omissions | bridge or omission | Text-level differences: verse bridges (for example 1-2 printed as one verse) and verses a text leaves out. Standard schemes carry none, so this layer appears for text comparisons. |
 | canon | Books on one side only | one-sided book | Books whose content exists on only one side, for example the Letter to the Laodiceans in eng but not lxx. Unchecked hides their rows. |
 
-Layer toggle counts become `312 (87%)`, where the percent is that layer's share of events in all layers under the current donut measure, rounded to the nearest integer. A layer with events still shows its count when it is switched off, so the user can see what they are hiding.
+Layer toggle counts become `312 (87%)`, where the percent is that layer's share of events in all layers, rounded to the nearest integer. A layer with events still shows its count when it is switched off, so the user can see what they are hiding.
 
 ### Types
 
@@ -470,7 +470,7 @@ Layer toggle counts become `312 (87%)`, where the percent is that layer's share 
 
 ### Donut
 
-The donut sits at the top of the inspector on every tab. The inner ring is the four layers. The outer ring is the 12 types, colored with `d3.schemeSet3` in type order. A control labeled `Events` / `Verses affected` switches the measure. `Events` counts events. `Verses affected` sums event `n`. The scope is the pinned book, or the book of the pinned event, or every visible event when nothing is pinned and after Clear selection. Layers that are switched off are excluded from both rings. Each slice's tip is `{label}: {count} ({percent}% of {scope})`, where scope is `this book` or `this comparison`.
+The donut sits at the top of the inspector on every tab. The inner ring is the four layers, each with a fixed color. The outer ring is the 12 types, colored with `d3.schemeSet3` in type order. Both rings count events. The scope is the pinned book, or the book of the pinned event, or every visible event when nothing is pinned and after Clear selection. Layers that are switched off are excluded from both rings. Each slice's tip is `{label}: {count} ({percent}% of {scope})`, where scope is `this book` or `this comparison`.
 
 ---
 
@@ -480,9 +480,10 @@ The donut sits at the top of the inspector on every tab. The inner ring is the f
 - The dialog is `React.lazy`. Closing it aborts the poll.
 - `useDivergenceReport` POSTs, then polls GET status with backoff from 500ms to 5s. When status is `ready`, it GETs data. A `409` on data causes one fresh POST. `stalled: true` causes one fresh POST. Failure shows the error and a Retry button.
 - While pending or running, show a spinner, the stage label, and a progress bar of `completed/total` when `total > 0`. When neither translation has a ready index, add the sentence `No index is ready for this pair, so this comparison is computed on demand.`
-- Tabs: `Overview`, `Radial`, `Book detail`, matching the prototype panels `matrix`, `radial`, and `detail`.
+- Tabs: `Overview`, `Radial`, `Details`, matching the prototype panels `matrix`, `radial`, and `detail`.
 - Radial layouts: `Chapters as slices` (default) and `Chapters as rings`.
-- Book detail: ladder with zoom 1–400, dot plot with a magnify toggle, event table. Arrow keys move the matrix focus. Enter opens that book. Escape clears the pin and does not close the dialog.
+- A chart key under the layer toggles is shown on every tab. The Radial tab adds Chapter move, Cross-book move, and Order inversion.
+- Details: the book menu and the zoom control share one row above the ladder. The ladder zooms from 1 to 100 with the slider or the mouse wheel. Every book change resets the strip view. Long books open on a 300-verse window that starts 20 verses before the first divergence. One-sided runs draw blocks on their axis. Under it, tabs with vertical labels hold the event table (`Divergences`, the default) and the dot plot with its magnify toggle. The event table shows labels, severity, and flags. Arrow keys move the matrix focus. Enter opens that book. Escape clears the pin and does not close the dialog.
 - Colors: map `--bg` to the dialog page, `--surface-raised` to panels, `--text` and `--text-muted` to ink and muted, `--border` to rules, `--font-ui` and `--font-serif` to the chrome fonts. Keep `--dv-accent: #ff82b4`, `--dv-hatch: #8a92a2`, `--dv-neutral: #272c35`, the cividis severity stops, and the RdYlGn deviance ramp from the prototype's dark `computeColors`. The tool is dark-only, so do not port the light ramp or the theme toggle.
 - Chart constants from the prototype stay: `COLS = 50`, cell 12, gap 2, left 168, top 30, section header 30, summary gap 10.
 
@@ -685,9 +686,9 @@ Copy `SEVERITY` and `LAYER` exactly. Copy the catalog table exactly, including b
 
 **Goal:** The button opens a dialog that reaches a ready payload and shows the chrome around an empty view.
 
-**Work:** `ViewerToolbar.tsx` and the enable rule. `useDivergenceReport.ts` with abort and backoff. `DivergenceLoading.tsx`. `DivergenceDialog.tsx` with the explorer reducer: tab, layers (default all four), legend, summary, note, provenance line (`engineVersion`, `computedAt`), and the legacy sentence taken from `sides` when fidelity is `legacy`. Wire the launcher into `ViewerPage` without editing `ViewerSession.tsx`.
+**Work:** `ViewerToolbar.tsx` and the enable rule. `useDivergenceReport.ts` with abort and backoff. `DivergenceLoading.tsx`. `DivergenceDialog.tsx` with the explorer reducer: tab, layers (default all four), legend, and summary. The dialog does not show the pair label or the engine note; the note stays in the payload. Wire the launcher into `ViewerPage` without editing `ViewerSession.tsx`.
 
-**Tests:** A Vitest test for the enable rule as a pure function `divergenceLauncherEnabled(canResolve, leftSchemeId, rightSchemeId, leftAssociations, rightAssociations)`. A test that the note builder emits the legacy sentence when fidelity is `legacy`.
+**Tests:** A Vitest test for the enable rule as a pure function `divergenceLauncherEnabled(canResolve, leftSchemeId, rightSchemeId, leftAssociations, rightAssociations)`.
 
 **Acceptance:** The typecheck passes and `ViewerSession.tsx` has the same line count as before this phase.
 
@@ -697,7 +698,7 @@ Copy `SEVERITY` and `LAYER` exactly. Copy the catalog table exactly, including b
 
 **Goal:** The matrix and the inspector match the prototype's behavior on a fixture payload.
 
-**Work:** Port `renderMatrix` and the inspector into `divergence/overview/` as a d3 render function called from a React effect. Keyboard handling lives on the scroll container. Escape clears the pin and stops propagation. The inspector lists events for the focused cell, with flag chips. Hover updates the inspector only.
+**Work:** Port `renderMatrix` and the inspector into `divergence/overview/` as a d3 render function called from a React effect. Keyboard handling lives on the scroll container. Escape clears the pin and stops propagation. The inspector lists events for the focused cell, with flag chips. Hover updates the inspector only. Matrix cells draw dark count dots, wrapped book rows show their chapter range, the heading has a meta line, and events are items with flag chips. The column is a bordered panel. Long side names are cut with an ellipsis and shown in full on hover. The book detail button sits under the event list, and Clear selection joins it while a selection is pinned.
 
 **Tests:** Vitest with a tiny payload: arrow-right moves the focus index; Escape clears a pin. jsdom will not lay out SVG, so assert on the selection state rather than on pixels.
 
@@ -709,9 +710,9 @@ Copy `SEVERITY` and `LAYER` exactly. Copy the catalog table exactly, including b
 
 **Goal:** Both radial layouts, the ladder, the dot plot, and the event table render from the same index.
 
-**Work:** Port `renderRadial` and `renderDetail`. `ResizeObserver` on the dialog body redraws the active tab. The dot plot checks `canvas.getContext` and skips the draw when it returns null. Zoom is a controlled range input from 1 to 400. The book select lists books that have events.
+**Work:** Port `renderRadial` and `renderDetail`. `ResizeObserver` on the dialog body redraws the active tab. The dot plot checks `canvas.getContext` and skips the draw when it returns null. Zoom is a controlled range input from 1 to 100. The mouse wheel over the strip also zooms, and the slider follows it. Chapter and cross-book moves end in an arrowhead and vary in width with the verse count. Cross-book moves use their own color. The book select lists books that have events. Ribbons, runs, dot-plot marks, and table rows select a single event, and hover in the Details tab updates the inspector.
 
-**Tests:** The dot-plot draw function returns without throwing when given a canvas whose `getContext` is null. The ladder scale function maps zoom 1 and zoom 400 to the prototype's domain endpoints (copy the formula; test the endpoints).
+**Tests:** The dot-plot draw function returns without throwing when given a canvas whose `getContext` is null. The ladder scale function maps zoom 1 and the highest zoom to the prototype's domain endpoints (copy the formula; test the endpoints).
 
 **Acceptance:** Those tests pass, and both tabs are reachable from the tab buttons.
 
@@ -721,7 +722,7 @@ Copy `SEVERITY` and `LAYER` exactly. Copy the catalog table exactly, including b
 
 **Goal:** Ryder's three notes are visible on every tab.
 
-**Work:** Render the donut from `breakdown.ts` at the top of the inspector on all three tabs. Add the Events / Verses toggle. Layer toggles show `count (percent%)`. Replace every prototype `title` inside `.dv-root` with `InfoTip` and the catalog strings. A `dataWarning` chip's tip appends each matching `eventNotes` detail for that event, one per line.
+**Work:** Render the donut from `breakdown.ts` at the top of the inspector on all three tabs. Layer toggles show `count (percent%)`. Replace every prototype `title` inside `.dv-root` with `InfoTip` and the catalog strings. A `dataWarning` chip's tip appends each matching `eventNotes` detail for that event, one per line.
 
 **Tests:** The breakdown test from Phase 7 already covers scope. Add one assertion that a hidden layer is excluded from the rings, and one that a data-warning tip contains the `unequal_ranges` detail when the note is present.
 

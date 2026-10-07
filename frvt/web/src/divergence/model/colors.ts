@@ -12,6 +12,24 @@ export const ACCENT = "#ff82b4";
 /** Hatch stroke for a chapter that exists on only one side. */
 export const HATCH = "#8a92a2";
 
+/** Dash pattern for an approximate cell outline. */
+export const APPROXIMATE_DASH = "2 1.6";
+
+/** Ribbon color for a move to another book, so it reads apart from a chapter move. */
+export const BOOK_MOVE = "#5cc8ff";
+
+/** Page color of the dark palette. */
+export const PAPER = "#15181e";
+
+/**
+ * Fill for every count dot in the matrix.
+ * One dark color on every cell, as in the prototype, so the dot reads as a single kind of mark.
+ */
+export const COUNT_DOT = PAPER;
+
+/** Muted text color of the dark palette, for canvas strokes that cannot read CSS variables. */
+export const MUTED = "#9aa1ad";
+
 /**
  * Color for an event severity.
  * Severity 0 and values outside 1–5 use the neutral fill.

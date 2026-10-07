@@ -10,10 +10,11 @@ describe("sliceTip", () => {
 });
 
 describe("sliceColor", () => {
-  it("uses a type's catalog index and a layer's visible position", () => {
-    expect(sliceColor("type-3", 0, ["a", "b", "c", "d", "e"])).toBe("d");
-    expect(sliceColor("layer-scheme", 0, LAYER_COLORS)).toBe(LAYER_COLORS[0]);
-    expect(sliceColor("layer-text", 2, LAYER_COLORS)).toBe(LAYER_COLORS[2]);
-    expect(sliceColor("type-3", 0, ["a", "b"])).toBe("b");
+  it("keeps a type's catalog color and a layer's own color", () => {
+    expect(sliceColor("type-3", ["a", "b", "c", "d", "e"])).toBe("d");
+    expect(sliceColor("layer-canon", LAYER_COLORS)).toBe(LAYER_COLORS[3]);
+    expect(sliceColor("layer-text", LAYER_COLORS)).toBe(LAYER_COLORS[2]);
+    expect(sliceColor("type-3", ["a", "b"])).toBe("b");
+    expect(sliceColor("layer-missing", ["a", "b"])).toBe("a");
   });
 });

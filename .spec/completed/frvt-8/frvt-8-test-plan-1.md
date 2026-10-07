@@ -6,8 +6,8 @@
 
 - [frvt-8-acceptance-criteria-1.md](./frvt-8-acceptance-criteria-1.md)
 - [frvt-8-batch-mapping-api-spec-1.md](./frvt-8-batch-mapping-api-spec-1.md) (oracle for request/response and status codes)
-- [frvt-3-http-api-spec-1.md](./frvt-3-http-api-spec-1.md) (inherited Basic auth, error envelope, pagination)
-- [`.test/scripts/run-frvt-8-test-plan.sh`](../.test/scripts/run-frvt-8-test-plan.sh) (executable companion)
+- [frvt-3-http-api-spec-1.md](../frvt-3/frvt-3-http-api-spec-1.md) (inherited Basic auth, error envelope, pagination)
+- [`.test/scripts/run-frvt-8-test-plan.sh`](../../../.test/scripts/run-frvt-8-test-plan.sh) (executable companion)
 
 ---
 
@@ -41,7 +41,7 @@ This plan is happy-path **manual verification** of the two batch verse-mapping e
 
 | Source | Path | How testers verify |
 | --- | --- | --- |
-| Sample project zip | [`research/SampleTranslations/biblica-spanish-1.zip`](../research/SampleTranslations/biblica-spanish-1.zip) | Ingest via `POST /api/ingest/project`; expected range members come from **spans API**, not from unzipping USX by hand |
+| Sample project zip | [`research/SampleTranslations/biblica-spanish-1.zip`](../../../research/SampleTranslations/biblica-spanish-1.zip) | Ingest via `POST /api/ingest/project`; expected range members come from **spans API**, not from unzipping USX by hand |
 | Canonical schemes | `GET /api/versifications?canonical=true` | Open the JSON; `org` and `eng` rows. Org **translation** id is `eng.based_on_id` (anchors are omitted from `GET /api/translations`) |
 | Stored spans (oracle) | `GET /api/translations/{id}/spans?book=JHN&chapter=3` | Whole-verse rows (`part` null) formatted as `BOOK C:V` in `seq` order |
 
@@ -65,7 +65,7 @@ UI lifecycle, association-graph manage flows, session persistence, overlay topol
 
 | Environment | Base URL | Auth | Notes |
 | --- | --- | --- | --- |
-| **Local** | `http://localhost:8000` | HTTP Basic from `BASIC_AUTH_USERNAME` / `BASIC_AUTH_PASSWORD` (defaults `admin` / `Admin123!`) | Compose Postgres on host **5433**; API started from repo root per [README.md](../README.md) |
+| **Local** | `http://localhost:8000` | HTTP Basic from `BASIC_AUTH_USERNAME` / `BASIC_AUTH_PASSWORD` (defaults `admin` / `Admin123!`) | Compose Postgres on host **5433**; API started from repo root per [README.md](../../../README.md) |
 
 All cases run on **every** listed environment before sign-off (Local only in this revision).
 
@@ -186,7 +186,7 @@ No UI ships with this story. Do not use Figma, screenshots, or the viewer overla
 ### TC-AUTH-01 — Establish an API session
 
 **API:** `GET /api/health`  
-**Covers:** [frvt-3-http-api-spec-1.md](./frvt-3-http-api-spec-1.md) §3
+**Covers:** [frvt-3-http-api-spec-1.md](../frvt-3/frvt-3-http-api-spec-1.md) §3
 
 | | |
 | --- | --- |

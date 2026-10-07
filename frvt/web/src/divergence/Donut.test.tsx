@@ -67,7 +67,7 @@ describe("Donut slice tip", () => {
       <Donut layers={[numbering]} types={[]} scope="this comparison" locale="en-US" />,
     );
     const slice = screen.getByRole("img", { name: numberingTip });
-    expect(slice).toHaveAttribute("fill", sliceColor(numbering.key, 0, LAYER_COLORS));
+    expect(slice).toHaveAttribute("fill", sliceColor(numbering.key, LAYER_COLORS));
     fireEvent.pointerEnter(slice, { clientX: 8, clientY: 16 });
     act(() => {
       vi.advanceTimersByTime(250);
@@ -79,7 +79,7 @@ describe("Donut slice tip", () => {
     expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
     expect(screen.getByRole("img", { name: /Merge/ })).toHaveAttribute(
       "fill",
-      sliceColor(moved.key, 0, schemeSet3),
+      sliceColor(moved.key, schemeSet3),
     );
   });
 });

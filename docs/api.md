@@ -24,6 +24,7 @@ Internal design notes live under `.spec/`. If this file and a `.spec` catalog di
 - [Resolve](#resolve)
 - [Batch mapping](#batch-mapping)
 - [Indexes](#indexes)
+- [Divergence](#divergence)
 - [Navigation and jump menu](#navigation-and-jump-menu)
 - [Resource shapes](#resource-shapes)
 - [OpenAPI notes](#openapi-notes)
@@ -109,7 +110,7 @@ Success body:
 
 Paginated: `GET /api/translations`, `GET /api/translations/{id}/spans`, `GET /api/versifications`, `GET /api/indexes`, `GET /api/resolve/deltas`, `GET /api/resolve/misalignments`, `GET /api/resolve/jump-menu` (both inner lists), `GET /api/resolve/range`.
 
-Not paginated: association lists and `GET /api/translations/{id}/navigation` return a bare JSON array. `GET /api/resolve/chapter` uses `{items, total}` but has no `limit`/`offset`; `total` equals `len(items)` after emit-once dedupe. `POST /api/resolve/verses` is not paged; the caller already controls the list (`refs` length 1–500).
+Not paginated: association lists and `GET /api/translations/{id}/navigation` return a bare JSON array. `GET /api/resolve/chapter` uses `{items, total}` but has no `limit`/`offset`; `total` equals `len(items)` after emit-once dedupe. `POST /api/resolve/verses` is not paged; the caller already controls the list (`refs` length 1–500). Divergence reports, versification source, and `GET /api/indexes/usage` are single objects.
 
 ---
 
@@ -138,6 +139,8 @@ Coordinate routes take optional `from_versification` / `to_versification` (UUID)
 3. No override and no preferred association → `409` (`Translation has no preferred versification.`).
 
 **`GET /api/resolve/range` and `POST /api/resolve/verses` only:** step 3 falls back to the canonical scheme named `org` instead of `409`. The response echoes the scheme ids actually used (`from_versification`, `to_versification`).
+
+**`POST /api/divergence/reports`:** the same strict rules as `GET /api/resolve` (no `org` fallback). A missing translation is `404`.
 
 ---
 
@@ -203,7 +206,7 @@ curl -sS -u "$AUTH" -G "$BASE/api/resolve" \
 | `GET` | `/api/versifications` | `200` page of schemes |
 | `GET` | `/api/versifications/{scheme_id}` | `200` scheme plus `ingredient` and source metadata |
 | `GET` | `/api/versifications/{scheme_id}/source` | `200` stored source document |
-| `PUT` | `/api/versifications/{scheme_id}/source` | `200` source metadata |
+| `PUT` | `/api/versifications/{scheme_id}/source` | `200` source document |
 | `PATCH` | `/api/versifications/{scheme_id}` | `200` scheme |
 | `DELETE` | `/api/versifications/{scheme_id}` | `204` |
 | `POST` | `/api/versifications/upload` | `201` scheme |
@@ -298,7 +301,15 @@ Query: optional `canonical` (boolean), `limit`, `offset`. Ordered by `name`. Lis
 
 ### `GET /api/versifications/{scheme_id}`
 
-Includes `ingredient` (Copenhagen/Burrito document).
+Includes `ingredient` (Copenhagen/Burrito document) and `source` (metadata, or `null` when the scheme has no verbatim source).
+
+### `GET /api/versifications/{scheme_id}/source`
+
+JSON `VersificationSourceOut`: `format` (`copenhagen_json` or `vrs`), `filename`, `sha256`, `document_text`, `companion_vrs_text` (or `null`), `captured_at`. `404` when the scheme exists but has no source row.
+
+### `PUT /api/versifications/{scheme_id}/source`
+
+`multipart/form-data` with `file`. Attaches an original document that re-derives to the stored ingredient. Success is the same body as GET source. Canonical schemes, and schemes that already have a source, return `409`. A file that does not parse, or that does not match the stored ingredient, returns `422`. The scheme row, its ingredient, and its mapping rows are not written.
 
 ### `PATCH /api/versifications/{scheme_id}`
 
@@ -346,7 +357,7 @@ Paratext-style zip: USX tree plus a required `.vrs`.
 | `name` | no | Used only when `metadata.xml` has no `<identification><name>` |
 | `language` | no | Used only when metadata has no language |
 
-`metadata.xml` is authoritative. If name or language cannot be resolved, `400` with `errors` on those fields. `text_direction` comes from `<scriptDirection>` (`RTL` → `rtl`; missing → `ltr`). `source_format` is inferred from zip members. The created scheme is named after the resolved translation name and marked preferred.
+`metadata.xml` is authoritative. If name or language cannot be resolved, `400` with `errors` on those fields. `text_direction` comes from `<scriptDirection>` (`RTL` → `rtl`; missing or any other value → `ltr`). `source_format` is inferred from zip members. The created scheme is named after the resolved translation name and marked preferred.
 
 `201` body: `{ "translation": TranslationOut, "versification": VersificationOut }`.
 
@@ -497,14 +508,6 @@ Body: `translation_id` (required uuid), `versification_id` (optional uuid). `201
 
 Aggregate `{total_indexes, ready_indexes, mapping_rows, mapping_bytes, reclaim_pending, divergence_reports, divergence_bytes}`. Declared as a fixed path so `usage` is never parsed as an id.
 
----
-
-## Divergence
-
-`POST /api/divergence/reports` compares two translations through their selected versifications. Body: `from_translation_id`, `to_translation_id`, and optional `from_scheme_id` / `to_scheme_id`. `200` when a matching report is already ready; `202` while it is pending or running. `GET .../{report_id}` returns progress (`stage`, `stage_index`, `stage_count`, `completed`, `total`, `stalled`). `GET .../data` returns the comparison document once `status` is `ready`, and `409` before that.
-
-`GET /api/versifications/{scheme_id}/source` returns the stored source text. `404` when the scheme has only a derived ingredient. `PUT` the same path accepts a file that re-derives to the stored ingredient. Canonical schemes and schemes that already have a source return `409`. A file that does not re-derive returns `422`.
-
 ### `GET /api/indexes/{index_id}`
 
 Includes `outbound_mappings` / `inbound_mappings` (two count queries) plus progress (`pairs_total`, `pairs_completed`) and `pending_reason` / `build_notes` / `last_error`.
@@ -524,6 +527,45 @@ Body: `{ "versification_id": "<uuid>" }`. Pins the index as explicit and queues 
 ### `POST /api/indexes/{index_id}/cancel`
 
 `202` from `pending` or `building`. `409` otherwise.
+
+---
+
+## Divergence
+
+A report compares two translations through their selected versifications. The row is keyed by that ordered four-tuple. A ready row is reused only while its fingerprint still matches the current sources and indexes. A mismatch, a failed row, or a stalled running row is reset to `pending` and computed again.
+
+### `POST /api/divergence/reports`
+
+Body:
+
+| Field | Required | Notes |
+| --- | --- | --- |
+| `from_translation_id` | yes | uuid |
+| `to_translation_id` | yes | uuid |
+| `from_scheme_id` | no | Override; otherwise the preferred scheme |
+| `to_scheme_id` | no | Override; otherwise the preferred scheme |
+
+`200` with `DivergenceStatusOut` when a matching report is already `ready`. `202` with the same shape while the report is `pending` or `running`. Scheme selection is the strict (non-batch) rules.
+
+### `GET /api/divergence/reports/{report_id}`
+
+`DivergenceStatusOut`. `404` if the id is unknown.
+
+| Field | Notes |
+| --- | --- |
+| `status` | `pending`, `running`, `ready`, or `failed` |
+| `stalled` | `true` when a running report's heartbeat is older than `DIVERGENCE_STALE_SECONDS` (default 120) |
+| `stage` | `loading`, `composing`, `classifying`, `events`, `runs`, or `encoding`; `null` before work starts |
+| `stage_index` | 1-based; `0` before work starts |
+| `stage_count` | Always `6` |
+| `completed`, `total` | Units finished and expected in the current stage |
+| `error` | Failure text when `status` is `failed`; otherwise `null` |
+
+### `GET /api/divergence/reports/{report_id}/data`
+
+The stored comparison document, `Content-Type: application/json`, once `status` is `ready`. `409` before that. `404` if the id is unknown.
+
+Top-level fields: `types`, `comparisons` (one comparison, with `books`, `events`, and `runs`), `eventNotes`, `sides`, `org`, `catalog`, `engineVersion`, `computedAt`. Event and run rows are positional arrays; the field order is the one the web client decodes in `frvt/web/src/divergence/types.ts`.
 
 ---
 
@@ -563,13 +605,17 @@ Field types match `frvt.api.schemas`. Null means JSON `null`.
 
 **`VerseSpanOut`:** `id`, `seq`, `book`, `chapter`, `verse`, `part`, `verse_label`, `verse_range`, `content`.
 
-**`VersificationOut`:** `id`, `name`, `based_on_name`, `based_on_id`, `canonical`, timestamps, `associated_translation_names` (populated on list; detail/patch/upload default to `[]`). Detail adds `ingredient`.
+**`VersificationOut`:** `id`, `name`, `based_on_name`, `based_on_id`, `canonical`, timestamps, `associated_translation_names` (populated on list; detail/patch/upload default to `[]`). Detail adds `ingredient` and `source` (`VersificationSourceMetaOut` or `null`).
+
+**`VersificationSourceMetaOut`:** `format` (`copenhagen_json` \| `vrs`), `filename`, `sha256`, `document_bytes`, `companion_bytes`, `captured_at`. **`VersificationSourceOut`:** `format`, `filename`, `sha256`, `document_text`, `companion_vrs_text`, `captured_at`.
 
 **`AssociationOut`:** `id`, `translation_id`, `scheme_id`, `preferred`.
 
 **`BatchResolveEntry`:** `ref`, `result` (`ResolveResult` or `null`), `error` (`{code, detail}` or `null`). **`BatchResolveOut`:** `items`, `total`, `from_versification`, `to_versification` (scheme ids actually used), `index_used`.
 
-**`IndexOut`:** `id`, `translation_id`, `versification_id`, `versification_explicit`, `status`, `pending_reason`, `build_notes`, `last_error`, `pairs_total`, `pairs_completed`, `outbound_mappings`, `inbound_mappings`, `requested_at`, `started_at`, `completed_at`. **`IndexUsageOut`:** `total_indexes`, `ready_indexes`, `mapping_rows`, `mapping_bytes`, `reclaim_pending`.
+**`IndexOut`:** `id`, `translation_id`, `versification_id`, `versification_explicit`, `status`, `pending_reason`, `build_notes`, `last_error`, `pairs_total`, `pairs_completed`, `outbound_mappings`, `inbound_mappings`, `requested_at`, `started_at`, `completed_at`. **`IndexUsageOut`:** `total_indexes`, `ready_indexes`, `mapping_rows`, `mapping_bytes`, `reclaim_pending`, `divergence_reports`, `divergence_bytes`.
+
+**`DivergenceStatusOut`:** `id`, `status`, `stalled`, `stage`, `stage_index`, `stage_count`, `completed`, `total`, `error`.
 
 **`ResolvedSpan`:** `ref` (single-verse BCV, never a range or part suffix), `book`, `chapter`, `verse`, `seq`, `part`, `verse_label`, `verse_range`.
 
@@ -617,3 +663,6 @@ PYTHONPATH=. frvt/.venv/bin/python docs/export-openapi.py
 | `INDEX_BUILD_CHUNK_SIZE` | `500` | Refs per build commit |
 | `INDEX_FINGERPRINT_SWEEP_SECONDS` | `300` | Staleness sweep interval |
 | `INDEX_RECLAIM_CHUNK_SIZE` | `10000` | Mapping rows deleted per reclaim commit |
+| `DIVERGENCE_RUNNER_THREADS` | `1` | Daemon threads that compute reports |
+| `DIVERGENCE_STALE_SECONDS` | `120` | Heartbeat age after which a running report is `stalled` |
+| `DIVERGENCE_PRECOMPUTE_ENABLED` | `true` | When an index becomes ready, schedule comparisons against other ready indexes |

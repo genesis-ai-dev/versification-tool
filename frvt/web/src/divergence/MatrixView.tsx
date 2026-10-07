@@ -1,9 +1,17 @@
 import { select, type Selection } from "d3-selection";
 import { useEffect, useId, useRef } from "react";
-import { ACCENT, devianceColor, HATCH, NEUTRAL } from "./model/colors";
+import {
+  ACCENT,
+  APPROXIMATE_DASH,
+  COUNT_DOT,
+  devianceColor,
+  HATCH,
+  NEUTRAL,
+} from "./model/colors";
 import {
   bookState,
   cellState,
+  countDotRadius,
   isNeutral,
   MATRIX,
   matrixTargets,
@@ -11,30 +19,7 @@ import {
   type ComparisonIndex,
   type MatrixTarget,
 } from "./model/index";
-
-/** What a matrix click or key hands back to the dialog. */
-export interface MatrixSelection {
-  /** Book code of the cell. */
-  bookCode: string;
-  /** Chapter of the cell, or null when the cell covers the whole book. */
-  chapter: number | null;
-  /** True for the book summary cell, which covers every chapter. */
-  summary: boolean;
-  /**
-   * Verse heading for a strip or dot selection, such as ``Exodus 21:1–21:4``.
-   * Absent for a matrix or radial cell. The donut and the event list ignore it.
-   */
-  verseLabel?: string;
-}
-
-/**
- * Whether the cell covers every chapter of its book.
- * A book summary does, and so does a cell that has no chapter number.
- * The donut scope, the heading, and the event list share this rule.
- */
-export function coversWholeBook(selection: MatrixSelection): boolean {
-  return selection.summary || selection.chapter === null;
-}
+import type { MatrixSelection } from "./model/selection";
 
 /** Props for the chapter matrix. */
 export interface MatrixViewProps {
@@ -156,19 +141,20 @@ export function MatrixView({
           .attr("x", 42)
           .attr("y", item.y + 10)
           .text(book.name.length > 18 ? `${book.name.slice(0, 17)}…` : book.name);
-        drawCell(
-          drawing,
-          MATRIX.left,
-          item.y,
-          bookState(index, book, layersOn),
-          hatchId,
-          () =>
-            handlers.current.onSelect({
-              bookCode: book.code,
-              chapter: null,
-              summary: true,
-            }),
-        );
+        const summary = { bookCode: book.code, chapter: null, summary: true };
+        drawCell(drawing, MATRIX.left, item.y, bookState(index, book, layersOn), hatchId, {
+          onSelect: () => handlers.current.onSelect(summary),
+          onHover: () => handlers.current.onHover(summary),
+        });
+      } else {
+        drawing
+          .append("text")
+          .attr("class", "dv-axis")
+          .attr("x", 42)
+          .attr("y", item.y + MATRIX.cell - 3)
+          .text(
+            `${item.row.part * MATRIX.cols + 1}–${Math.min((item.row.part + 1) * MATRIX.cols, book.slots)}`,
+          );
       }
       const start = item.row.part * MATRIX.cols + 1;
       const end = Math.min(book.slots, (item.row.part + 1) * MATRIX.cols);
@@ -230,14 +216,22 @@ export function MatrixView({
   return <div className="dv-matrix" ref={hostRef} />;
 }
 
-/** Draw one colored cell. ``onSummary`` is set only for the book-level cell. */
+/** Click and hover for the book-summary cell. Chapter cells pass null. */
+interface BookSummaryHandlers {
+  /** Pins the whole book. */
+  onSelect: () => void;
+  /** Reports the book while nothing is pinned. */
+  onHover: () => void;
+}
+
+/** Draw one colored cell. ``summary`` is set only for the book-level cell. */
 function drawCell(
   parent: Selection<SVGGElement, unknown, null, undefined>,
   x: number,
   y: number,
   state: ReturnType<typeof cellState>,
   hatchId: string,
-  onSummary: (() => void) | null,
+  summary: BookSummaryHandlers | null,
 ): void {
   const group = parent.append("g").attr("transform", `translate(${x},${y})`);
   const fill = state.severity ? devianceColor(state.deviance) : NEUTRAL;
@@ -255,14 +249,39 @@ function drawCell(
       .attr("rx", 2)
       .attr("fill", `url(#${hatchId})`);
   }
+  if (state.approximate) {
+    group
+      .append("rect")
+      .attr("x", 0.75)
+      .attr("y", 0.75)
+      .attr("width", MATRIX.cell - 1.5)
+      .attr("height", MATRIX.cell - 1.5)
+      .attr("rx", 2)
+      .attr("fill", "none")
+      .attr("stroke", "currentColor")
+      .attr("stroke-width", 1.2)
+      .attr("stroke-dasharray", APPROXIMATE_DASH);
+  }
   if (state.warning) {
     group
       .append("path")
       .attr("d", `M${MATRIX.cell - 5},0 H${MATRIX.cell} V5 Z`)
       .attr("fill", ACCENT);
   }
-  if (onSummary !== null) {
-    group.style("cursor", "pointer").on("click", onSummary);
+  const radius = countDotRadius(state.count);
+  if (radius !== null) {
+    group
+      .append("circle")
+      .attr("cx", MATRIX.cell / 2)
+      .attr("cy", MATRIX.cell / 2)
+      .attr("r", radius)
+      .attr("fill", COUNT_DOT);
+  }
+  if (summary !== null) {
+    group
+      .style("cursor", "pointer")
+      .on("click", summary.onSelect)
+      .on("mouseenter", summary.onHover);
   }
 }
 

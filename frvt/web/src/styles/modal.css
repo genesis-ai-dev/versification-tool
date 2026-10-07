@@ -30,6 +30,8 @@
 }
 
 .modal-header {
+  position: relative;
+  z-index: 1;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -38,10 +40,27 @@
   background: #111923;
 }
 
+.modal-title {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
 .modal-header h3 {
   margin: 0;
   font-size: 1rem;
   color: #f1f5f9;
+}
+
+/* The header is darker than the dialog body, so the shared faint icon would disappear. */
+.modal-title .dv-info-icon {
+  color: var(--text-muted);
+}
+
+.modal-title .dv-tip-trigger:hover .dv-info-icon,
+.modal-title .dv-tip-trigger:focus-visible .dv-info-icon {
+  color: var(--text);
 }
 
 .modal-body {

@@ -1,6 +1,6 @@
 # Versification Viewer: Server, Database, and API Design Specification
 
-**Status:** Draft for review and reconciliation
+**Status:** Archived reconciled design. The current HTTP contract is [docs/api.md](../../../docs/api.md).
 **Audience:** The developer implementing the server, database, and API; and the developers writing the UI, resolver, and ETL specifications that this document is reconciled against.
 **Scope of this document:** The backend server process, the relational database, and the HTTP API. It does not specify the resolver internals, the ETL/ingest parsing internals, or the UI. Those are owned by separate specifications and appear here only as isolated interface contracts.
 
@@ -14,7 +14,7 @@
 
 ## 1. Overview
 
-This specification describes the server, database, and API for the versification viewer proof-of-concept (POC). The POC displays two Bible translations side by side and aligns them across differing versifications, as described in [research/frvt-versification-viewer-poc-1.md](../research/frvt-versification-viewer-poc-1.md).
+This specification describes the server, database, and API for the versification viewer proof-of-concept (POC). The POC displays two Bible translations side by side and aligns them across differing versifications, as described in [research/frvt-versification-viewer-poc-1.md](../../../research/frvt-versification-viewer-poc-1.md).
 
 The backend has three responsibilities:
 
@@ -75,10 +75,10 @@ Every POC capability that touches the server, database, or API traces to an endp
 
 ### 3.1 Sources
 
-- Architecture and capabilities: [research/frvt-versification-viewer-poc-1.md](../research/frvt-versification-viewer-poc-1.md).
-- Versification domain and format background: [research/frvt-versification-standards-and-tooling-1.md](../research/frvt-versification-standards-and-tooling-1.md).
-- Copenhagen/Burrito ingredient schema: [research/CopenhagenFormat/versification_schema.json](../research/CopenhagenFormat/versification_schema.json).
-- Concrete ingredient samples used for the examples below: [research/CopenhagenFormat/eng.json](../research/CopenhagenFormat/eng.json), [research/CopenhagenFormat/org.json](../research/CopenhagenFormat/org.json), and [research/CopenhagenFormat/validated.json](../research/CopenhagenFormat/validated.json).
+- Architecture and capabilities: [research/frvt-versification-viewer-poc-1.md](../../../research/frvt-versification-viewer-poc-1.md).
+- Versification domain and format background: [research/frvt-versification-standards-and-tooling-1.md](../../../research/frvt-versification-standards-and-tooling-1.md).
+- Copenhagen/Burrito ingredient schema: [research/CopenhagenFormat/versification_schema.json](../../../research/CopenhagenFormat/versification_schema.json).
+- Concrete ingredient samples used for the examples below: [research/CopenhagenFormat/eng.json](../../../research/CopenhagenFormat/eng.json), [research/CopenhagenFormat/org.json](../../../research/CopenhagenFormat/org.json), and [research/CopenhagenFormat/validated.json](../../../research/CopenhagenFormat/validated.json).
 - Stack and operational conventions: FastAPI on Uvicorn, PostgreSQL in Docker Compose, `.env`-based configuration, HTTP Basic middleware, same-process static UI mount, and a shared logging module with a custom `TRACE` level (see Section 1.1).
 
 ### 3.2 Assumptions to reconcile
@@ -244,7 +244,7 @@ Resolver **pivot diagnostics** are controllable: the intermediate pivot spans an
 On first startup (or via an idempotent Alembic data migration), the server seeds the canonical numbering-space translations and their canonical schemes so scheme ingest can resolve `basedOn` names and the resolver can walk `based_on_id` chains on a clean install. This is the owner of canonical-anchor creation (requirements A21).
 
 - **Canonical translations:** `org` (root), `eng`, `lxx`, `rso`, `rsc`, `vul`. Each is created as a numbering-space **anchor** (`translation.is_anchor = true`, Section 6.1.1) and may carry minimal or no verse spans — they are numbering anchors, not display content (resolver §1.1; requirements A20–A21).
-- **Canonical schemes:** one `versification_scheme` per canonical ingredient (from [research/CopenhagenFormat/](../research/CopenhagenFormat/)), with `canonical = true` and `based_on_name` / `based_on_id` set from the ingredient (`org` is the root with null base).
+- **Canonical schemes:** one `versification_scheme` per canonical ingredient (from [research/CopenhagenFormat/](../../../research/CopenhagenFormat/)), with `canonical = true` and `based_on_name` / `based_on_id` set from the ingredient (`org` is the root with null base).
 - **Anchor associations:** each canonical translation is associated with its matching canonical scheme via `translation_versification`, marked **preferred** (Section 6.1.4), so `preferred_scheme_ref` succeeds when the resolver hops to an anchor during chain walking (resolver §5, §6.2).
 - **Anchor exclusion:** anchors are excluded from user-facing translation listings (`GET /api/translations`, Section 7.3) and from the UI empty-state count, so a clean install still shows the upload-first empty state (UI §6.3) while `basedOn` lookups succeed.
 - **Upload base default:** uploaded/ingested schemes (standalone or in a project) are assumed to be based on a canonical versification, defaulting `basedOn` to `org` when absent (requirements A22). Canonical roots are never created by upload.
@@ -418,16 +418,16 @@ The first seven values are **atomic** and are the only ones that may be stored o
 
 ### 6.3 Storing mappings, and how the ingredient maps to rows
 
-The `ingredient` jsonb is kept verbatim so the interchange format round-trips without loss, including fields the POC does not use. Deriving `mapping_record` rows from it, rather than normalizing every ingredient field into its own tables, keeps queries simple while preserving fidelity. The derivation reads each ingredient field and emits rows as follows. Examples are taken from the real samples in [research/CopenhagenFormat](../research/CopenhagenFormat).
+The `ingredient` jsonb is kept verbatim so the interchange format round-trips without loss, including fields the POC does not use. Deriving `mapping_record` rows from it, rather than normalizing every ingredient field into its own tables, keeps queries simple while preserving fidelity. The derivation reads each ingredient field and emits rows as follows. Examples are taken from the real samples in [research/CopenhagenFormat](../../../research/CopenhagenFormat).
 
 | Ingredient field | Example (from samples) | Derived `mapping_record` rows |
 | --- | --- | --- |
-| `basedOn` | `"org"` (in [validated.json](../research/CopenhagenFormat/validated.json)) | Not a mapping row; stored as `versification_scheme.based_on_name` and resolved by name to `based_on_id` → `translation.id`. |
-| `maxVerses` | `"GEN": ["31","25",...]` (in [eng.json](../research/CopenhagenFormat/eng.json)) | Not rows; used to validate references and drive navigation bounds. |
-| `mappedVerses` | `"GEN 31:55": "GEN 32:1"`, `"PSA 3:0-8": "PSA 3:1-9"`, `"NEH 7:69-73": "NEH 7:68-72"` (in [eng.json](../research/CopenhagenFormat/eng.json)) | One row per entry: `source_ref` = key, `base_ref` = value, `relation` classified as `shift` or `renumber` by comparing book/chapter/verse deltas. |
-| `excludedVerses` | `["MAT 17:21", ...]` in NT-omission schemes; `[]` in [eng.json](../research/CopenhagenFormat/eng.json) | One row per verse: `source_ref` set, `base_ref` null, `relation` = `exclude`. |
-| `mergedVerses` | `["JOS 19:47-48", "1PE 4:1-2", ...]` (in [validated.json](../research/CopenhagenFormat/validated.json)) | One row per range with `relation` = `merge`; `base_ref` resolved from the corresponding `mappedVerses` entry where present. |
-| `partialVerses` | `"SIR 36:13": ["a"]`, `"ESG 3:13": ["-","a","b",...]` (in [validated.json](../research/CopenhagenFormat/validated.json)) | One row per part with `relation` = `partial`; `source_ref` stays plain BCV and the part is stored in the dedicated `part` column, never embedded in `source_ref`. |
+| `basedOn` | `"org"` (in [validated.json](../../../research/CopenhagenFormat/validated.json)) | Not a mapping row; stored as `versification_scheme.based_on_name` and resolved by name to `based_on_id` → `translation.id`. |
+| `maxVerses` | `"GEN": ["31","25",...]` (in [eng.json](../../../research/CopenhagenFormat/eng.json)) | Not rows; used to validate references and drive navigation bounds. |
+| `mappedVerses` | `"GEN 31:55": "GEN 32:1"`, `"PSA 3:0-8": "PSA 3:1-9"`, `"NEH 7:69-73": "NEH 7:68-72"` (in [eng.json](../../../research/CopenhagenFormat/eng.json)) | One row per entry: `source_ref` = key, `base_ref` = value, `relation` classified as `shift` or `renumber` by comparing book/chapter/verse deltas. |
+| `excludedVerses` | `["MAT 17:21", ...]` in NT-omission schemes; `[]` in [eng.json](../../../research/CopenhagenFormat/eng.json) | One row per verse: `source_ref` set, `base_ref` null, `relation` = `exclude`. |
+| `mergedVerses` | `["JOS 19:47-48", "1PE 4:1-2", ...]` (in [validated.json](../../../research/CopenhagenFormat/validated.json)) | One row per range with `relation` = `merge`; `base_ref` resolved from the corresponding `mappedVerses` entry where present. |
+| `partialVerses` | `"SIR 36:13": ["a"]`, `"ESG 3:13": ["-","a","b",...]` (in [validated.json](../../../research/CopenhagenFormat/validated.json)) | One row per part with `relation` = `partial`; `source_ref` stays plain BCV and the part is stored in the dedicated `part` column, never embedded in `source_ref`. |
 
 The concrete classification rules (how `shift` versus `renumber` is decided, how `mergedVerses` join to `mappedVerses`) belong to the resolver/ETL specifications. This document requires only that the derivation is deterministic, is rebuildable from the ingredient, and populates the columns above. See the ingredient-as-system-of-record assumption (Section 3.2) and [Section 8](#8-boundary-interface-contracts).
 
@@ -970,7 +970,7 @@ Consolidated boundary assumptions from Section 3.2, to confirm with the resolver
 
 ### 11.1 Reconciled decisions (this revision)
 
-Recorded during the spec reconciliation (see [`.spec/completed/frvt-3-spec-reconciliation-decisions-1.md`](./completed/frvt-3-spec-reconciliation-decisions-1.md)):
+Recorded during the spec reconciliation (see [`.spec/completed/frvt-3/frvt-3-spec-reconciliation-decisions-1.md`](./frvt-3-spec-reconciliation-decisions-1.md)):
 
 - **Canonical bootstrap & anchors** (Section 5.7, requirements A21): server owns seeding canonical anchors/schemes; `translation.is_anchor` hides them from listings and empty-state.
 - **Ref/part separation** (Section 3.2, 7.8; requirements A23): the resolve `ref` never carries a part; a separate `part` param/column/field carries it.
@@ -1014,7 +1014,7 @@ Post-reconciliation modifications. Apply subsections in order (`ADD-*-001`, then
 | ADD-S-001b | §6.1.1 | CLARIFY | User-created translation names used as `basedOn` targets should follow the same charset when they will appear in ingredients (e.g. `engdemo`). |
 | ADD-S-001c | §5.7 | ADD | Non-anchor translations created via `POST /api/translations` (`is_anchor=false`) may serve as numbering-space nodes: schemes may declare `"basedOn": "<translation.name>"` for such a translation. Chain walking loads that translation's **preferred** associated scheme for the next hop. The translation may carry minimal or no verse spans (A20). Example intermediate base: `engdemo`. |
 | ADD-S-001d | §7.9 | ADD | Jump-menu categorization heuristics (in addition to the category vocabulary): PSA mapping involving verse 0 or verse renumbering → `lxx_psalm` if scheme name contains `lxx` (case-insensitive), else `psalm_title`; `relation == exclude` and source book in NT set → `nt_omission`; scheme name contains `synodal`, `rso`, or `rsc` → `synodal`; source and base refs differ in chapter → `chapter_boundary`; `relation == renumber` (same chapter) → `chapter_count`; otherwise → `other`. |
-| ADD-S-001e | §10.3 | ADD | Supplementary contract coverage lives in [`frvt/tests/test_visual_demo_corpus.py`](../frvt/tests/test_visual_demo_corpus.py) and [`frvt/tests/test_multihop_chain_testbed.py`](../frvt/tests/test_multihop_chain_testbed.py), with manual QA in [`.test/visual-demo-walkthrough.md`](../.test/visual-demo-walkthrough.md) and [`.test/multihop-chain-walkthrough.md`](../.test/multihop-chain-walkthrough.md). These suites exercise composed relations, all seven misalignment categories, cancel-filter pairs, and multi-hop parity; they do not replace the §10.3 bullets above. |
+| ADD-S-001e | §10.3 | ADD | Supplementary contract coverage lives in [`frvt/tests/test_visual_demo_corpus.py`](../../../frvt/tests/test_visual_demo_corpus.py) and [`frvt/tests/test_multihop_chain_testbed.py`](../../../frvt/tests/test_multihop_chain_testbed.py), with manual QA in [`.test/visual-demo-walkthrough.md`](../../../.test/visual-demo-walkthrough.md) and [`.test/multihop-chain-walkthrough.md`](../../../.test/multihop-chain-walkthrough.md). These suites exercise composed relations, all seven misalignment categories, cancel-filter pairs, and multi-hop parity; they do not replace the §10.3 bullets above. |
 
 ### ADD-S-002 — Chapter resolve for overlay chapter mode
 
@@ -1025,7 +1025,7 @@ Post-reconciliation modifications. Apply subsections in order (`ADD-*-001`, then
 | ADD-S-002a | §2.3 row 8 | REPLACE | Overlay data: `GET /api/resolve` (current alignment) and `GET /api/resolve/chapter` (unique alignments for stored drive-column verses in the requested chapter). |
 | ADD-S-002b | §7.2 | ADD | `ChapterResolveOut`: `{ items: list[ResolveResult], total: int }` where `total === len(items)` after emit-once dedupe. May reuse a generic `Page[ResolveResult]` envelope if already exported. |
 | ADD-S-002c | §7.8 | ADD | **`GET /api/resolve/chapter`** — query: `from_translation`, `to_translation`, `book`, `chapter`, optional `from_versification`, `to_versification`. Response: `200` `ChapterResolveOut`. Same scheme-selection / `404` / `409` pre-checks as single resolve. **Verse enumeration:** distinct whole-verse numbers (`part IS NULL`) from **`verse_span` rows only** for `from_translation` in `(book, chapter)`, ordered by `verse`. Do not use navigation, `maxVerses`, or other inferred verse lists. Resolve each verse with the same port path as single resolve (no `part` param), reusing selected schemes. **Emit-once:** after each successful resolve, compute an alignment fingerprint (`relation` + sorted source/target `(ref, part)` + sorted edges); append only if unseen. Per-verse failure: log ERROR, skip, continue. Empty chapter or no spans ⇒ `{ items: [], total: 0 }`. Does not change `GET /api/resolve` semantics. |
-| ADD-S-002d | §10.3 | ADD | Chapter resolve: happy path; `404`/`409` pre-checks; emit-once regression for merge/split/`complex` hulls in one chapter; per-verse skip on failure; enumeration limited to stored `verse_span` rows. Lives in e.g. [`frvt/tests/test_api_resolve_chapter.py`](../frvt/tests/test_api_resolve_chapter.py). |
+| ADD-S-002d | §10.3 | ADD | Chapter resolve: happy path; `404`/`409` pre-checks; emit-once regression for merge/split/`complex` hulls in one chapter; per-verse skip on failure; enumeration limited to stored `verse_span` rows. Lives in e.g. [`frvt/tests/test_api_resolve_chapter.py`](../../../frvt/tests/test_api_resolve_chapter.py). |
 | ADD-S-002e | §8.3 | CLARIFY | UI may call the chapter endpoint for overlay chapter mode so users view in-column alignments without the jump menu; the resolver port is invoked repeatedly per verse, not extended with new entry points. |
 
 ### ADD-S-003 — Jump-books summary for book-dropdown indicators
@@ -1037,7 +1037,7 @@ Post-reconciliation modifications. Apply subsections in order (`ADD-*-001`, then
 | ADD-S-003a | §2.3 row 3 | REPLACE | Per-column book/chapter/verse selector data includes a pair-scoped jump-books summary (`GET /api/resolve/jump-books`) for book-dropdown indicators. |
 | ADD-S-003b | §7.2 | ADD | `JumpBooksOut`: `{ books: list[str] }` — distinct from-side USFM book codes, USX-sorted. |
 | ADD-S-003c | §7.9 | ADD | **`GET /api/resolve/jump-books`** — query: `from_translation`, `to_translation`, optional `from_versification`, `to_versification`. Response: `200` `JumpBooksOut`. Same scheme-selection / `404` / `409` pre-checks as deltas and jump-menu endpoints. Collect distinct from-side books from **cancel-filtered** scheme-difference rows (same set as deltas/misalignments; no `book` query param). Derive each row's book from its discrete navigation target (range lower bound). Sort with existing USX book order. Empty pair, identical schemes, or no differences ⇒ `{ books: [] }`. Do **not** enrich per-translation `NavBook` / navigation with pair-scoped flags. Endpoint table: `GET` `/api/resolve/jump-books` — query `from_translation`, `to_translation`, optional `from_versification`, `to_versification` — response `200` `{ books: string[] }`. |
-| ADD-S-003d | §10.3 | ADD | Jump-books: happy path with known book differences; cancel-filter excludes identity-only books; empty / identical schemes; `404` / `409` pre-checks; USX sort. Lives in e.g. [`frvt/tests/test_api_jump_books.py`](../frvt/tests/test_api_jump_books.py). |
+| ADD-S-003d | §10.3 | ADD | Jump-books: happy path with known book differences; cancel-filter excludes identity-only books; empty / identical schemes; `404` / `409` pre-checks; USX sort. Lives in e.g. [`frvt/tests/test_api_jump_books.py`](../../../frvt/tests/test_api_jump_books.py). |
 
 ### ADD-S-004 — Composed alignment classification on resolve responses
 
@@ -1113,6 +1113,6 @@ Viewer session persistence is **client-only** (`localStorage` in the web app, AD
 | Mod id | Target | Action | Effective text |
 | --- | --- | --- | --- |
 | ADD-S-009a | §7.9 | ADD | Misalignment `category` on jump endpoints (`GET /api/resolve/misalignments`, `GET /api/resolve/jump-menu`) is assigned from **pair resolve**: `navigation_ref` (+ `part` when present) resolved from `from_translation` to `to_translation` under the request's `*_versification` overrides, using the ADD-S-001d heuristics with the composed target ref and resolve `relation`. Scheme-diff `base_ref` remains a display label for mapped deltas only; it does not drive misalignment category. |
-| ADD-S-009b | §10.3 | ADD | Unit tests: same-chapter composed renumber categorized as `chapter_count` when scheme-diff refs cross chapters; cross-chapter composed resolve remains `chapter_boundary`. Lives in [`frvt/tests/test_jump_cancel_filter.py`](../frvt/tests/test_jump_cancel_filter.py). |
+| ADD-S-009b | §10.3 | ADD | Unit tests: same-chapter composed renumber categorized as `chapter_count` when scheme-diff refs cross chapters; cross-chapter composed resolve remains `chapter_boundary`. Lives in [`frvt/tests/test_jump_cancel_filter.py`](../../../frvt/tests/test_jump_cancel_filter.py). |
 | ADD-S-009c | §7.9 | ADD | After cancel filtering, jump endpoints also include **reciprocal** rows: for each kept scheme-diff row in the counterpart direction (`to_translation` → `from_translation`), when the composed target on the from side is a single-verse navigation locus that is not already listed and is not canceling or unreachable in the requested direction, emit a matching from-side jump row. Reciprocal rows use pair resolve for labels, relation, and misalignment category. |
-| ADD-S-009d | §10.3 | ADD | Unit tests for reciprocal row discovery in [`frvt/tests/test_reciprocal_jump_mappings.py`](../frvt/tests/test_reciprocal_jump_mappings.py). |
+| ADD-S-009d | §10.3 | ADD | Unit tests for reciprocal row discovery in [`frvt/tests/test_reciprocal_jump_mappings.py`](../../../frvt/tests/test_reciprocal_jump_mappings.py). |

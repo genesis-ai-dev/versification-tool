@@ -2,11 +2,13 @@
 
 Versification viewer for Codex and adjacent apps: a FastAPI API, PostgreSQL, and a React UI served from the same process.
 
+The UI is a side-by-side scripture viewer (`/`), translation and versification management (`/manage/translations`, `/manage/versifications`), and a Divergence dialog that compares two translations' numbering. The dialog reads a cached report from `POST /api/divergence/reports` when one is ready, and computes one when it is not.
+
 All HTTP routes (API, `/docs`, static UI) are gated with HTTP Basic. Default credentials are **local only**.
 
 ## API documentation
 
-- [docs/api.md](docs/api.md) — HTTP contract: auth, error envelope, pagination, BCV grammar, every `/api` route, batch verse mapping, and curl examples.
+- [docs/api.md](docs/api.md) — HTTP contract: auth, error envelope, pagination, BCV grammar, every `/api` route (including batch mapping, indexes, and divergence reports), and curl examples.
 - [docs/openapi.json](docs/openapi.json) — OpenAPI 3.1 for client generation. Generated from the FastAPI app, then patched so errors use `{detail, code, errors?}` and HTTP Basic is declared. After changing routes or models, from the repository root: `PYTHONPATH=. frvt/.venv/bin/python docs/export-openapi.py` ([docs/export-openapi.py](docs/export-openapi.py)).
 
 A running server also serves Swagger UI at `GET /docs` and ReDoc at `GET /redoc` (Basic required). Those pages load **live** `GET /openapi.json`, which is FastAPI's unpatched schema (no Basic scheme; many `422`s still listed as `HTTPValidationError`). Use the checked-in file for the envelope the process actually returns.
@@ -70,6 +72,8 @@ cd $REPO
 
 ## Tests
 
+Backend and frontend are separate suites.
+
 The backend suite needs the Compose database running (`docker compose up -d`). Run it from `$REPO/frvt` with the repository root on `PYTHONPATH`:
 
 ```bash
@@ -79,7 +83,9 @@ PYTHONPATH="$REPO" .venv/bin/python -m pytest -n auto
 
 `-n auto` (pytest-xdist) is worth using: the suite is dominated by database work, and each worker gets its own database (`frvt_test_gw0`, `frvt_test_gw1`, …) created and migrated on first use. Drop `-n` when you need `--pdb` or readable per-test output.
 
-Canonical anchors are seeded once per run and committed; every test then runs inside a transaction that is rolled back, so tests never see each other's writes.
+Canonical anchors are seeded once per run and committed; every test then runs inside a transaction that is rolled back, so tests never see each other's writes. A serial run uses database `frvt_test`. The test fixture creates that database when it is missing.
+
+Frontend unit tests, and Playwright against a running server, are documented in [frvt/web/README.md](frvt/web/README.md).
 
 ## Security
 
@@ -87,4 +93,10 @@ Canonical anchors are seeded once per run and committed; every test then runs in
 - Failed authentication is limited to **10** failures per client IP per **60** seconds, then `429` with `code: too_many_requests`. `BASIC_AUTH_FAILURE_LIMIT=0` or a non-positive `BASIC_AUTH_FAILURE_WINDOW_SECONDS` disables that limiter (failures stay `401`).
 - `TRUST_PROXY_HEADERS` defaults to `false`. Enable it **only** behind a trusted proxy (for example an ALB). The limiter then keys on the **rightmost** `X-Forwarded-For` hop.
 - `BASIC_AUTH_PUBLIC_PATHS` is a comma-separated list of path prefixes and defaults to empty. Prefix `/` disables the gate for **every** path, including the limiter. Do not set that in production.
-- AWS edge controls (WAF, Shield, private subnets, RDS, logging) are **not** implemented in this repository. See [.spec/frvt-11-aws-deploy-recommendations-1.md](.spec/frvt-11-aws-deploy-recommendations-1.md).
+- AWS edge controls (WAF, Shield, private subnets, RDS, logging) are **not** implemented in this repository. See [.spec/completed/frvt-11/frvt-11-aws-deploy-recommendations-1.md](.spec/completed/frvt-11/frvt-11-aws-deploy-recommendations-1.md).
+
+## Documentation
+
+- [docs/api.md](docs/api.md) is the current HTTP contract.
+- Active divergence-dialog plans are the `frvt-7-*-execution-plan-1.md` files in [.spec/](.spec/).
+- Finished specs are grouped by ticket under [.spec/completed/](.spec/completed/).

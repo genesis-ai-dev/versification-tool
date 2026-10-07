@@ -1,7 +1,7 @@
 # Batch Mapping API: Phased Execution Plan
 
 **Document:** `frvt-8-execution-plan-1`
-**Status:** Ready for implementation
+**Status:** Implemented
 **Audience:** A coding agent (and reviewers) implementing [frvt-8-acceptance-criteria-1.md](./frvt-8-acceptance-criteria-1.md)
 **Scope:** Add two batch verse-mapping endpoints to the existing FastAPI backend — one for a verse *range* expressed as from/to partial references, one for an explicit *set* of verse references — with versification as an optional parameter that defaults to a translation's preferred scheme and falls back to `org`. Includes a narrow resolver-port change so a batch does not rebuild scheme chains once per verse.
 
@@ -19,7 +19,7 @@ This plan is written for a **lower-quality coding agent**. Work the phases in or
 
 > **Rule 12 — read first.** Phase numbers and any identifiers in this plan are planning scaffolding. They must **never** appear in produced source code, comments, configuration, migration names, or runtime strings. Name modules and symbols for what they do, not for the phase that created them. Rule 12 does **not** apply to files under `.spec/` or `.test/`.
 >
-> The pre-existing `phase1`–`phase6` pytest markers in [`frvt/pyproject.toml`](../frvt/pyproject.toml) are part of the repository's established test-suite gating vocabulary and predate this plan. Reuse them as instructed below. Do **not** add new markers.
+> The pre-existing `phase1`–`phase6` pytest markers in [`frvt/pyproject.toml`](../../../frvt/pyproject.toml) are part of the repository's established test-suite gating vocabulary and predate this plan. Reuse them as instructed below. Do **not** add new markers.
 
 ---
 
@@ -38,9 +38,9 @@ This plan is written for a **lower-quality coding agent**. Work the phases in or
 | Response shape | `BatchResolveOut`, which extends the existing `Page[BatchResolveEntry]` with the two scheme ids actually used, so a caller can see whether the `org` fallback fired. |
 | Per-verse failures | Recorded as `error` on the entry with HTTP `200` overall. **Do not** copy the silent `continue` in `resolve_chapter()`. |
 | Request-level failures | Chain problems (cycle, no shared ancestor) are detected **once**, before the loop, and returned as a single `422`. A caller must never receive `200` with 500 copies of the same error. |
-| Chain hoisting | Scheme chains and hops are built **once per request** and reused for every verse, mirroring `JumpCancelContext` in [`frvt/api/jump_cancel.py`](../frvt/api/jump_cancel.py). |
+| Chain hoisting | Scheme chains and hops are built **once per request** and reused for every verse, mirroring `JumpCancelContext` in [`frvt/api/jump_cancel.py`](../../../frvt/api/jump_cancel.py). |
 | Dedupe | **None.** The emit-once dedupe in `resolve_chapter()` is deliberately not reused; keying by input ref requires one entry per input. |
-| Size limits | Reuse `DEFAULT_LIMIT = 100` / `MAX_LIMIT = 500` and `clamp_page()` from [`frvt/api/scheme_select.py`](../frvt/api/scheme_select.py). No new settings, no new environment variables. |
+| Size limits | Reuse `DEFAULT_LIMIT = 100` / `MAX_LIMIT = 500` and `clamp_page()` from [`frvt/api/scheme_select.py`](../../../frvt/api/scheme_select.py). No new settings, no new environment variables. |
 | Range pagination | `GET /api/resolve/range` accepts `limit` / `offset` over the ordered expansion. `total` is the **full** expansion size before slicing. Default page size is therefore `100`. |
 | Set size limit | `POST /api/resolve/verses` rejects a `refs` list longer than `MAX_LIMIT` with `422`. No pagination — the caller already controls the list. |
 | Ordering | Range results in USX book order, then chapter, then verse. Set results in **request order**, duplicates preserved. |
@@ -54,18 +54,18 @@ This plan is written for a **lower-quality coding agent**. Work the phases in or
 
 Read these before writing anything. Line references are current at plan time; verify before editing.
 
-- **Single resolve endpoint** — [`frvt/api/routers/resolve.py`](../frvt/api/routers/resolve.py). Two `GET` routes on a shared `APIRouter(tags=["resolve"])`, registered in [`frvt/api/main.py`](../frvt/api/main.py) via `app.include_router(resolve.router)`. The new routes go in this same file and router, so **no `main.py` change is needed**.
-- **Resolve one reference with pre-selected schemes** — `resolve_single_with_schemes()` in [`frvt/api/ports/resolver_port.py`](../frvt/api/ports/resolver_port.py). Validates the ref, canonicalizes combined milestones via `_canonicalize_query_ref()`, calls `frvt.resolver.resolve.resolve()`, enriches spans via `_to_result()`, and raises `AppError(400 | 422)` on failure.
-- **The hoisting pattern to copy** — `JumpCancelContext._resolve_path()` in [`frvt/api/jump_cancel.py`](../frvt/api/jump_cancel.py) builds both chains once and then calls `assemble(members, src_hops, tgt_hops)` per reference. `assemble` is exported from `frvt.resolver`; `build_chain`, `nearest_shared_translation`, `hops_to_ancestor`, and `hops_from_ancestor` come from `frvt.resolver.chains`; `Hop` comes from `frvt.resolver.types`.
-- **Scheme selection** — `selected_scheme_ref()` in [`frvt/api/scheme_select.py`](../frvt/api/scheme_select.py): override → `404` if the scheme is missing, `409` if it is not associated; no override → the `TranslationVersification` row with `preferred = True`, else `409`.
-- **Existing batch precedent** — [`frvt/api/resolve_chapter.py`](../frvt/api/resolve_chapter.py) shows the driver skeleton: validate translations once, select both schemes once, then loop. Copy that skeleton; do **not** copy its dedupe or its silent error swallowing.
+- **Single resolve endpoint** — [`frvt/api/routers/resolve.py`](../../../frvt/api/routers/resolve.py). Two `GET` routes on a shared `APIRouter(tags=["resolve"])`, registered in [`frvt/api/main.py`](../../../frvt/api/main.py) via `app.include_router(resolve.router)`. The new routes go in this same file and router, so **no `main.py` change is needed**.
+- **Resolve one reference with pre-selected schemes** — `resolve_single_with_schemes()` in [`frvt/api/ports/resolver_port.py`](../../../frvt/api/ports/resolver_port.py). Validates the ref, canonicalizes combined milestones via `_canonicalize_query_ref()`, calls `frvt.resolver.resolve.resolve()`, enriches spans via `_to_result()`, and raises `AppError(400 | 422)` on failure.
+- **The hoisting pattern to copy** — `JumpCancelContext._resolve_path()` in [`frvt/api/jump_cancel.py`](../../../frvt/api/jump_cancel.py) builds both chains once and then calls `assemble(members, src_hops, tgt_hops)` per reference. `assemble` is exported from `frvt.resolver`; `build_chain`, `nearest_shared_translation`, `hops_to_ancestor`, and `hops_from_ancestor` come from `frvt.resolver.chains`; `Hop` comes from `frvt.resolver.types`.
+- **Scheme selection** — `selected_scheme_ref()` in [`frvt/api/scheme_select.py`](../../../frvt/api/scheme_select.py): override → `404` if the scheme is missing, `409` if it is not associated; no override → the `TranslationVersification` row with `preferred = True`, else `409`.
+- **Existing batch precedent** — [`frvt/api/resolve_chapter.py`](../../../frvt/api/resolve_chapter.py) shows the driver skeleton: validate translations once, select both schemes once, then loop. Copy that skeleton; do **not** copy its dedupe or its silent error swallowing.
 - **Pagination** — `clamp_page()`, `DEFAULT_LIMIT`, `MAX_LIMIT` in `scheme_select.py`. Raises `AppError(422, ..., code="validation_failed")`.
-- **Book ordering** — `usx_book_sort_key()` and `USX_BOOK_ORDER` in [`frvt/api/usx_book_order.py`](../frvt/api/usx_book_order.py).
-- **Reference grammar** — `parse_ref()`, `expand()`, `format_bcv()` in [`frvt/resolver/parse_ref.py`](../frvt/resolver/parse_ref.py). Accepts only `BOOK C:V` and same-chapter `BOOK C:V-V`; **rejects** embedded part suffixes and cross-chapter ranges.
-- **Schemas** — [`frvt/api/schemas/__init__.py`](../frvt/api/schemas/__init__.py): `ResolveResult`, `RelationType`, and the generic `Page[PageItem]`.
-- **Errors** — `AppError` in [`frvt/api/errors.py`](../frvt/api/errors.py) exposes `status_code`, `detail`, `code`, `errors`. Its constructor normalizes `code` to the `ErrorCode` literal, so no mapping is needed when copying it onto an entry. **Do not add new codes.**
-- **`org` anchor** — seeded by [`frvt/api/bootstrap.py`](../frvt/api/bootstrap.py) as both a `Translation` named `org` **and** a `VersificationScheme` named `org` with `canonical = True` and `based_on_id = NULL`. The fallback needs the **scheme**, not the translation.
-- **Test seeding** — [`frvt/testops/fixtures/api_setup.py`](../frvt/testops/fixtures/api_setup.py) provides `eng_org_resolve_context()`, `ingest_primary_project()`, `associate()`, `upload_ingredient_json()`, `set_preferred()`, `create_translation()`, and `insert_partial_verse_span()`. The primary sample project is `research/SampleTranslations/biblica-spanish-1.zip`.
+- **Book ordering** — `usx_book_sort_key()` and `USX_BOOK_ORDER` in [`frvt/api/usx_book_order.py`](../../../frvt/api/usx_book_order.py).
+- **Reference grammar** — `parse_ref()`, `expand()`, `format_bcv()` in [`frvt/resolver/parse_ref.py`](../../../frvt/resolver/parse_ref.py). Accepts only `BOOK C:V` and same-chapter `BOOK C:V-V`; **rejects** embedded part suffixes and cross-chapter ranges.
+- **Schemas** — [`frvt/api/schemas/__init__.py`](../../../frvt/api/schemas/__init__.py): `ResolveResult`, `RelationType`, and the generic `Page[PageItem]`.
+- **Errors** — `AppError` in [`frvt/api/errors.py`](../../../frvt/api/errors.py) exposes `status_code`, `detail`, `code`, `errors`. Its constructor normalizes `code` to the `ErrorCode` literal, so no mapping is needed when copying it onto an entry. **Do not add new codes.**
+- **`org` anchor** — seeded by [`frvt/api/bootstrap.py`](../../../frvt/api/bootstrap.py) as both a `Translation` named `org` **and** a `VersificationScheme` named `org` with `canonical = True` and `based_on_id = NULL`. The fallback needs the **scheme**, not the translation.
+- **Test seeding** — [`frvt/testops/fixtures/api_setup.py`](../../../frvt/testops/fixtures/api_setup.py) provides `eng_org_resolve_context()`, `ingest_primary_project()`, `associate()`, `upload_ingredient_json()`, `set_preferred()`, `create_translation()`, and `insert_partial_verse_span()`. The primary sample project is `research/SampleTranslations/biblica-spanish-1.zip`.
 
 ### Request flow to build
 
@@ -137,7 +137,7 @@ PYTHONPATH="$REPO" python -m pytest tests/test_<file>.py -vv     # single file
 PYTHONPATH="$REPO" python -m pytest -n auto                       # full suite
 ```
 
-Test markers: use the repository's existing vocabulary. Pure/unit tests get `@pytest.mark.phase6` plus `@pytest.mark.resolve`. HTTP-level tests get `@pytest.mark.phase4` plus `@pytest.mark.resolve`, matching [`frvt/tests/test_api_resolve_chapter.py`](../frvt/tests/test_api_resolve_chapter.py).
+Test markers: use the repository's existing vocabulary. Pure/unit tests get `@pytest.mark.phase6` plus `@pytest.mark.resolve`. HTTP-level tests get `@pytest.mark.phase4` plus `@pytest.mark.resolve`, matching [`frvt/tests/test_api_resolve_chapter.py`](../../../frvt/tests/test_api_resolve_chapter.py).
 
 ---
 
@@ -191,7 +191,7 @@ Phases 1, 2, and 3 are independent of each other and may be verified in any orde
 
 **Work:**
 
-Create `.spec/frvt-8-batch-mapping-api-spec-1.md`, matching the tone and section style of [frvt-3-http-api-spec-1.md](./frvt-3-http-api-spec-1.md). Cover:
+Create `.spec/frvt-8-batch-mapping-api-spec-1.md`, matching the tone and section style of [frvt-3-http-api-spec-1.md](../frvt-3/frvt-3-http-api-spec-1.md). Cover:
 
 - **`GET /api/resolve/range`** query parameters: `from_translation` (UUID, required), `to_translation` (UUID, required), `from_ref` (string, required), `to_ref` (string, required), `from_versification` (UUID, optional), `to_versification` (UUID, optional), `limit` (int, optional, default 100, max 500), `offset` (int, optional).
   - `from_ref` / `to_ref` grammar: `BOOK`, `BOOK C`, or `BOOK C:V`, where `BOOK` matches `[A-Z1-6]{3}` and must be a code in `USX_BOOK_ORDER`. No part suffix, no range marker.
@@ -214,7 +214,7 @@ Create `.spec/frvt-8-batch-mapping-api-spec-1.md`, matching the tone and section
 **Acceptance:**
 
 - The file exists and every acceptance criterion in [frvt-8-acceptance-criteria-1.md](./frvt-8-acceptance-criteria-1.md) maps to a named section.
-- Markdown lints clean under [`.markdownlint.json`](../.markdownlint.json).
+- Markdown lints clean under [`.markdownlint.json`](../../../.markdownlint.json).
 - No source files were modified in this phase.
 
 ---
@@ -256,7 +256,7 @@ Create `frvt/tests/test_verse_range.py`, marked `@pytest.mark.phase6` and `@pyte
 
 **Work:**
 
-Add to [`frvt/api/scheme_select.py`](../frvt/api/scheme_select.py) (currently 128 lines).
+Add to [`frvt/api/scheme_select.py`](../../../frvt/api/scheme_select.py) (currently 128 lines).
 
 - Extract the preferred-association lookup that `selected_scheme_ref()` already performs into a small private helper, and have `selected_scheme_ref()` call it. This is a pure refactor: the `409` behavior must not change.
 - `org_scheme_ref(session: Session) -> SchemeRef` — loads the scheme whose name equals `org` case-insensitively **and** whose `canonical` flag is true. Raises `AppError(409, ..., code="conflict")` naming the missing canonical `org` scheme if it is absent, logging `ERROR` first. Log `TRACE` on entry.
@@ -291,7 +291,7 @@ Create `frvt/tests/test_scheme_select.py` (there is no existing test module for 
 
 **Work:**
 
-Add to [`frvt/api/ports/resolver_port.py`](../frvt/api/ports/resolver_port.py) (currently 280 lines).
+Add to [`frvt/api/ports/resolver_port.py`](../../../frvt/api/ports/resolver_port.py) (currently 280 lines).
 
 - `ResolvePath` — a `@dataclass(frozen=True)` holding `source_hops: list[Hop]` and `target_hops: list[Hop]`, with a docstring explaining it is valid only for the scheme pair it was built from and only within one request.
 - `build_resolve_path(session: Session, *, source_scheme: SchemeRef, target_scheme: SchemeRef) -> ResolvePath` — calls `build_chain()` for both sides, `nearest_shared_translation()`, then `hops_to_ancestor()` / `hops_from_ancestor()`, exactly as `JumpCancelContext._resolve_path()` does. Wraps `LookupError` (cycle, no shared ancestor) in `AppError(422, str(exc), code="validation_failed")` after logging `ERROR` with `exc_info=True`. Log `DEBUG` on entry.
@@ -329,7 +329,7 @@ Add to `frvt/tests/test_resolver_port_enrich.py`, marked `@pytest.mark.phase6` a
 
 **Work:**
 
-First, generalize the test seeding helper in [`frvt/testops/fixtures/api_setup.py`](../frvt/testops/fixtures/api_setup.py) so range tests can create precise coordinates (Rule 6 — do not write a second copy in the test file):
+First, generalize the test seeding helper in [`frvt/testops/fixtures/api_setup.py`](../../../frvt/testops/fixtures/api_setup.py) so range tests can create precise coordinates (Rule 6 — do not write a second copy in the test file):
 
 - Add `insert_verse_span(session, translation_id, *, book, chapter, verse, part=None, content="[fixture]", seq=None, verse_label=None, verse_range=None) -> VerseSpan`, carrying the existing auto-`seq` logic from `insert_partial_verse_span()`.
 - Reimplement `insert_partial_verse_span()` as a thin call into it so its current signature and behavior are preserved for existing callers.
@@ -339,7 +339,7 @@ Then create `frvt/api/resolve_batch.py` with the expansion half only.
 - `expand_stored_range(session: Session, translation_id: UUID, *, from_ref: str, to_ref: str) -> list[str]`:
   - Log `DEBUG` on entry with the translation and both bounds.
   - Call `range_window(from_ref, to_ref)` from Phase 1. Let its `AppError`s propagate; they already carry the right status codes.
-  - Select `book`, `chapter`, `verse`, `verse_range` from `VerseSpan` where `translation_id` matches, `VerseSpan.book.in_(window.books)`, and `VerseSpan.part.is_(None)`. Use SQLAlchemy 2.0 `select()` style, following `_stored_whole_verses()` in [`frvt/api/resolve_chapter.py`](../frvt/api/resolve_chapter.py).
+  - Select `book`, `chapter`, `verse`, `verse_range` from `VerseSpan` where `translation_id` matches, `VerseSpan.book.in_(window.books)`, and `VerseSpan.part.is_(None)`. Use SQLAlchemy 2.0 `select()` style, following `_stored_whole_verses()` in [`frvt/api/resolve_chapter.py`](../../../frvt/api/resolve_chapter.py).
   - Build a `set[tuple[str, int, int]]` of covered `(book, chapter, verse)` coordinates. For each row add its own coordinate. When `verse_range` is not null, `parse_ref()` it and add a coordinate for **every** verse from `verse_start` through `verse_end` — this is what keeps `GEN 1:2` of a `GEN 1:1-2` milestone from disappearing. Wrap that `parse_ref()` in `try` / `except ReferenceError`, logging `ERROR` with the offending value and skipping only that row's range, so one malformed stored value cannot fail the request.
   - Keep the set keyed by **book code**, not by book index. Comparison against the window uses `verse_key(book, chapter, verse)` and sorting uses `(usx_book_sort_key(book), chapter, verse)`, so there is never a need to map an index back to a code.
   - Filter to coordinates whose `verse_key(...)` falls in `[window.lower, window.upper]`, sort, and format each as `f"{book} {chapter}:{verse}"`.
@@ -372,9 +372,9 @@ Create `frvt/tests/test_resolve_batch.py` (Phase 5 adds to it), marked `@pytest.
 
 **Work:**
 
-Add to [`frvt/api/schemas/__init__.py`](../frvt/api/schemas/__init__.py), each field carrying a `#` orienting comment in the existing style. **Placement matters** — see trap 12:
+Add to [`frvt/api/schemas/__init__.py`](../../../frvt/api/schemas/__init__.py), each field carrying a `#` orienting comment in the existing style. **Placement matters** — see trap 12:
 
-- `BatchResolveError` — `code: ErrorCode` and `detail: str`. Import the existing `ErrorCode` literal from [`frvt/api/errors.py`](../frvt/api/errors.py) rather than typing `code` as a bare `str`, so the fixed vocabulary is enforced and shows up in the generated OpenAPI schema. Place it with the other resolve models.
+- `BatchResolveError` — `code: ErrorCode` and `detail: str`. Import the existing `ErrorCode` literal from [`frvt/api/errors.py`](../../../frvt/api/errors.py) rather than typing `code` as a bare `str`, so the fixed vocabulary is enforced and shows up in the generated OpenAPI schema. Place it with the other resolve models.
 - `BatchResolveEntry` — `ref: str`, `result: ResolveResult | None = None`, `error: BatchResolveError | None = None`. Class docstring states exactly one of `result` / `error` is non-null. Both keys are always present in the JSON; do **not** add a `model_serializer` that drops them, because a per-entry union is easier to consume when the shape is stable. Place it with the other resolve models.
 - `BatchVerseRequest` — the `POST /api/resolve/verses` body: `from_translation: UUID`, `to_translation: UUID`, `refs: Annotated[list[str], Field(min_length=1, max_length=MAX_LIMIT)]`, `from_versification: UUID | None = None`, `to_versification: UUID | None = None`. Import `MAX_LIMIT` from `frvt.api.scheme_select`; trap 13 confirms there is no import cycle. Place it with the other resolve models.
 - `BatchResolveOut(Page[BatchResolveEntry])` — subclass the existing generic envelope so `items` and `total` are inherited rather than restated, and add `from_versification: UUID` and `to_versification: UUID` (the schemes actually used). **This class must be defined below `Page`** (currently line 297), because a base-class expression is evaluated eagerly and postponed annotations do not help. Put it immediately after `Page` with a short comment saying why it lives there rather than with its siblings.
@@ -424,13 +424,13 @@ The two versification-default cases are the primary evidence for acceptance crit
 
 **Work:**
 
-Add two routes to [`frvt/api/routers/resolve.py`](../frvt/api/routers/resolve.py) on the existing `router`. Keep the handlers thin — build a `BatchTarget`, log one `DEBUG` line, delegate, return. No `main.py` change.
+Add two routes to [`frvt/api/routers/resolve.py`](../../../frvt/api/routers/resolve.py) on the existing `router`. Keep the handlers thin — build a `BatchTarget`, log one `DEBUG` line, delegate, return. No `main.py` change.
 
 - `@router.get("/api/resolve/range", response_model=BatchResolveOut)` with query parameters `from_translation`, `to_translation`, `from_ref`, `to_ref`, `from_versification`, `to_versification`, `limit`, `offset`, plus the `session` dependency. Declare `limit` and `offset` as plain optional ints and let `clamp_page()` enforce the bounds, matching the paginated navigation endpoints.
 - `@router.post("/api/resolve/verses", response_model=BatchResolveOut)` taking a `BatchVerseRequest` body and the `session` dependency.
 - Both handlers get a docstring explaining what the endpoint returns and that per-verse failures appear as entry errors rather than HTTP errors.
 
-Create `frvt/tests/test_api_resolve_batch.py`, marked `@pytest.mark.phase4` and `@pytest.mark.resolve`. Use the `api_client` fixture, `basic_auth_header()` and `assert_error_envelope()` from `frvt.testops.http_client`, and `eng_org_resolve_context()` from `frvt.testops.fixtures.api_setup` — the same setup [`frvt/tests/test_api_resolve_chapter.py`](../frvt/tests/test_api_resolve_chapter.py) uses. Derive expected refs from `GET /api/translations/{id}/spans?book=...&chapter=...` rather than hard-coding verse numbers from the sample project, and keep every range bounded to one or two chapters so the counts stay well inside the 500-verse cap and the spans endpoint's own pagination.
+Create `frvt/tests/test_api_resolve_batch.py`, marked `@pytest.mark.phase4` and `@pytest.mark.resolve`. Use the `api_client` fixture, `basic_auth_header()` and `assert_error_envelope()` from `frvt.testops.http_client`, and `eng_org_resolve_context()` from `frvt.testops.fixtures.api_setup` — the same setup [`frvt/tests/test_api_resolve_chapter.py`](../../../frvt/tests/test_api_resolve_chapter.py) uses. Derive expected refs from `GET /api/translations/{id}/spans?book=...&chapter=...` rather than hard-coding verse numbers from the sample project, and keep every range bounded to one or two chapters so the counts stay well inside the 500-verse cap and the spans endpoint's own pagination.
 
 Because both handlers delegate straight to `resolve_batch`, Rule 3 says **do not** re-prove component behavior here. Phase 5 already covers request ordering, duplicate refs, per-entry errors, `limit`/`offset` slicing, and the `org` fallback. Test only what is invisible below the HTTP boundary:
 
@@ -475,7 +475,7 @@ Because both handlers delegate straight to `resolve_batch`, Rule 3 says **do not
 - Scheme-to-scheme mapping without translation identifiers.
 - Sub-verse part handling in either endpoint.
 - Dedupe of identical alignments, and any change to `/api/resolve/chapter` — including migrating it onto the hoisted resolve path, which is a reasonable follow-up but not worth the regression surface here.
-- Migrating `JumpCancelContext` in [`frvt/api/jump_cancel.py`](../frvt/api/jump_cancel.py) onto `build_resolve_path()`. It already hoists chains its own way, so the duplication is knowingly left in place rather than risking the jump menu and overlay; fold it in as a follow-up.
+- Migrating `JumpCancelContext` in [`frvt/api/jump_cancel.py`](../../../frvt/api/jump_cancel.py) onto `build_resolve_path()`. It already hoists chains its own way, so the duplication is knowingly left in place rather than risking the jump menu and overlay; fold it in as a follow-up.
 - Caching or batching the remaining per-verse `find_stored_span()` queries. The chain hoist removes the dominant cost; the span cost stays and is documented.
 - Changing `selected_scheme_ref()` behavior for existing endpoints.
 - TypeScript client, types, or any `frvt/web` change.

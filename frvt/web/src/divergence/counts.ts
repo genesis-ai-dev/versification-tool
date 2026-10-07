@@ -10,7 +10,7 @@ export function formatCount(count: number, locale?: string): string {
 /**
  * Add the layer totals used by the empty comparison title.
  * Pass `layerStats`. That list includes layers that are switched off, and its
- * counts already follow the selected event or verse measure.
+ * counts are event counts.
  */
 export function comparisonTotal(counts: readonly { count: number }[]): number {
   return counts.reduce((sum, layer) => sum + layer.count, 0);

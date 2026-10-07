@@ -1,7 +1,7 @@
 # FRVT Endpoint Security: Phased Execution Plan
 
 **Document:** `frvt-11-execution-plan-1`
-**Status:** Ready for implementation
+**Status:** Implemented
 **Audience:** A coding agent (and reviewers) implementing [frvt-11-acceptance-criteria-1.md](./frvt-11-acceptance-criteria-1.md)
 **Scope:** Harden the existing HTTP Basic gate (fail-closed defaults, failed-auth limiter, explicit opt-out, default-credential warning), add tests for those contracts, make a **minimal** web-client error-vocabulary update so `429` / `too_many_requests` parses, write AWS deployment recommendations for Frontier R&D (recommendations only), and replace the root README with local run plus security guidance.
 
@@ -39,7 +39,7 @@ This plan is written for a **lower-quality coding agent**. Follow the phases in 
 | Memory bound | Cap stored IPs at **10_000**. When over cap, evict the IP whose **most recent** failure is oldest. |
 | 429 envelope | `detail`: `Too many failed authentication attempts.` `code`: `too_many_requests`. Headers: `WWW-Authenticate: Basic realm="FRVT"` and `Retry-After` = remaining whole seconds until the **oldest** timestamp in that IP's window expires, **minimum 1**. |
 | Web client | **Minimal** vocabulary update only: `too_many_requests` on the existing `ErrorCode` union and 429 status map so envelopes parse. **No** Playwright. **No** new banner. The auth-required banner stays **401-only**. |
-| Spec authority | **Do not edit** FRVT-3 specs. The Phase 0 spec **supersedes** [frvt-3-http-api-spec-1.md](./frvt-3-http-api-spec-1.md) §3 and [frvt-3-server-and-api-spec-1.md](./frvt-3-server-and-api-spec-1.md) §5.3 / §5.4 **only where they conflict** (limiter, opt-out, warning, `too_many_requests`, rightmost XFF). |
+| Spec authority | **Do not edit** FRVT-3 specs. The Phase 0 spec **supersedes** [frvt-3-http-api-spec-1.md](../frvt-3/frvt-3-http-api-spec-1.md) §3 and [frvt-3-server-and-api-spec-1.md](../frvt-3/frvt-3-server-and-api-spec-1.md) §5.3 / §5.4 **only where they conflict** (limiter, opt-out, warning, `too_many_requests`, rightmost XFF). |
 | AWS | Recommendations only. No Terraform, WAF, Shield, or demo-account changes. Treat the demo baseline snapshot in this plan as **frozen**; do not probe the account. |
 | AWS recs edit | Phase 4 is an implementing-agent editorial pass on the AWS recs doc only (accuracy, less AI-sounding). No extra README edit pass. |
 | UI | Out of scope except the locked client error-vocabulary update. |
@@ -57,13 +57,13 @@ This plan is written for a **lower-quality coding agent**. Follow the phases in 
 
 **Supporting (do not contradict unless the Phase 0 spec supersedes):**
 
-- Current gate: [`frvt/api/auth.py`](../frvt/api/auth.py), wired in [`frvt/api/main.py`](../frvt/api/main.py) (`app.add_middleware(BasicAuthMiddleware, ...)`)
-- Defaults: [`frvt/api/config.py`](../frvt/api/config.py), [`frvt/.env.example`](../frvt/.env.example)
-- Error envelope: [`frvt/api/errors.py`](../frvt/api/errors.py)
-- Web client vocabulary: [`frvt/web/src/api/types.ts`](../frvt/web/src/api/types.ts), [`frvt/web/src/api/errors.ts`](../frvt/web/src/api/errors.ts)
-- Existing tests: [`frvt/tests/test_health_auth.py`](../frvt/tests/test_health_auth.py)
-- Existing auth cases: [frvt-3-test-plan-auth-and-bootstrap-1.md](./frvt-3-test-plan-auth-and-bootstrap-1.md)
-- Local run details to distill into README: [`.test/runbooks/env-up.md`](../.test/runbooks/env-up.md), [`frvt/docker-compose.yml`](../frvt/docker-compose.yml)
+- Current gate: [`frvt/api/auth.py`](../../../frvt/api/auth.py), wired in [`frvt/api/main.py`](../../../frvt/api/main.py) (`app.add_middleware(BasicAuthMiddleware, ...)`)
+- Defaults: [`frvt/api/config.py`](../../../frvt/api/config.py), [`frvt/.env.example`](../../../frvt/.env.example)
+- Error envelope: [`frvt/api/errors.py`](../../../frvt/api/errors.py)
+- Web client vocabulary: [`frvt/web/src/api/types.ts`](../../../frvt/web/src/api/types.ts), [`frvt/web/src/api/errors.ts`](../../../frvt/web/src/api/errors.ts)
+- Existing tests: [`frvt/tests/test_health_auth.py`](../../../frvt/tests/test_health_auth.py)
+- Existing auth cases: [frvt-3-test-plan-auth-and-bootstrap-1.md](../frvt-3/frvt-3-test-plan-auth-and-bootstrap-1.md)
+- Local run details to distill into README: [`.test/runbooks/env-up.md`](../../../.test/runbooks/env-up.md), [`frvt/docker-compose.yml`](../../../frvt/docker-compose.yml)
 
 ---
 
@@ -81,7 +81,7 @@ Use this snapshot when writing Phase 3. Do **not** require AWS CLI. Do **not** c
 ## Global conventions (apply to every phase)
 
 - **Never commit or push** (Rule 11).
-- **Logging** ([server §5.6, §10.2](./frvt-3-server-and-api-spec-1.md)): shared `frvt` logger. Public backend method entry at `DEBUG`; caught exceptions at `ERROR` with `exc_info=True`; getter-style reads at `TRACE`. Default-credential notice at **WARNING**. Limiter trips at `DEBUG` (IP only, never credentials). Do not log passwords.
+- **Logging** ([server §5.6, §10.2](../frvt-3/frvt-3-server-and-api-spec-1.md)): shared `frvt` logger. Public backend method entry at `DEBUG`; caught exceptions at `ERROR` with `exc_info=True`; getter-style reads at `TRACE`. Default-credential notice at **WARNING**. Limiter trips at `DEBUG` (IP only, never credentials). Do not log passwords.
 - **Orienting comments** (Rule 4) on every new field and non-overriding method.
 - **Testing** (Rule 3): happy paths and essential failures for contracts. Do not test thin REST delegates, DTO accessors, or middleware internals (no assertions on the counter dict or lock).
 - **Reuse** (Rule 6): settings object, error envelope, existing `BasicAuthMiddleware`. Do not add a second auth mechanism on routers (`Depends` Basic). Share one pair of default-credential string constants between `Settings` field defaults and the warning check so they cannot drift.
@@ -118,7 +118,7 @@ Run **API auth spec, codegen, testgen, AWS recs spec, edit AWS recs, README** in
 
 ## Regression traps (read before codegen)
 
-1. **`code_for_status` maps unknown 4xx to `bad_request`.** [`frvt/api/errors.py`](../frvt/api/errors.py) has no `429` today. If the limiter raises `HTTPException(429)`, clients would get `code: bad_request`. **Build 401 and 429 in the middleware with `JSONResponse`**, the same way `_unauthorized` already does, **and** add `429 -> too_many_requests` to `ErrorCode` and `STATUS_TO_CODE`.
+1. **`code_for_status` maps unknown 4xx to `bad_request`.** [`frvt/api/errors.py`](../../../frvt/api/errors.py) has no `429` today. If the limiter raises `HTTPException(429)`, clients would get `code: bad_request`. **Build 401 and 429 in the middleware with `JSONResponse`**, the same way `_unauthorized` already does, **and** add `429 -> too_many_requests` to `ErrorCode` and `STATUS_TO_CODE`.
 2. **Limiter state must not be a module-level dict.** A process-global counter leaks across `create_app()` calls and will 429 later tests. Store counters **on the middleware instance** (created in `create_app`). Each test that calls `create_app()` gets a fresh limiter.
 3. **Unauthenticated loops can self-trigger 429.** `test_unauthenticated_rejected_on_every_route` hits a handful of paths (safe under 10). A full `app.routes` inventory can exceed 10 failures on one IP. The inventory test **must** send a **distinct client IP per path** (`TRUST_PROXY_HEADERS=true` and a unique **rightmost** `X-Forwarded-For` hop), or keep the unauthenticated inventory under 10 requests on a fresh app.
 4. **Do not mount a second auth dependency on routers.** That would double-challenge and break opt-out.
@@ -129,7 +129,7 @@ Run **API auth spec, codegen, testgen, AWS recs spec, edit AWS recs, README** in
 9. **ALB appends XFF on the right.** Rate-limit by the **rightmost** hop. Tests that only vary the leftmost hop while keeping the rightmost hop fixed must share one limiter key.
 10. **`frvt` logger has `propagate=False`.** Pytest `caplog` will **not** see the default-credential WARNING unless the test attaches `caplog.handler` to `logging.getLogger("frvt")` (and removes it afterward). `caplog.set_level` on the root logger is not enough.
 11. **Do not monkeypatch `time.monotonic` globally.** Pass an optional `clock` callable into `create_app` / the limiter (same test-only style as `run_startup_seed`). Default remains `time.monotonic`. Never add a clock env var or README setting.
-12. **Web client `ErrorCode` is a closed union.** If the backend emits `too_many_requests` and [`frvt/web/src/api/errors.ts`](../frvt/web/src/api/errors.ts) `isErrorCode` rejects it, `fromResponse` falls back to `bad_request` for 429. Update `types.ts` and `errors.ts` together. Do **not** change `ViewerSession` banner logic (401-only).
+12. **Web client `ErrorCode` is a closed union.** If the backend emits `too_many_requests` and [`frvt/web/src/api/errors.ts`](../../../frvt/web/src/api/errors.ts) `isErrorCode` rejects it, `fromResponse` falls back to `bad_request` for 429. Update `types.ts` and `errors.ts` together. Do **not** change `ViewerSession` banner logic (401-only).
 13. **Prefix `/` opts out everything.** That is allowed. Do not "helpfully" reject it. README must warn that it disables the gate.
 14. **Existing `@pytest.mark.phase1` markers stay as they are.** New tests use only the existing `auth` marker (and frontend Vitest has no phase markers). Do not add ticket or phase identifiers to new files.
 
@@ -195,11 +195,11 @@ Run **API auth spec, codegen, testgen, AWS recs spec, edit AWS recs, README** in
 
 **Work:**
 
-- [`frvt/api/config.py`](../frvt/api/config.py) and [`frvt/.env.example`](../frvt/.env.example): `BASIC_AUTH_PUBLIC_PATHS`, `TRUST_PROXY_HEADERS`, `BASIC_AUTH_FAILURE_LIMIT`, `BASIC_AUTH_FAILURE_WINDOW_SECONDS`. Parse public paths into a tuple of prefixes on the settings object (strip, drop empties, trailing-slash normalize except `/`). Orienting comments on each new field. `.env.example` comments must note that `<= 0` disables the limiter and that prefix `/` opens every path.
-- [`frvt/api/auth.py`](../frvt/api/auth.py) (split a sibling module if size requires): opt-out match, rightmost-XFF IP helper, sliding-window failure store **on the instance** with `threading.Lock`, `401` / `429` `JSONResponse` builders, optional `clock`. Keep `compare_digest`.
-- [`frvt/api/main.py`](../frvt/api/main.py): still `app.add_middleware(BasicAuthMiddleware, settings=settings)` only once (forward `clock` when provided); emit the default-credential warning in `create_app` after logging is configured. Optional `clock` argument on `create_app` for tests only.
-- [`frvt/api/errors.py`](../frvt/api/errors.py): add `too_many_requests` to `ErrorCode` and `STATUS_TO_CODE[429]`.
-- [`frvt/web/src/api/types.ts`](../frvt/web/src/api/types.ts) and [`frvt/web/src/api/errors.ts`](../frvt/web/src/api/errors.ts): add `too_many_requests` to the union, `isErrorCode`, and `statusToCode(429)`. Do not change `describeApiError` banner copy for 401. Do not touch `ViewerSession.tsx`.
+- [`frvt/api/config.py`](../../../frvt/api/config.py) and [`frvt/.env.example`](../../../frvt/.env.example): `BASIC_AUTH_PUBLIC_PATHS`, `TRUST_PROXY_HEADERS`, `BASIC_AUTH_FAILURE_LIMIT`, `BASIC_AUTH_FAILURE_WINDOW_SECONDS`. Parse public paths into a tuple of prefixes on the settings object (strip, drop empties, trailing-slash normalize except `/`). Orienting comments on each new field. `.env.example` comments must note that `<= 0` disables the limiter and that prefix `/` opens every path.
+- [`frvt/api/auth.py`](../../../frvt/api/auth.py) (split a sibling module if size requires): opt-out match, rightmost-XFF IP helper, sliding-window failure store **on the instance** with `threading.Lock`, `401` / `429` `JSONResponse` builders, optional `clock`. Keep `compare_digest`.
+- [`frvt/api/main.py`](../../../frvt/api/main.py): still `app.add_middleware(BasicAuthMiddleware, settings=settings)` only once (forward `clock` when provided); emit the default-credential warning in `create_app` after logging is configured. Optional `clock` argument on `create_app` for tests only.
+- [`frvt/api/errors.py`](../../../frvt/api/errors.py): add `too_many_requests` to `ErrorCode` and `STATUS_TO_CODE[429]`.
+- [`frvt/web/src/api/types.ts`](../../../frvt/web/src/api/types.ts) and [`frvt/web/src/api/errors.ts`](../../../frvt/web/src/api/errors.ts): add `too_many_requests` to the union, `isErrorCode`, and `statusToCode(429)`. Do not change `describeApiError` banner copy for 401. Do not touch `ViewerSession.tsx`.
 
 Do **not**: add CORS, change health auth, edit FRVT-3 specs, add Redis, put limiter state at module import time, log passwords, add Playwright, add a clock env var.
 
@@ -219,13 +219,13 @@ Do **not**: add CORS, change health auth, edit FRVT-3 specs, add Redis, put limi
 
 **Goal:** contract tests and a small test-plan file. Product spec wins if a case disagrees.
 
-**Work:** Write [frvt-11-test-plan-auth-hardening-1.md](./frvt-11-test-plan-auth-hardening-1.md) with one case per contract below, then implement Python cases in a **sibling** of [`frvt/tests/test_health_auth.py`](../frvt/tests/test_health_auth.py) (keep the existing file readable; do not put ticket numbers in the new module name). Reuse `basic_auth_header` and `assert_error_envelope` from `frvt.testops.http_client`. Use `create_app(run_startup_seed=False)` and `get_settings.cache_clear()` like the existing fixture. Mark Python tests with the existing `auth` pytest marker only.
+**Work:** Write [frvt-11-test-plan-auth-hardening-1.md](./frvt-11-test-plan-auth-hardening-1.md) with one case per contract below, then implement Python cases in a **sibling** of [`frvt/tests/test_health_auth.py`](../../../frvt/tests/test_health_auth.py) (keep the existing file readable; do not put ticket numbers in the new module name). Reuse `basic_auth_header` and `assert_error_envelope` from `frvt.testops.http_client`. Use `create_app(run_startup_seed=False)` and `get_settings.cache_clear()` like the existing fixture. Mark Python tests with the existing `auth` pytest marker only.
 
 For default-credential caplog: attach `caplog.handler` to `logging.getLogger("frvt")` for the duration of the test because that logger sets `propagate=False`.
 
 For window expiry: pass a fake `clock` into `create_app` (a zero-arg callable returning a mutable monotonic value). Advance it by more than the window; do not `sleep(60)` and do not patch `time.monotonic` process-wide.
 
-Add one Vitest case in [`frvt/web/src/api/errors.test.ts`](../frvt/web/src/api/errors.test.ts): `fromResponse` on a 429 body with `code: too_many_requests` yields that code (not `bad_request`).
+Add one Vitest case in [`frvt/web/src/api/errors.test.ts`](../../../frvt/web/src/api/errors.test.ts): `fromResponse` on a 429 body with `code: too_many_requests` yields that code (not `bad_request`).
 
 Cases (happy path and essential failures only):
 
@@ -289,7 +289,7 @@ Do not paste live public IPs as copy-paste deploy targets. Describe patterns. Do
 
 **Goal:** a new developer can run the app locally and understands the Basic gate. One writing pass (no separate edit phase).
 
-**Work:** Replace the one-line root [`README.md`](../README.md). Distill (do not contradict) [`.test/runbooks/env-up.md`](../.test/runbooks/env-up.md), [`frvt/.env.example`](../frvt/.env.example), and Compose. Prefer POSIX commands (bash) as the primary instructions; PowerShell may be a short alternate. Do **not** rewrite the runbook.
+**Work:** Replace the one-line root [`README.md`](../../../README.md). Distill (do not contradict) [`.test/runbooks/env-up.md`](../../../.test/runbooks/env-up.md), [`frvt/.env.example`](../../../frvt/.env.example), and Compose. Prefer POSIX commands (bash) as the primary instructions; PowerShell may be a short alternate. Do **not** rewrite the runbook.
 
 Must cover:
 

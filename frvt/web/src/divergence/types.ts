@@ -36,8 +36,8 @@ export type EventRow = [
   number,
   string,
   string[],
-  string?,
-  string?,
+  string[]?,
+  string[]?,
 ];
 
 /** ``[a, org, b, typeIndex or -1, flagLetters, excludedA, excludedB]``. */

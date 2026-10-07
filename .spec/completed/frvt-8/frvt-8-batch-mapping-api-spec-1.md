@@ -1,10 +1,10 @@
 # Batch Mapping API
 
-**Status:** Authoritative contract for the batch verse-mapping endpoints
+**Status:** Contract for the batch verse-mapping endpoints. The current HTTP write-up is [docs/api.md](../../../docs/api.md).
 **Audience:** Implementers and reviewers of [frvt-8-acceptance-criteria-1.md](./frvt-8-acceptance-criteria-1.md)
 **Scope:** `GET /api/resolve/range` and `POST /api/resolve/verses`. Existing single-verse and chapter resolve routes are unchanged.
 
-These two endpoints map verses between two translations' numbering schemes in one request: either a closed range of from/to partial references, or an explicit list of references. Authentication, error envelope, pagination bounds, and BCV grammar follow [frvt-3-http-api-spec-1.md](./frvt-3-http-api-spec-1.md) except where this document says otherwise.
+These two endpoints map verses between two translations' numbering schemes in one request: either a closed range of from/to partial references, or an explicit list of references. Authentication, error envelope, pagination bounds, and BCV grammar follow [frvt-3-http-api-spec-1.md](../frvt-3/frvt-3-http-api-spec-1.md) except where this document says otherwise.
 
 ---
 

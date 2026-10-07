@@ -99,3 +99,16 @@ def test_shuffled_mapping_order_keeps_events() -> None:
     )
     assert varied["comparisons"][0]["events"] == baseline["comparisons"][0]["events"]
     assert varied["comparisons"][0]["runs"] == baseline["comparisons"][0]["runs"]
+
+
+def test_flags_reach_the_payload() -> None:
+    """Approximate and data-warning flags survive encoding when one side has no supplement."""
+    org = load_scheme("org", _doc("org"))
+    eng = load_scheme("eng", _doc("eng"), _pairs("eng"))
+    lxx = load_scheme("lxx", _doc("lxx"))
+    comparison = build_comparison(eng, lxx, org)["comparisons"][0]
+    flags = {flag for event in comparison["events"] for flag in event[6]}
+    letters = "".join(run[4] for run in comparison["runs"])
+    assert {"approximate", "dataWarning"} <= flags
+    assert "a" in letters
+    assert "w" in letters

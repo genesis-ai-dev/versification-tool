@@ -6,6 +6,7 @@ import "./styles/tokens.css";
 import "./styles/app.css";
 import "./styles/modal.css";
 import "./styles/divergence.css";
+import "./styles/divergence-events.css";
 
 const root = document.getElementById("root");
 if (!root) {

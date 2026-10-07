@@ -4,6 +4,11 @@ import { useEffect, useId, useRef, type ReactNode } from "react";
 export interface ModalShellProps {
   /** Dialog title shown in the header. */
   title: string;
+  /**
+   * Control drawn immediately after the title.
+   * The comparison uses it for the summary info icon. Other dialogs omit it.
+   */
+  titleExtra?: ReactNode;
   /** Body content (form fields, confirm copy, etc.). */
   children: ReactNode;
   /** Close without applying (backdrop / cancel). */
@@ -23,6 +28,7 @@ export interface ModalShellProps {
  */
 export function ModalShell({
   title,
+  titleExtra,
   children,
   onClose,
   size = "default",
@@ -44,7 +50,11 @@ export function ModalShell({
       'button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
     const focusables = () =>
       Array.from(modal?.querySelectorAll<HTMLElement>(focusableSelector) ?? []);
-    focusables()[0]?.focus();
+    /** Close keeps the opening focus. A control beside the title must not take it. */
+    const closeButton = modal?.querySelector<HTMLElement>(
+      '.modal-header [aria-label="Close"]',
+    );
+    (closeButton ?? focusables()[0])?.focus();
 
     /** Close on Escape and keep Tab navigation inside the active dialog. */
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -104,7 +114,10 @@ export function ModalShell({
         onClick={(event) => event.stopPropagation()}
       >
         <header className="modal-header">
-          <h3 id={headingId}>{title}</h3>
+          <div className="modal-title">
+            <h3 id={headingId}>{title}</h3>
+            {titleExtra}
+          </div>
           <button
             type="button"
             className="btn ghost"

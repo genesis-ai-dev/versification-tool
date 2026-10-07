@@ -26,9 +26,14 @@ export function DonutKey({ layers, types }: DonutKeyProps) {
         <p>No slices in this chart.</p>
       ) : (
         <>
-          <SliceGroup heading="Layers" slices={layers} colors={LAYER_COLORS} withHelp />
           <SliceGroup
-            heading="Types"
+            heading="Inner ring: layers"
+            slices={layers}
+            colors={LAYER_COLORS}
+            withHelp
+          />
+          <SliceGroup
+            heading="Outer ring: types"
             slices={types}
             colors={schemeSet3}
             withHelp={false}
@@ -49,7 +54,7 @@ function SliceGroup({
   colors,
   withHelp,
 }: {
-  /** Group name, ``Layers`` or ``Types``. */
+  /** Group name, naming the ring the swatches belong to. */
   heading: string;
   /** Slices in the same order the ring draws them. */
   slices: Slice[];
@@ -65,14 +70,14 @@ function SliceGroup({
     <div className="dv-key-group">
       <h3>{heading}</h3>
       <ul>
-        {slices.map((slice, position) => {
+        {slices.map((slice) => {
           const help = withHelp ? layerHelp(slice.key) : undefined;
           return (
             <li key={slice.key} className="dv-key-row">
               <span
                 className="dv-swatch"
                 aria-hidden="true"
-                style={{ background: sliceColor(slice.key, position, colors) }}
+                style={{ background: sliceColor(slice.key, colors) }}
               />
               <span>{slice.label}</span>
               {help !== undefined && (

@@ -1,8 +1,11 @@
 import { schemeSet3 } from "d3";
 import { arc, pie, type PieArcDatum } from "d3-shape";
-import { useEffect, useRef, useState } from "react";
+import { useEffect } from "react";
 import type { Slice } from "./breakdown";
 import { formatCount } from "./counts";
+import { HoverTipBody } from "./HoverTip";
+import { LAYER_IDS } from "./taxonomy";
+import { useHoverTip } from "./useHoverTip";
 
 /** Props for the two-ring breakdown. */
 export interface DonutProps {
@@ -19,17 +22,8 @@ export interface DonutProps {
   locale?: string;
 }
 
-/** Inner-ring colors. A visible layer takes the next entry in draw order. */
+/** Inner-ring colors, one per layer, in ``LAYER_IDS`` order. */
 export const LAYER_COLORS = ["#8e6cff", "#3d8bfd", "#f0b429", "#e15b64"];
-
-/**
- * Wait before a slice tip appears.
- * A native title waits about 500ms, and that wait cannot be changed. This is half of it.
- */
-const SLICE_TIP_DELAY_MS = 250;
-
-/** Pixels between the pointer and the tip, so the tip does not cover the slice. */
-const SLICE_TIP_OFFSET_PX = 12;
 
 /**
  * Draw the layer ring inside the type ring.
@@ -39,17 +33,10 @@ const SLICE_TIP_OFFSET_PX = 12;
  * The slice tip closes when the pointer leaves or the slices change.
  */
 export function Donut({ layers, types, scope, locale }: DonutProps) {
-  const [hover, setHover] = useState<HoverTip | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { tip, show, hide } = useHoverTip();
   useEffect(() => {
-    setHover(null);
-    return () => {
-      if (timer.current !== null) {
-        clearTimeout(timer.current);
-        timer.current = null;
-      }
-    };
-  }, [layers, types, scope, locale]);
+    hide();
+  }, [hide, layers, types, scope, locale]);
   if (layers.length === 0 && types.length === 0) {
     return <p className="dv-empty">No differences in {scope}.</p>;
   }
@@ -57,20 +44,6 @@ export function Donut({ layers, types, scope, locale }: DonutProps) {
     sliceTip(slice.label, slice.value, slice.percent, scope, locale);
   const inner = ring(layers, 42, 68, LAYER_COLORS, tipFor);
   const outer = ring(types, 74, 104, schemeSet3, tipFor);
-  const hide = () => {
-    if (timer.current !== null) {
-      clearTimeout(timer.current);
-      timer.current = null;
-    }
-    setHover(null);
-  };
-  const arm = (text: string, x: number, y: number) => {
-    hide();
-    timer.current = setTimeout(() => {
-      timer.current = null;
-      setHover({ text, x: x + SLICE_TIP_OFFSET_PX, y: y + SLICE_TIP_OFFSET_PX });
-    }, SLICE_TIP_DELAY_MS);
-  };
   return (
     <div className="dv-donut-host">
       <svg
@@ -87,21 +60,13 @@ export function Donut({ layers, types, scope, locale }: DonutProps) {
               fill={item.color}
               role="img"
               aria-label={item.tip}
-              onPointerEnter={(event) => arm(item.tip, event.clientX, event.clientY)}
+              onPointerEnter={(event) => show(item.tip, event.clientX, event.clientY)}
               onPointerLeave={hide}
             />
           ))}
         </g>
       </svg>
-      {hover !== null && (
-        <div
-          className="dv-slice-tip"
-          role="tooltip"
-          style={{ left: hover.x, top: hover.y }}
-        >
-          {hover.text}
-        </div>
-      )}
+      <HoverTipBody tip={tip} />
     </div>
   );
 }
@@ -123,26 +88,18 @@ export function sliceTip(
 /**
  * Color for one drawn slice.
  * A type key carries its catalog index after the hyphen, so that type keeps
- * its color when other types are hidden. A layer key has no index, so the
- * layer uses its position among the slices still on the ring.
+ * its color when other types are hidden. A layer key names the layer, so
+ * that layer keeps one color whichever layers are drawn. An unknown key
+ * uses the first color.
  */
-export function sliceColor(
-  key: string,
-  position: number,
-  colors: readonly string[],
-): string {
-  const suffix = Number(key.split("-")[1]);
-  const index = Number.isNaN(suffix) ? position : suffix;
-  return colors[index % colors.length] ?? colors[0] ?? "";
-}
-
-interface HoverTip {
-  /** Slice sentence shown beside the pointer. */
-  text: string;
-  /** Horizontal viewport position, already offset from the pointer. */
-  x: number;
-  /** Vertical viewport position, already offset from the pointer. */
-  y: number;
+export function sliceColor(key: string, colors: readonly string[]): string {
+  const suffix = key.startsWith("layer-")
+    ? (LAYER_IDS as readonly string[]).indexOf(key.slice("layer-".length))
+    : Number(key.split("-")[1]);
+  if (Number.isNaN(suffix) || suffix < 0) {
+    return colors[0] ?? "";
+  }
+  return colors[suffix % colors.length] ?? colors[0] ?? "";
 }
 
 interface Drawn {
@@ -170,7 +127,7 @@ function ring(
   return layout(slices).map((datum) => ({
     key: datum.data.key,
     path: shape(datum) ?? "",
-    color: sliceColor(datum.data.key, datum.index, colors),
+    color: sliceColor(datum.data.key, colors),
     tip: tipFor(datum.data),
   }));
 }

@@ -3,7 +3,7 @@
 **Document:** `frvt-12-execution-plan-1`
 **Status:** Implemented
 **Audience:** Reviewers of [frvt-12-acceptance-criteria-1.md](./frvt-12-acceptance-criteria-1.md) and the code that followed this plan
-**Scope:** Add CRUD endpoints for *indexes* — a translation plus a versification whose pairwise verse mappings are pre-created against every other index — build them asynchronously in-process, keep them current as translations and versifications change, report their resource cost, and make the batch mapping endpoints from [frvt-8-batch-mapping-api-spec-1.md](./completed/frvt-8-batch-mapping-api-spec-1.md) read them.
+**Scope:** Add CRUD endpoints for *indexes* — a translation plus a versification whose pairwise verse mappings are pre-created against every other index — build them asynchronously in-process, keep them current as translations and versifications change, report their resource cost, and make the batch mapping endpoints from [frvt-8-batch-mapping-api-spec-1.md](../frvt-8/frvt-8-batch-mapping-api-spec-1.md) read them.
 
 Implementation is complete. The phase gates below are the record of how the work was sequenced; do not re-run them against the tree. HTTP tests that only repeated registry or batch-component behavior were removed under Rule 3; remaining HTTP coverage is route-order (`GET /api/indexes/usage`) and the auth gate. Criterion-5 timings from `.test/scripts/run-index-benchmark.sh` are recorded in the spec document. The build lock is the catalog OID of the current database plus a fixed resource key; reclaim vacuum runs after a reclaim entry is fully drained; startup orphan detection queues reclaim rather than deleting one chunk.
 
@@ -17,7 +17,7 @@ The phases below are a historical record. After Phase 0, the spec was the oracle
 
 > **Rule 12 — read first.** Phase numbers and any identifiers in this plan are planning scaffolding. They must **never** appear in produced source code, comments, configuration, migration names, or runtime strings. Name modules and symbols for what they do. Rule 12 does **not** apply to files under `.spec/` or `.test/`.
 >
-> The pre-existing `phase1`–`phase6` pytest markers in [`frvt/pyproject.toml`](../frvt/pyproject.toml) are the repository's established test-gating vocabulary and predate this plan. Reuse them as instructed. Do **not** add new markers.
+> The pre-existing `phase1`–`phase6` pytest markers in [`frvt/pyproject.toml`](../../../frvt/pyproject.toml) are the repository's established test-gating vocabulary and predate this plan. Reuse them as instructed. Do **not** add new markers.
 
 ---
 
@@ -55,18 +55,18 @@ The corollary is a testing hazard. Because fallback produces *identical* results
 
 Read these before writing anything. Line references are current at plan time; verify before editing.
 
-- **Batch driver** — [`frvt/api/resolve_batch.py`](../frvt/api/resolve_batch.py). `BatchTarget`, `expand_stored_range()`, `_prepare()`, `_resolve_entries()`, `resolve_verse_set()`, `resolve_verse_range()`.
-- **Per-verse worker and hop path** — `resolve_single_with_path()`, `build_resolve_path()`, `_to_result()`, `_enrich_span()`, `_canonicalize_query_ref()` in [`frvt/api/ports/resolver_port.py`](../frvt/api/ports/resolver_port.py).
-- **Span lookup** — `find_stored_span()` in [`frvt/api/ports/span_lookup.py`](../frvt/api/ports/span_lookup.py). Exactly **two** call sites, both in `resolver_port.py` (lines 73 and 151). It returns a whole `VerseSpan` entity, including the `content` scripture text.
-- **Scheme selection** — `require_translation()`, `require_scheme()`, `clamp_page()`, `batch_scheme_ref()`, `org_scheme_ref()`, `DEFAULT_LIMIT`, `MAX_LIMIT` in [`frvt/api/scheme_select.py`](../frvt/api/scheme_select.py).
-- **Chain walking** — `build_chain()`, `scheme_ref_from_id()`, `load_mapping_views()` in [`frvt/resolver/chains.py`](../frvt/resolver/chains.py). `Hop` carries `scheme_id`, `based_on_id`, `mappings`.
-- **Reference grammar** — `parse_ref()`, `expand()`, `format_bcv()`, `covers()` in [`frvt/resolver/parse_ref.py`](../frvt/resolver/parse_ref.py).
-- **Models** — [`frvt/api/models/__init__.py`](../frvt/api/models/__init__.py). Migration head is `b2c3d4e5f6a7`.
-- **Sessions** — [`frvt/api/db.py`](../frvt/api/db.py): synchronous `Session`; `get_session` commits on success; `get_session_factory()` is what a thread must use.
-- **App wiring** — [`frvt/api/main.py`](../frvt/api/main.py): `create_app(run_startup_seed=True)`, a `lifespan` that calls `seed_canonical()`, and router registration.
-- **Settings** — [`frvt/api/config.py`](../frvt/api/config.py): `pydantic-settings` with `Field(alias=...)` and `@lru_cache` on `get_settings()`.
-- **Mutation sites to hook** — `PATCH`/`DELETE` in [`translations.py`](../frvt/api/routers/translations.py), `PATCH`/`DELETE` in [`versifications.py`](../frvt/api/routers/versifications.py), `POST`/`PUT preferred`/`DELETE` in [`associations.py`](../frvt/api/routers/associations.py), and `refresh_combined_milestone_splits()` in [`ports/ingest_port.py`](../frvt/api/ports/ingest_port.py).
-- **Test harness** — [`frvt/tests/conftest.py`](../frvt/tests/conftest.py): every test runs in a transaction that is rolled back; `api_client` overrides `get_session`. Seeding helpers live in [`frvt/testops/fixtures/api_setup.py`](../frvt/testops/fixtures/api_setup.py).
+- **Batch driver** — [`frvt/api/resolve_batch.py`](../../../frvt/api/resolve_batch.py). `BatchTarget`, `expand_stored_range()`, `_prepare()`, `_resolve_entries()`, `resolve_verse_set()`, `resolve_verse_range()`.
+- **Per-verse worker and hop path** — `resolve_single_with_path()`, `build_resolve_path()`, `_to_result()`, `_enrich_span()`, `_canonicalize_query_ref()` in [`frvt/api/ports/resolver_port.py`](../../../frvt/api/ports/resolver_port.py).
+- **Span lookup** — `find_stored_span()` in [`frvt/api/ports/span_lookup.py`](../../../frvt/api/ports/span_lookup.py). Exactly **two** call sites, both in `resolver_port.py` (lines 73 and 151). It returns a whole `VerseSpan` entity, including the `content` scripture text.
+- **Scheme selection** — `require_translation()`, `require_scheme()`, `clamp_page()`, `batch_scheme_ref()`, `org_scheme_ref()`, `DEFAULT_LIMIT`, `MAX_LIMIT` in [`frvt/api/scheme_select.py`](../../../frvt/api/scheme_select.py).
+- **Chain walking** — `build_chain()`, `scheme_ref_from_id()`, `load_mapping_views()` in [`frvt/resolver/chains.py`](../../../frvt/resolver/chains.py). `Hop` carries `scheme_id`, `based_on_id`, `mappings`.
+- **Reference grammar** — `parse_ref()`, `expand()`, `format_bcv()`, `covers()` in [`frvt/resolver/parse_ref.py`](../../../frvt/resolver/parse_ref.py).
+- **Models** — [`frvt/api/models/__init__.py`](../../../frvt/api/models/__init__.py). Migration head is `b2c3d4e5f6a7`.
+- **Sessions** — [`frvt/api/db.py`](../../../frvt/api/db.py): synchronous `Session`; `get_session` commits on success; `get_session_factory()` is what a thread must use.
+- **App wiring** — [`frvt/api/main.py`](../../../frvt/api/main.py): `create_app(run_startup_seed=True)`, a `lifespan` that calls `seed_canonical()`, and router registration.
+- **Settings** — [`frvt/api/config.py`](../../../frvt/api/config.py): `pydantic-settings` with `Field(alias=...)` and `@lru_cache` on `get_settings()`.
+- **Mutation sites to hook** — `PATCH`/`DELETE` in [`translations.py`](../../../frvt/api/routers/translations.py), `PATCH`/`DELETE` in [`versifications.py`](../../../frvt/api/routers/versifications.py), `POST`/`PUT preferred`/`DELETE` in [`associations.py`](../../../frvt/api/routers/associations.py), and `refresh_combined_milestone_splits()` in [`ports/ingest_port.py`](../../../frvt/api/ports/ingest_port.py).
+- **Test harness** — [`frvt/tests/conftest.py`](../../../frvt/tests/conftest.py): every test runs in a transaction that is rolled back; `api_client` overrides `get_session`. Seeding helpers live in [`frvt/testops/fixtures/api_setup.py`](../../../frvt/testops/fixtures/api_setup.py).
 
 ---
 
@@ -98,7 +98,7 @@ Read these before writing anything. Line references are current at plan time; ve
 - **Argument limits (Rule 10).** Six named arguments is the target. Use the parameter objects this plan defines rather than threading four ids everywhere. Keyword-only after `*`.
 - **File size (Rule 9).** Every file here should land under 300 lines. If one passes 600, split it.
 - **Typing.** mypy strict covers `frvt.api`. Annotate every parameter and return.
-- **Error codes.** Reuse the fixed `ErrorCode` vocabulary in [`frvt/api/errors.py`](../frvt/api/errors.py). Add none.
+- **Error codes.** Reuse the fixed `ErrorCode` vocabulary in [`frvt/api/errors.py`](../../../frvt/api/errors.py). Add none.
 
 ### Test markers
 
@@ -107,7 +107,7 @@ Read these before writing anything. Line references are current at plan time; ve
 | Pure/unit and component (fingerprint, registry, builder, worker, lookup) | `phase6` + `resolve` |
 | Index CRUD over HTTP | `phase2` + `api` |
 | Batch read path over HTTP | `phase4` + `resolve` |
-| Schema constraints | follow [`frvt/tests/test_schema_constraints.py`](../frvt/tests/test_schema_constraints.py) |
+| Schema constraints | follow [`frvt/tests/test_schema_constraints.py`](../../../frvt/tests/test_schema_constraints.py) |
 
 ---
 
@@ -129,7 +129,7 @@ PYTHONPATH="$REPO" python -m pytest -n auto
 
 ## New settings
 
-Add to `Settings` in [`frvt/api/config.py`](../frvt/api/config.py), each with an orienting comment:
+Add to `Settings` in [`frvt/api/config.py`](../../../frvt/api/config.py), each with an orienting comment:
 
 | Field | Alias | Default | Purpose |
 | --- | --- | --- | --- |
@@ -180,9 +180,9 @@ Phases 1 and 3 are independent and may be done in either order, but each must pa
 
 **Goal:** One authoritative contract so later phases have an oracle instead of guesses.
 
-**Work:** Create `.spec/frvt-12-translation-index-api-spec-1.md`, matching the tone of [frvt-8-batch-mapping-api-spec-1.md](./completed/frvt-8-batch-mapping-api-spec-1.md). Cover: an acceptance-criteria map; the index resource and its status vocabulary; every route with parameters, bodies, and status codes; versification defaulting and default-tracking; the status/cancel/rebuild state machine; resource-consumption reporting; the read-path integration and `index_used`; the resource estimate (~4M rows, on the order of 2.5–3.5 GB at the twelve-index cap, with disk-headroom advice); and non-goals.
+**Work:** Create `.spec/frvt-12-translation-index-api-spec-1.md`, matching the tone of [frvt-8-batch-mapping-api-spec-1.md](../frvt-8/frvt-8-batch-mapping-api-spec-1.md). Cover: an acceptance-criteria map; the index resource and its status vocabulary; every route with parameters, bodies, and status codes; versification defaulting and default-tracking; the status/cancel/rebuild state machine; resource-consumption reporting; the read-path integration and `index_used`; the resource estimate (~4M rows, on the order of 2.5–3.5 GB at the twelve-index cap, with disk-headroom advice); and non-goals.
 
-**Acceptance:** The file exists, every criterion in the acceptance document maps to a named section, markdown lints clean under [`.markdownlint.json`](../.markdownlint.json), and no source file changed.
+**Acceptance:** The file exists, every criterion in the acceptance document maps to a named section, markdown lints clean under [`.markdownlint.json`](../../../.markdownlint.json), and no source file changed.
 
 ---
 
@@ -198,7 +198,7 @@ Phases 1 and 3 are independent and may be done in either order, but each must pa
 
 **`IndexReclaim`** (`index_reclaim`) — `index_id` UUID PK; `requested_at` timestamptz `func.now()`.
 
-Add one revision, `down_revision = "b2c3d4e5f6a7"`, file named per the `file_template` in [`frvt/alembic.ini`](../frvt/alembic.ini), written in the imperative `op.create_table` / `op.create_index` style of the existing revisions, with a downgrade that drops all three tables in reverse order.
+Add one revision, `down_revision = "b2c3d4e5f6a7"`, file named per the `file_template` in [`frvt/alembic.ini`](../../../frvt/alembic.ini), written in the imperative `op.create_table` / `op.create_index` style of the existing revisions, with a downgrade that drops all three tables in reverse order.
 
 Add `frvt/tests/test_index_schema.py` (or extend `test_schema_constraints.py`): duplicate `(translation_id, scheme_id)` rejected; an invalid `status` rejected; duplicate `(source_index_id, target_index_id, source_ref)` rejected; deleting a translation removes its index rows; deleting a scheme removes its index rows.
 
@@ -377,8 +377,8 @@ Create `frvt/tests/test_index_read_path.py` (component) and extend `tests/test_a
 **Work:**
 
 - Run the full suite and all three quality gates.
-- Create `.test/scripts/run-index-benchmark.sh`, following [`run-frvt-8-test-plan.sh`](../.test/scripts/run-frvt-8-test-plan.sh) for shape and conventions: ingest two sample translations, create both indexes, poll until `ready`, then time `POST /api/resolve/verses` with about 50 refs both with and without the index, printing both. Record the measured numbers and the host they came from in the spec document. Note that `LOG_LEVEL` defaults to `DEBUG` and should be raised for benchmarking and batch workloads.
-- Regenerate `docs/openapi.json` with the command in [`README.md`](../README.md), and add the index endpoints plus the `index_used` field to `docs/api.md`.
+- Create `.test/scripts/run-index-benchmark.sh`, following [`run-frvt-8-test-plan.sh`](../../../.test/scripts/run-frvt-8-test-plan.sh) for shape and conventions: ingest two sample translations, create both indexes, poll until `ready`, then time `POST /api/resolve/verses` with about 50 refs both with and without the index, printing both. Record the measured numbers and the host they came from in the spec document. Note that `LOG_LEVEL` defaults to `DEBUG` and should be raised for benchmarking and batch workloads.
+- Regenerate `docs/openapi.json` with the command in [`README.md`](../../../README.md), and add the index endpoints plus the `index_used` field to `docs/api.md`.
 - Diff the built behavior against the Phase 0 spec. For each difference, change the code or the spec deliberately, and say which.
 - Re-read the new modules against Rules 2, 4, 9, and 10, and grep the new and changed source for leaked plan or phase identifiers (Rule 12).
 - Report to the owner: files added and changed, the endpoints as built, measured benchmark numbers, the storage cost observed, and any spec deviation. **Do not commit and do not push.**

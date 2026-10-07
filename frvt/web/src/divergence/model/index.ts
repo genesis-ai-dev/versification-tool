@@ -23,8 +23,10 @@ export interface IndexedEvent {
   n: number;
   rel: string;
   flags: string[];
-  segA?: string;
-  segB?: string;
+  /** Lettered parts on side A. Present only for a segment event. */
+  segA?: string[];
+  /** Lettered parts on side B. Present only for a segment event. */
+  segB?: string[];
 }
 
 /** One book with chapter counts on each side. */
@@ -242,6 +244,18 @@ export function bookState(
     inA: book.aCh > 0,
     inB: book.bCh > 0,
   };
+}
+
+/**
+ * Radius of the dot that marks a chapter with several events.
+ * Two to four events use the smaller dot. Five or more use the larger one.
+ * Fewer than two returns null, so the cell draws no dot.
+ */
+export function countDotRadius(count: number): number | null {
+  if (count >= 5) {
+    return 2.3;
+  }
+  return count >= 2 ? 1.5 : null;
 }
 
 /** True when a chapter should merge into the unchanged bar. */

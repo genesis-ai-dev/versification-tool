@@ -4,17 +4,17 @@ import { buildIndex, type ComparisonIndex, type IndexedEvent } from "./index";
 import {
   alignedOrigin,
   axisFor,
-  dotSegments,
+  initialLadderView,
   ladderWindow,
-  nearestSegment,
   panOrigin,
-  selectedDotKey,
   runForEvent,
   runKey,
   runPlace,
   runSelectable,
   visibleChapters,
-  type DotSegment,
+  wheelZoomFactor,
+  zoomAround,
+  type LadderAxis,
   type ScopedRun,
 } from "./detail";
 
@@ -99,53 +99,49 @@ describe("runForEvent", () => {
   });
 });
 
-describe("nearestSegment", () => {
-  const alongX: DotSegment = { key: "along", type: "RENUMBER", x0: 0, y0: 0, x1: 10, y1: 0 };
-  const below: DotSegment = { key: "below", type: "RENUMBER", x0: 0, y0: 10, x1: 10, y1: 10 };
-
-  it("hits a point on the segment and a point at the slop boundary", () => {
-    expect(nearestSegment([alongX], 5, 0, 8)).toBe("along");
-    expect(nearestSegment([alongX], 5, 8, 8)).toBe("along");
-  });
-
-  it("misses a point outside the slop and prefers the nearer segment", () => {
-    expect(nearestSegment([alongX], 5, 8.1, 8)).toBeNull();
-    expect(nearestSegment([alongX, below], 5, 7, 8)).toBe("below");
-  });
-});
-
-describe("selectedDotKey", () => {
-  const deviance: DotSegment = { key: "dev", type: "RENUMBER", x0: 0, y0: 6, x1: 10, y1: 6 };
-  const unchanged: DotSegment = { key: "same", type: "SAME", x0: 0, y0: 0, x1: 10, y1: 0 };
-
-  it("returns the nearest deviance", () => {
-    expect(selectedDotKey([unchanged, deviance], 5, 6, 8)).toBe("dev");
-  });
-
-  it("returns null when the nearer stroke is unchanged, even if a deviance is inside the slop", () => {
-    expect(selectedDotKey([unchanged, deviance], 5, 0, 8)).toBeNull();
-    expect(nearestSegment([unchanged, deviance], 5, 0, 8)).toBe("same");
-  });
-});
-
-describe("dotSegments", () => {
-  it("returns one stroke for a run with both sides", () => {
-    const sample = run("RENUMBER");
-    const segments = dotSegments([sample], indexWith([]), false, 120);
-    expect(segments).toHaveLength(1);
-    expect(segments[0]?.key).toBe(runKey(sample));
-  });
-
-  it("omits a run that is missing side A", () => {
-    expect(dotSegments([{ ...run("RENUMBER"), a: null }], indexWith([]), true, 120)).toEqual([]);
-  });
-});
-
 describe("ladderWindow", () => {
   it("clamps a zoomed window inside the axis and shows the whole axis at zoom 1", () => {
     expect(ladderWindow(800, 4, 100)).toEqual([100, 300]);
     expect(ladderWindow(800, 4, 700)).toEqual([600, 800]);
     expect(ladderWindow(800, 1, 50)).toEqual([0, 800]);
+  });
+});
+
+describe("initialLadderView", () => {
+  const axis = (length: number): LadderAxis => ({
+    books: ["PSA"],
+    length,
+    ticks: [],
+    position: (span) => span[2],
+  });
+  const placed = (type: string, verse: number): ScopedRun => ({
+    a: ["PSA", 1, verse, 1, verse],
+    o: null,
+    b: null,
+    type,
+    flags: "",
+    excludedA: "",
+    excludedB: "",
+  });
+
+  it("opens a short book on the whole axis", () => {
+    expect(initialLadderView(axis(500), [placed("RENUMBER", 40)])).toEqual({
+      zoom: 1,
+      origin: 0,
+    });
+  });
+
+  it("opens a long book on a window before the first divergence", () => {
+    expect(
+      initialLadderView(axis(3000), [placed("RENUMBER", 600), placed("SAME", 100)]),
+    ).toEqual({ zoom: 10, origin: 580 });
+  });
+
+  it("opens a long book with no divergence at the start of the axis", () => {
+    expect(initialLadderView(axis(3000), [placed("SAME", 100)])).toEqual({
+      zoom: 10,
+      origin: 0,
+    });
   });
 });
 
@@ -166,13 +162,39 @@ describe("panOrigin", () => {
   });
 });
 
+describe("zoomAround", () => {
+  it("keeps the anchored verse in place and clamps the zoom", () => {
+    expect(zoomAround(1000, { zoom: 1, origin: 0 }, 10, 0.5)).toEqual({
+      zoom: 10,
+      origin: 450,
+    });
+    expect(zoomAround(1000, { zoom: 10, origin: 450 }, 20, 0)).toEqual({
+      zoom: 20,
+      origin: 450,
+    });
+    expect(zoomAround(1000, { zoom: 10, origin: 450 }, 1000, 0.5).zoom).toBe(100);
+  });
+});
+
+describe("wheelZoomFactor", () => {
+  it("zooms in for a wheel away from the user and out for a wheel toward them", () => {
+    expect(wheelZoomFactor(-100, 0, false)).toBeGreaterThan(1);
+    expect(wheelZoomFactor(100, 0, false)).toBeLessThan(1);
+  });
+});
+
 describe("visibleChapters", () => {
   it("names the chapter that contains a window starting after the chapter tick", () => {
     const index = indexWith([]);
     const genesis = index.byCode.get("GEN");
     expect(genesis).toBeDefined();
     genesis!.a = [10, 10];
-    const axis = axisFor(index, [run("RENUMBER")], "a", (code) => index.byCode.get(code)?.a);
+    const axis = axisFor(
+      index,
+      [run("RENUMBER")],
+      "a",
+      (code) => index.byCode.get(code)?.a,
+    );
     expect(visibleChapters(axis, 5, 8)).toEqual({
       book: "GEN",
       first: 1,

@@ -5,10 +5,10 @@
 **Related:**
 
 - [frvt-12-acceptance-criteria-1.md](./frvt-12-acceptance-criteria-1.md)
-- Product API spec: [frvt-12-translation-index-api-spec-1.md](./frvt-12-translation-index-api-spec-1.md) (authoritative for routes and fields)
-- [frvt-8-batch-mapping-api-spec-1.md](./completed/frvt-8-batch-mapping-api-spec-1.md) (batch routes that must consume indexes when ready)
-- [frvt-3-http-api-spec-1.md](./completed/frvt-3-http-api-spec-1.md) (inherited Basic auth, error envelope, pagination)
-- [docs/api.md](../docs/api.md) (live HTTP surface for non-index routes)
+- Product API spec: [frvt-12-translation-index-api-spec-1.md](./frvt-12-translation-index-api-spec-1.md). Live routes and fields are in [docs/api.md](../../../docs/api.md).
+- [frvt-8-batch-mapping-api-spec-1.md](../frvt-8/frvt-8-batch-mapping-api-spec-1.md) (batch routes that must consume indexes when ready)
+- [frvt-3-http-api-spec-1.md](../frvt-3/frvt-3-http-api-spec-1.md) (inherited Basic auth, error envelope, pagination)
+- [docs/api.md](../../../docs/api.md) (live HTTP surface for non-index routes)
 
 ---
 
@@ -43,7 +43,7 @@ Happy-path **manual verification** of the translation-index feature: CRUD for tr
 
 | Source | Path | How testers verify |
 | --- | --- | --- |
-| Sample project zips | [`research/SampleTranslations/`](../research/SampleTranslations/) — at least two distinct projects (e.g. `biblica-spanish-1.zip`, `american-standard-1.zip`) | Ingest via `POST /api/ingest/project`; record translation ids and preferred schemes |
+| Sample project zips | [`research/SampleTranslations/`](../../../research/SampleTranslations/) — at least two distinct projects (e.g. `biblica-spanish-1.zip`, `american-standard-1.zip`) | Ingest via `POST /api/ingest/project`; record translation ids and preferred schemes |
 | Canonical schemes | `GET /api/versifications?canonical=true` | `org` / `eng`; org **translation** id is `eng.based_on_id` |
 | Batch oracle | `GET /api/resolve/range`, `POST /api/resolve/verses` | Same pair before indexes are ready vs after; compare `items[].ref` / `result` (not only latency) |
 
@@ -62,7 +62,7 @@ Happy-path **manual verification** of the translation-index feature: CRUD for tr
 
 Status vocabulary: `pending` → `building` → `ready` (success path); `failed` / `cancelled` as needed. Resource metrics on the index are `outbound_mappings` / `inbound_mappings`; aggregate usage is `GET /api/indexes/usage`. Poll get until terminal for the case under test; do not sleep fixed long intervals without a status check.
 
-Companion: [`.test/scripts/run-frvt-12-test-plan.sh`](../.test/scripts/run-frvt-12-test-plan.sh).
+Companion: [`.test/scripts/run-frvt-12-test-plan.sh`](../../../.test/scripts/run-frvt-12-test-plan.sh).
 
 ### Coverage patterns
 
@@ -74,7 +74,7 @@ UI lifecycle and client uploads **do not apply**. **Content oracle** for indexed
 
 | Environment | Base URL | Auth | Notes |
 | --- | --- | --- | --- |
-| **Local** | `http://localhost:8000` | HTTP Basic from `BASIC_AUTH_USERNAME` / `BASIC_AUTH_PASSWORD` (defaults `admin` / `Admin123!`) | Compose Postgres on host **5433**; API from repo root per [README.md](../README.md) |
+| **Local** | `http://localhost:8000` | HTTP Basic from `BASIC_AUTH_USERNAME` / `BASIC_AUTH_PASSWORD` (defaults `admin` / `Admin123!`) | Compose Postgres on host **5433**; API from repo root per [README.md](../../../README.md) |
 | **AWS / staging** (optional for AC-5) | Deployed base URL | Same Basic scheme unless deploy docs say otherwise | Required only for TC-PERF-01 sign-off against the “typical AWS deployment” clause |
 
 All **Required** cases run on Local before feature sign-off. TC-PERF-01 is **Required** for AC-5 but may be marked blocked until an AWS/staging environment exists.
@@ -760,5 +760,5 @@ Listed items do **not** block drafting the plan.
 | Duplicate create behavior | Locked | `409` `conflict` |
 | AC-1 scale ceilings (12 translations / ~5% divergence) | Out of scope | Operational note; not Local checklist items |
 | AC-5 AWS “typical deployment” | Environment | TC-PERF-01 required for AC-5; Local times are informational |
-| Companion shell script | Done | [`.test/scripts/run-frvt-12-test-plan.sh`](../.test/scripts/run-frvt-12-test-plan.sh) |
+| Companion shell script | Done | [`.test/scripts/run-frvt-12-test-plan.sh`](../../../.test/scripts/run-frvt-12-test-plan.sh) |
 | Automated pytest matrix | Deferred | Prefer happy paths + essential failures per testing standards once implemented |

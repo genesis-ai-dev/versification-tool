@@ -1,12 +1,12 @@
 # Versification Viewer: Mapping Resolver and Ingest Derivation Specification
 
-**Status:** Draft for implementation (implementation-ready interim bindings)
+**Status:** Archived reconciled design. The interim bindings in this file were the implementation contract.
 **Audience:** Developers (or coding agents) implementing `frvt.resolver` and the mapping/ingest derivation pieces of `frvt.ingest`; planners combining this work with API, ORM, and UI delivery.
 **Companion documents:**
 - API / DB / HTTP: [frvt-3-server-and-api-spec-1.md](./frvt-3-server-and-api-spec-1.md) (contracts §8.1–§8.2, data model §6)
-- Working requirements / assumption ids: [frvt-3-resolver-requirements-1.md](./requirements/frvt-3-resolver-requirements-1.md)
-- Samples: [research/CopenhagenFormat/](../research/CopenhagenFormat/), [research/ParatextFormat/](../research/ParatextFormat/)
-- POC context: [research/frvt-versification-viewer-poc-1.md](../research/frvt-versification-viewer-poc-1.md)
+- Working requirements / assumption ids: [frvt-3-resolver-requirements-1.md](../../requirements/frvt-3-resolver-requirements-1.md)
+- Samples: [research/CopenhagenFormat/](../../../research/CopenhagenFormat/), [research/ParatextFormat/](../../../research/ParatextFormat/)
+- POC context: [research/frvt-versification-viewer-poc-1.md](../../../research/frvt-versification-viewer-poc-1.md)
 
 **Scope:** Behavior of the in-process resolver (`resolve`) and of ingest functions that produce `ParsedSpan` / `ParsedScheme` / `MappingRecordDTO` (API §8.2). Out of scope: HTTP, auth, ORM models/migrations, CRUD routers, UI. The API persists what ingest returns and attaches `verse_span.seq` after resolve.
 
@@ -368,7 +368,7 @@ Assume eng scheme `mappedVerses` contains `"PSA 3:0-8": "PSA 3:1-9"` classified 
 | `resolve("JHN 3:16", eng, org)` | `one_to_one`; same ref both sides |
 | `resolve("PSA 3:0-2", eng, org)` | No raise; three (or grouped) individual spans, shifted |
 
-Use [research/CopenhagenFormat/eng.json](../research/CopenhagenFormat/eng.json) for fixtures.
+Use [research/CopenhagenFormat/eng.json](../../../research/CopenhagenFormat/eng.json) for fixtures.
 
 ### 6.8 Composite (`complex`) hulls (A24)
 
@@ -604,7 +604,7 @@ Empty content spans are allowed. Books with no verses → no spans (not a hard f
 
 ## 10. Test plan (contract fixtures)
 
-Use ingredients from [research/CopenhagenFormat/eng.json](../research/CopenhagenFormat/eng.json) and [org.json](../research/CopenhagenFormat/org.json) seeded as schemes based_on translation `org`.
+Use ingredients from [research/CopenhagenFormat/eng.json](../../../research/CopenhagenFormat/eng.json) and [org.json](../../../research/CopenhagenFormat/org.json) seeded as schemes based_on translation `org`.
 
 | Id | Case | Assert |
 | --- | --- | --- |
@@ -615,7 +615,7 @@ Use ingredients from [research/CopenhagenFormat/eng.json](../research/Copenhagen
 | T5 | merge fixture | `len(source_spans)>1`, `len(target_spans)==1` |
 | T6 | `PSA 3:0-2` range | no raise; only single-verse refs in output |
 | T7 | derive eng mappedVerses | row count = len(mappedVerses)+…; PSA 3:0-8 → shift |
-| T8 | VRS convert ([research/ParatextFormat/eng.vrs](../research/ParatextFormat/eng.vrs)) | maxVerses GEN ch1 == 31; mapped GEN 31:55 present |
+| T8 | VRS convert ([research/ParatextFormat/eng.vrs](../../../research/ParatextFormat/eng.vrs)) | maxVerses GEN ch1 == 31; mapped GEN 31:55 present |
 | T9 | USX parse (DBL/Paratext `release/USX_*/*.usx` layout) | seq monotonic; at least one book with non-empty verse 1 content |
 | T10 | Missing ancestor | `LookupError` |
 | T11 | Composite hull (e.g. `split` up ∘ `merge` down) | `relation == "complex"`; `source_spans` / `target_spans` cover the full connected component; `edges` present, each with its own per-connector relation |

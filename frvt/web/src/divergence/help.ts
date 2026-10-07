@@ -36,32 +36,3 @@ export function dataWarningTip(details: readonly string[]): string {
   }
   return `${DATA_WARNING_INTRO}\n${details.join("\n")}`;
 }
-
-/**
- * Sentence shown when a side has no stored source file.
- * ``name`` is the scheme name on that side.
- */
-export function legacyFidelitySentence(name: string): string {
-  return (
-    `${name} was stored before its original file was kept, so segment and ` +
-    "multi-target detail may be missing. Attach the original file with " +
-    "PUT /api/versifications/{id}/source."
-  );
-}
-
-/**
- * Prefer the engine note. When it is empty, fall back to the legacy sentence
- * for each side that has no source file.
- */
-export function displayNote(
-  note: string,
-  sides: readonly [string, string, string, boolean, boolean][],
-): string {
-  if (note.trim().length > 0) {
-    return note;
-  }
-  return sides
-    .filter((side) => side[2] === "legacy")
-    .map((side) => legacyFidelitySentence(side[1]))
-    .join(" ");
-}
