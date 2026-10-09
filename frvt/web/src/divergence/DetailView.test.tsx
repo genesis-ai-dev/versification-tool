@@ -1,12 +1,11 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { DivergenceReport, EventRow, RunRow } from "./types";
 import { DetailView, type DetailViewProps } from "./DetailView";
 import { ACCENT } from "./model/colors";
 import { buildIndex } from "./model/index";
-import { runKey, type ScopedRun } from "./model/detail";
 import { pickEvent, pickRun, type DetailPick, type PickContext } from "./model/selection";
 
 /** An event on Genesis ``chapter``. Type 0 is RENUMBER. */
@@ -49,14 +48,7 @@ const report: DivergenceReport = {
   computedAt: "",
 };
 
-function Harness({
-  onHover = vi.fn(),
-  onHoverEvent = vi.fn(),
-  ...props
-}: Omit<DetailViewProps, "highlight"> & {
-  onHover?: (key: string) => void;
-  onHoverEvent?: (event: { index: number }) => void;
-}) {
+function Harness(props: Omit<DetailViewProps, "highlight">) {
   const [pick, setPick] = useState<DetailPick>({ runKey: null, pin: null });
   const context: PickContext = {
     index: props.index,
@@ -76,20 +68,12 @@ function Harness({
         onPickEvent: (event) => {
           setPick((current) => pickEvent(context, current, event));
         },
-        onHover,
-        onHoverEvent,
       }}
     />
   );
 }
 
-function renderDetail(
-  runs: RunRow[] = report.comparisons[0]?.runs ?? [],
-  hover: {
-    onHover?: (key: string) => void;
-    onHoverEvent?: (event: { index: number }) => void;
-  } = {},
-) {
+function renderDetail(runs: RunRow[] = report.comparisons[0]?.runs ?? []) {
   const index = buildIndex(report);
   return render(
     <Harness
@@ -100,7 +84,6 @@ function renderDetail(
       book="GEN"
       sideNames={{ a: "Source Name", b: "Target Name" }}
       onBook={() => undefined}
-      {...hover}
     />,
   );
 }
@@ -212,34 +195,6 @@ describe("DetailView selection", () => {
     fireEvent.click(unchanged!);
     expect(chapterRow(1)).toHaveAttribute("aria-selected", "false");
     expect(container.querySelector(".dv-selected")).toBeNull();
-  });
-
-  it("reports a ribbon hover with the run key", async () => {
-    const onHover = vi.fn();
-    const { container } = renderDetail(undefined, { onHover });
-    await waitFor(() => {
-      expect(container.querySelector(".dv-ladder .dv-pick")).not.toBeNull();
-    });
-    const ribbon = container.querySelector(".dv-ladder .dv-pick");
-    expect(ribbon).not.toBeNull();
-    fireEvent.mouseEnter(ribbon!);
-    const expected: ScopedRun = {
-      a: run[0],
-      o: run[1],
-      b: run[2],
-      type: "RENUMBER",
-      flags: "",
-      excludedA: "",
-      excludedB: "",
-    };
-    expect(onHover).toHaveBeenCalledWith(runKey(expected));
-  });
-
-  it("reports a table-row hover with the event", () => {
-    const onHoverEvent = vi.fn();
-    renderDetail(undefined, { onHoverEvent });
-    fireEvent.mouseEnter(chapterRow(1));
-    expect(onHoverEvent).toHaveBeenCalledWith(expect.objectContaining({ index: 0 }));
   });
 
   it("selects a block for verses on one side only", async () => {

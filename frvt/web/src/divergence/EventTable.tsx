@@ -19,8 +19,6 @@ export interface EventTableProps {
   activeEvent: number | null;
   /** Select this row, or clear it when it is already selected. */
   onPick: (event: IndexedEvent) => void;
-  /** Report this row while the pointer is over it. */
-  onHover: (event: IndexedEvent) => void;
   /**
    * Locale for the verse count.
    * Omit it in the app so the browser supplies separators.
@@ -39,7 +37,6 @@ export function EventTable({
   sideNames,
   activeEvent,
   onPick,
-  onHover,
   locale,
 }: EventTableProps) {
   return (
@@ -76,7 +73,6 @@ export function EventTable({
                 tabIndex={0}
                 aria-selected={activeEvent === event.index}
                 onClick={() => onPick(event)}
-                onMouseEnter={() => onHover(event)}
                 onKeyDown={(keyEvent) => {
                   if (keyEvent.key !== "Enter" && keyEvent.key !== " ") {
                     return;

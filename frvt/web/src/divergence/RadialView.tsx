@@ -13,6 +13,8 @@ import {
 } from "./model/index";
 import { eventSelection, type MatrixSelection } from "./model/selection";
 import {
+  BOOK_LABEL_GAP_PX,
+  BOOK_LABEL_ROOM_PX,
   bookLabelTransform,
   isRibbonType,
   ribbonCurve,
@@ -26,27 +28,19 @@ export interface RadialViewProps {
   layersOn: ReadonlySet<string>;
   /** ``slices`` gives each book the full radius. ``rings`` uses a fixed ring thickness. */
   layout: "slices" | "rings";
-  pinned: boolean;
   onSelect: (selection: MatrixSelection) => void;
-  onHover: (selection: MatrixSelection) => void;
 }
 
 /**
  * Draw chapters as slices or as rings.
- * Hover does not pin. A pinned selection ignores later hovers.
+ * A click on a chapter, a book ring, or a ribbon selects it.
+ * A ribbon brightens under the pointer, and the pointer alone selects nothing.
  */
-export function RadialView({
-  index,
-  layersOn,
-  layout,
-  pinned,
-  onSelect,
-  onHover,
-}: RadialViewProps) {
+export function RadialView({ index, layersOn, layout, onSelect }: RadialViewProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const hatchId = useId().replace(/:/g, "");
-  const handlers = useRef({ onSelect, onHover, pinned });
-  handlers.current = { onSelect, onHover, pinned };
+  const handlers = useRef({ onSelect });
+  handlers.current = { onSelect };
 
   useEffect(() => {
     const host = hostRef.current;
@@ -56,7 +50,8 @@ export function RadialView({
     const proposed = layout === "slices";
     // Fill the chart column. A wider dialog draws a larger chart. 320 keeps a narrow column readable.
     const size = Math.max(320, host.clientWidth || 700);
-    const radius = size / 2 - 34;
+    // The inset is the gap plus the label room, so a book code stays inside the SVG.
+    const radius = size / 2 - BOOK_LABEL_GAP_PX - BOOK_LABEL_ROOM_PX;
     const inner = radius * 0.22;
     const root = select(host);
     root.selectAll("*").remove();
@@ -175,11 +170,6 @@ export function RadialView({
           .attr("d", shape(geo) ?? "")
           .attr("fill", "transparent")
           .style("cursor", "pointer")
-          .on("mouseenter", () => {
-            if (!handlers.current.pinned) {
-              handlers.current.onHover(selection);
-            }
-          })
           .on("click", () => handlers.current.onSelect(selection));
       }
       flush(unit.last);
@@ -209,11 +199,6 @@ export function RadialView({
           .attr("d", shape(ring) ?? "")
           .attr("fill", "transparent")
           .style("cursor", "pointer")
-          .on("mouseenter", () => {
-            if (!handlers.current.pinned) {
-              handlers.current.onHover(bookSelection);
-            }
-          })
           .on("click", () => handlers.current.onSelect(bookSelection));
         const mid = (ring.startAngle + ring.endAngle) / 2;
         if (per * radius > 7) {
@@ -296,9 +281,6 @@ export function RadialView({
         .on("mouseenter", (pointer: MouseEvent) => {
           if (pointer.currentTarget instanceof SVGPathElement) {
             select(pointer.currentTarget).attr("stroke-opacity", 1);
-          }
-          if (!handlers.current.pinned) {
-            handlers.current.onHover(selection);
           }
         })
         .on("mouseleave", (pointer: MouseEvent) => {

@@ -54,6 +54,14 @@
   font-size: 11px;
 }
 
+/* Drawn at the measured column width. Scaling down keeps the book codes inside the column
+   when the column narrows after the draw, for example when the dialog gains a scrollbar. */
+.dv-radial svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
 .dv-ladder text.dv-tick {
   paint-order: stroke;
   stroke: var(--surface-raised);
@@ -132,7 +140,8 @@
   white-space: nowrap;
 }
 
-.dv-sidetab[aria-selected="true"] {
+.dv-sidetab[aria-selected="true"],
+.dv-controls .btn[aria-pressed="true"] {
   border-color: var(--dv-accent);
 }
 

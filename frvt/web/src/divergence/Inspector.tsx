@@ -15,7 +15,7 @@ import type { EventNote } from "./types";
 /** Props for the panel beside the charts. */
 export interface InspectorProps {
   index: ComparisonIndex;
-  /** Hovered or pinned cell. Hover applies only while nothing is pinned. */
+  /** Pinned cell, or null when nothing is selected. */
   selection: MatrixSelection | null;
   layersOn: ReadonlySet<string>;
   notes: EventNote[];
@@ -28,9 +28,9 @@ export interface InspectorProps {
 }
 
 /**
- * List the events for the hovered or pinned chapter, book, or single event.
+ * List the events for the pinned chapter, book, or single event.
  * The title, its actions, and the meta line sit above the donut. This panel is the
- * hover hint when nothing is selected or the book is missing, and the event list when
+ * selection prompt when nothing is selected or the book is missing, and the event list when
  * a known book is selected. A selection that names one event lists only that event.
  * Each event shows its catalog label, both sides, and flag chips. A data-warning chip
  * includes the notes stored for that event.
@@ -44,11 +44,11 @@ export function Inspector({
   locale,
 }: InspectorProps) {
   if (selection === null) {
-    return hoverHint();
+    return selectionPrompt();
   }
   const book = index.byCode.get(selection.bookCode);
   if (book === undefined) {
-    return hoverHint();
+    return selectionPrompt();
   }
   const bookWide = coversWholeBook(selection);
   const chosen = pinnedEvent(index, selection, layersOn);
@@ -190,13 +190,13 @@ function EventItem({ event, notes, sideNames, locale }: EventItemProps) {
 
 /**
  * Prompt shown when the panel has no chapter or book to list.
- * Used when nothing is hovered or pinned, and when the selection names a book
+ * Used when nothing is pinned, and when the selection names a book
  * the index does not contain.
  */
-function hoverHint() {
+function selectionPrompt() {
   return (
     <div className="dv-inspector">
-      <p>Hover or click a chapter. Arrow keys move through the matrix.</p>
+      <p>Click a chapter, book, or event. Arrow keys move through the matrix.</p>
     </div>
   );
 }

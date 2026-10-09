@@ -22,7 +22,7 @@ describe("ScopeActions", () => {
     expect(onClear).toHaveBeenCalledOnce();
   });
 
-  it("offers only book detail for a hovered book", () => {
+  it("offers only book detail when nothing is pinned", () => {
     render(
       <ScopeActions
         bookCode="GEN"

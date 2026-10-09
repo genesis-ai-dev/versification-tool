@@ -113,9 +113,6 @@ export function Ladder({
   latest.current = { view, length: axis.length, onView };
   const pick = highlight.onPick;
   const activeKey = highlight.activeKey;
-  /** Hover callback read by the drawing, so a hover does not redraw the strip. */
-  const handlers = useRef({ hover: highlight.onHover });
-  handlers.current.hover = highlight.onHover;
   const { zoom, origin } = view;
   const [windowStart, windowEnd] = ladderWindow(axis.length, zoom, origin);
   const chapters = visibleChapters(axis, windowStart, windowEnd);
@@ -256,7 +253,6 @@ export function Ladder({
       element.on("pointerdown", (event) => {
         event.stopPropagation();
       });
-      element.on("mouseenter", () => handlers.current.hover(key));
       element.on("click", () => pick(key));
     };
     for (const item of [0, 1] as const) {

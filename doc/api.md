@@ -1,6 +1,6 @@
 # FRVT HTTP API
 
-HTTP contract for the FastAPI process started in the README. Use this file when calling the API or when changing routes; use [openapi.json](./openapi.json) for code generation. Interactive Swagger/ReDoc on a running server (`GET /docs`, `GET /redoc`) require HTTP Basic and load **live** `GET /openapi.json`, which is not the patched checked-in schema (see [OpenAPI notes](#openapi-notes)).
+HTTP contract for the FastAPI process started in the README. Use this file when calling the API or when changing routes; use [openapi.json](./openapi.json) for code generation. Interactive Swagger/ReDoc on a running server (`GET /docs`, `GET /redoc`) require HTTP Basic and load **live** `GET /openapi.json`, which is not the patched checked-in schema (see [OpenAPI notes](#openapi-notes)). Maintainer notes on architecture and domain objects are in [the doc index](./README.md).
 
 Internal design notes live under `.spec/`. If this file and a `.spec` catalog disagree about a live status code or body, the running server wins.
 
@@ -637,7 +637,7 @@ Field types match `frvt.api.schemas`. Null means JSON `null`.
 From the repository root:
 
 ```bash
-PYTHONPATH=. frvt/.venv/bin/python docs/export-openapi.py
+PYTHONPATH=. frvt/.venv/bin/python doc/export-openapi.py
 ```
 
 `GET /docs` and `GET /redoc` still load the **unpatched** live schema. Try-it-out needs the browser to send Basic credentials.

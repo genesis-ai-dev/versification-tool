@@ -1,6 +1,6 @@
 # Translation Index API
 
-**Status:** Contract for the translation index endpoints. The current HTTP write-up, including `divergence_reports` and `divergence_bytes` on usage, is [docs/api.md](../../../docs/api.md).
+**Status:** Contract for the translation index endpoints. The current HTTP write-up, including `divergence_reports` and `divergence_bytes` on usage, is [doc/api.md](../../../doc/api.md).
 **Audience:** Implementers and reviewers of [frvt-12-acceptance-criteria-1.md](./frvt-12-acceptance-criteria-1.md)
 **Scope:** `/api/indexes` CRUD, status, rebuild, cancel, and usage, plus the index-backed read path in the batch mapping endpoints. Every other route is unchanged.
 

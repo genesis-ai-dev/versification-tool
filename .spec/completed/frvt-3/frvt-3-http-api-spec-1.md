@@ -1,6 +1,6 @@
 # FRVT HTTP API Specification
 
-**Status:** Catalog of the HTTP surface as of the original viewer API. The current contract, including indexes, divergence reports, and versification source, is [docs/api.md](../../../docs/api.md).
+**Status:** Catalog of the HTTP surface as of the original viewer API. The current contract, including indexes, divergence reports, and versification source, is [doc/api.md](../../../doc/api.md).
 **Audience:** Client authors, integrators, and reviewers of the running server
 **Scope of this document:** The HTTP endpoints this catalog was written against: application routers under `/api`, FastAPI/Starlette framework routes (`/docs`, `/redoc`, `/openapi.json`, and automatic `HEAD`), and the static UI mount at `/`. It does not specify resolver algorithms, ETL parsing, ORM schema, or UI behavior. Those remain in the companion design specifications.
 

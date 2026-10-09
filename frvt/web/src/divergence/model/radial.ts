@@ -80,6 +80,18 @@ export function ribbonCurve(
   return `M${start[0]},${start[1]} Q${controlX},${controlY} ${endX},${endY}`;
 }
 
+/**
+ * Space between the outer arc and the start of a book code.
+ * The radial chart uses the same distance when it reserves room inside the SVG.
+ */
+export const BOOK_LABEL_GAP_PX = 8;
+
+/**
+ * Room past {@link BOOK_LABEL_GAP_PX} for one book code.
+ * Book codes are three characters, drawn at the 11px size of `.dv-radial text`.
+ */
+export const BOOK_LABEL_ROOM_PX = 32;
+
 /** Placement of one book code outside the radial chart. */
 export interface BookLabelPlacement {
   /** SVG transform that rotates the code, and flips it on the left half. */
@@ -97,7 +109,7 @@ export function bookLabelTransform(midAngle: number, radius: number): BookLabelP
   const flip = degrees > 90 && degrees < 270;
   const turn = flip ? " rotate(180)" : "";
   return {
-    transform: `rotate(${degrees}) translate(${radius + 8},0)${turn}`,
+    transform: `rotate(${degrees}) translate(${radius + BOOK_LABEL_GAP_PX},0)${turn}`,
     anchor: flip ? "end" : "start",
   };
 }

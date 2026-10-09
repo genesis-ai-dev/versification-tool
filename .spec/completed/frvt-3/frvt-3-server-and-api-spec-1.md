@@ -1,6 +1,6 @@
 # Versification Viewer: Server, Database, and API Design Specification
 
-**Status:** Archived reconciled design. The current HTTP contract is [docs/api.md](../../../docs/api.md).
+**Status:** Archived reconciled design. The current HTTP contract is [doc/api.md](../../../doc/api.md).
 **Audience:** The developer implementing the server, database, and API; and the developers writing the UI, resolver, and ETL specifications that this document is reconciled against.
 **Scope of this document:** The backend server process, the relational database, and the HTTP API. It does not specify the resolver internals, the ETL/ingest parsing internals, or the UI. Those are owned by separate specifications and appear here only as isolated interface contracts.
 

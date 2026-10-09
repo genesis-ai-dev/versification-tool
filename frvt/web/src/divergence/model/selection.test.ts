@@ -4,7 +4,6 @@ import { buildIndex, type ComparisonIndex, type IndexedEvent } from "./index";
 import { runKey, type ScopedRun } from "./detail";
 import {
   eventSelection,
-  hoverSelection,
   pickEvent,
   pickRun,
   pinnedEvent,
@@ -114,18 +113,6 @@ describe("pickEvent", () => {
     expect(first.runKey).toBeNull();
     expect(first.pin?.eventIndex).toBe(0);
     expect(pickEvent(context(index), first, chosen!)).toEqual(cleared);
-  });
-});
-
-describe("hoverSelection", () => {
-  it("returns null for an unchanged run and the event for a deviance", () => {
-    const index = indexWith([event(0, gen, gen)]);
-    const same: RunRow = [gen, gen, gen, -1, "", "", ""];
-    const moved: RunRow = [gen, gen, gen, 0, "", "", ""];
-    expect(hoverSelection(context(index, [same]), runKey(run("SAME")))).toBeNull();
-    expect(
-      hoverSelection(context(index, [moved]), runKey(run("RENUMBER")))?.eventIndex,
-    ).toBe(0);
   });
 });
 

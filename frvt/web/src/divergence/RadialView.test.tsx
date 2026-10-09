@@ -43,9 +43,7 @@ describe("RadialView", () => {
         index={buildIndex(report)}
         layersOn={new Set(["scheme"])}
         layout="slices"
-        pinned={false}
         onSelect={() => undefined}
-        onHover={() => undefined}
       />,
     );
     const path = container.querySelector("path[marker-end]");
@@ -61,9 +59,7 @@ describe("RadialView", () => {
         index={buildIndex(report)}
         layersOn={new Set(["scheme"])}
         layout="slices"
-        pinned={false}
         onSelect={onSelect}
-        onHover={() => undefined}
       />,
     );
     const path = container.querySelector("path[marker-end]");

@@ -78,7 +78,7 @@ Read these before writing anything. Line references are current at plan time; ve
 - **Errors** — `AppError` and `ErrorCode` in [`frvt/api/errors.py`](../frvt/api/errors.py). Add no new error codes; use the existing `not_found`, `conflict`, and `validation_failed` values (confirm the exact literals in that file before raising).
 - **Viewer** — [`frvt/web/src/routes/ViewerPage.tsx`](../frvt/web/src/routes/ViewerPage.tsx) renders the toolbar slot above `ViewerWorkspace`. [`ViewerSession.tsx`](../frvt/web/src/viewer/ViewerSession.tsx) is 971 lines and must not grow. `canResolve`, `associationsFor`, and `url` are already on the session value. [`frvt/web/src/manage/modals/ModalShell.tsx`](../frvt/web/src/manage/modals/ModalShell.tsx) is a fixed 28rem dialog. Modal CSS lives near the end of [`styles/app.css`](../frvt/web/src/styles/app.css), which is over 1000 lines and must not grow. Tokens are in [`styles/tokens.css`](../frvt/web/src/styles/tokens.css).
 - **Tests** — [`frvt/tests/conftest.py`](../frvt/tests/conftest.py): `db_session` restarts a savepoint, so commits are visible to the same connection and invisible to another. `api_client` uses `create_app(run_startup_seed=False, run_index_worker=False)`.
-- **Docs** — [`docs/api.md`](../docs/api.md) and [`docs/export-openapi.py`](../docs/export-openapi.py). Regenerate `docs/openapi.json` with that script; do not hand-edit the generated file.
+- **Docs** — [`doc/api.md`](../../../doc/api.md) and [`doc/export-openapi.py`](../../../doc/export-openapi.py). Regenerate `doc/openapi.json` with that script; do not hand-edit the generated file.
 - **Anchors** — `GET /api/translations` excludes `is_anchor` rows. The viewer can never select a canonical anchor, so every dialog comparison a user opens is texts mode.
 
 ---
@@ -190,7 +190,7 @@ Add to `Settings` in [`frvt/api/config.py`](../frvt/api/config.py), each with an
 - `frvt/api/routers/versifications.py`, `frvt/api/indexing/worker.py`, `frvt/api/indexing/registry.py`
 - `frvt/api/config.py`, `frvt/api/main.py`, `frvt/pyproject.toml`, `frvt/resources/__init__.py` if it is how packaged files are opened
 - `frvt/web/src/routes/ViewerPage.tsx`, `frvt/web/src/manage/modals/ModalShell.tsx`, `frvt/web/package.json`
-- `docs/api.md`, `docs/openapi.json`
+- `doc/api.md`, `doc/openapi.json`
 - frontend API types that mirror `VersificationDetailOut`
 
 **Unchanged**
@@ -565,7 +565,7 @@ Existing ingest tests stay green without edits. If a `ParsedScheme(` constructor
 
 **Goal:** Clients can see and, for legacy custom schemes, attach a source.
 
-**Work:** Schemas in `frvt/api/schemas/versification_source.py`. Extend `get_versification`. Add GET and PUT on `/api/versifications/{scheme_id}/source` in the versifications router. Update `docs/api.md` with the three contracts. Regenerate `docs/openapi.json` with `docs/export-openapi.py`. Add the `source` field to the web `VersificationDetail` type if one exists; a list type that does not include the detail payload stays unchanged.
+**Work:** Schemas in `frvt/api/schemas/versification_source.py`. Extend `get_versification`. Add GET and PUT on `/api/versifications/{scheme_id}/source` in the versifications router. Update `doc/api.md` with the three contracts. Regenerate `doc/openapi.json` with `doc/export-openapi.py`. Add the `source` field to the web `VersificationDetail` type if one exists; a list type that does not include the detail payload stays unchanged.
 
 **Tests** (`frvt/tests/test_api_versification_source.py`, markers `phase2` and `api`):
 
@@ -659,7 +659,7 @@ Copy `SEVERITY` and `LAYER` exactly. Copy the catalog table exactly, including b
 - `test_api_divergence.py` (markers `phase2` and `api`): override the runner to record submissions. POST returns `202`, the submission happens, and a spy on the session shows `commit` was called before `submit`. GET data before ready returns `409`. GET of an unknown id returns `404`.
 - One usage test, or an assertion inside the API test, that `divergenceReports` is present and numeric.
 
-**Acceptance:** The runner test and the API test pass. `docs/api.md` describes the three divergence routes and the two usage fields. `docs/openapi.json` is regenerated.
+**Acceptance:** The runner test and the API test pass. `doc/api.md` describes the three divergence routes and the two usage fields. `doc/openapi.json` is regenerated.
 
 ---
 
@@ -739,7 +739,7 @@ Copy `SEVERITY` and `LAYER` exactly. Copy the catalog table exactly, including b
 - Playwright project `divergence` in `playwright.config.ts`, with a timeout of at least 60 seconds. Helpers go in `frvt/web/e2e/helpers/divergence.ts`, not in `e2e/helpers/api.ts`.
 - The spec intercepts `POST /api/divergence/reports` and the status and data GETs. The data body is the published eng-rso golden converted to the wire format. The spec opens the viewer with the existing seeded pair, clicks `Divergence`, and checks that the Overview tab shows a matrix, the donut has 12 outer slices, a legend tip opens on click, and the Radial and Book detail tabs render an svg.
 - `.test/scripts/run-divergence-benchmark.sh` runs `compute_report` for eng vs rso on anchors and prints the elapsed seconds. No assertion on the number.
-- Grep the diff for this plan's identifier and for `Phase` in `frvt/` and `docs/`. Matches under `.spec/` and `.test/` are expected. Matches elsewhere fail the gate.
+- Grep the diff for this plan's identifier and for `Phase` in `frvt/` and `doc/`. Matches under `.spec/` and `.test/` are expected. Matches elsewhere fail the gate.
 - Count lines on `app.css`, `ViewerSession.tsx`, `schemas/__init__.py`, `models/__init__.py`, and `e2e/helpers/api.ts`. Record the counts in the report to the owner.
 - Run the tooling gates, including `pytest -n auto` if the database is up, and the web typecheck and unit tests.
 

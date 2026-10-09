@@ -21,3 +21,5 @@ npm run build
 ```
 
 `npm test` runs Vitest on `src/**/*.{test,spec}.{ts,tsx}`. Playwright (`npm run test:e2e`, or `npm run test:e2e:smoke` for the smoke project) expects the API and built UI at `http://localhost:8000`. Override that with `FRVT_E2E_BASE_URL`. Install the browser once: `npx playwright install chromium`.
+
+Maintainer notes on the UI are in [doc/web-ui.md](../../doc/web-ui.md).

@@ -17,7 +17,7 @@ export function comparisonTotal(counts: readonly { count: number }[]): number {
 }
 
 /**
- * Title shown when nothing is hovered or pinned.
+ * Title shown when nothing is pinned.
  * A positive total is locale-formatted. Zero is the word None, not a number.
  */
 export function comparisonTitle(total: number, locale?: string): string {

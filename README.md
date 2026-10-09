@@ -8,8 +8,8 @@ All HTTP routes (API, `/docs`, static UI) are gated with HTTP Basic. Default cre
 
 ## API documentation
 
-- [docs/api.md](docs/api.md) — HTTP contract: auth, error envelope, pagination, BCV grammar, every `/api` route (including batch mapping, indexes, and divergence reports), and curl examples.
-- [docs/openapi.json](docs/openapi.json) — OpenAPI 3.1 for client generation. Generated from the FastAPI app, then patched so errors use `{detail, code, errors?}` and HTTP Basic is declared. After changing routes or models, from the repository root: `PYTHONPATH=. frvt/.venv/bin/python docs/export-openapi.py` ([docs/export-openapi.py](docs/export-openapi.py)).
+- [doc/api.md](doc/api.md) — HTTP contract: auth, error envelope, pagination, BCV grammar, every `/api` route (including batch mapping, indexes, and divergence reports), and curl examples.
+- [doc/openapi.json](doc/openapi.json) — OpenAPI 3.1 for client generation. Generated from the FastAPI app, then patched so errors use `{detail, code, errors?}` and HTTP Basic is declared. After changing routes or models, from the repository root: `PYTHONPATH=. frvt/.venv/bin/python doc/export-openapi.py` ([doc/export-openapi.py](doc/export-openapi.py)).
 
 A running server also serves Swagger UI at `GET /docs` and ReDoc at `GET /redoc` (Basic required). Those pages load **live** `GET /openapi.json`, which is FastAPI's unpatched schema (no Basic scheme; many `422`s still listed as `HTTPValidationError`). Use the checked-in file for the envelope the process actually returns.
 
@@ -55,7 +55,7 @@ curl -sS -u 'admin:Admin123!' http://localhost:8000/api/health
 # Expect: {"status":"ok"}
 ```
 
-Examples in [docs/api.md](docs/api.md) also use `jq`.
+Examples in [doc/api.md](doc/api.md) also use `jq`.
 
 ### PowerShell (short alternate)
 
@@ -97,6 +97,7 @@ Frontend unit tests, and Playwright against a running server, are documented in 
 
 ## Documentation
 
-- [docs/api.md](docs/api.md) is the current HTTP contract.
+- [doc/api.md](doc/api.md) is the current HTTP contract.
+- [doc/README.md](doc/README.md) is the maintainer guide to architecture and domain objects.
 - Active divergence-dialog plans are the `frvt-7-*-execution-plan-1.md` files in [.spec/](.spec/).
 - Finished specs are grouped by ticket under [.spec/completed/](.spec/completed/).

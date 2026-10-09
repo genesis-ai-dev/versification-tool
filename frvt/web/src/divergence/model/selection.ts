@@ -53,10 +53,6 @@ export interface RunHighlight {
   activeEvent: number | null;
   /** Select this event from the table, or clear it when it is already selected. */
   onPickEvent: (event: IndexedEvent) => void;
-  /** Report a ribbon or a dot mark while nothing is pinned. */
-  onHover: (key: string) => void;
-  /** Report a table row while nothing is pinned. */
-  onHoverEvent: (event: IndexedEvent) => void;
 }
 
 /** Highlighted run and the column pin a detail click produces. */
@@ -185,21 +181,6 @@ export function pickEvent(
     runKey: run === null ? null : runKey(run),
     pin: eventSelection(context.index, event, context.book),
   };
-}
-
-/**
- * Column contents for a ribbon or dot hover.
- * An unknown key, or an unchanged run, returns null so the column stays as it is.
- */
-export function hoverSelection(
-  context: PickContext,
-  key: string,
-): MatrixSelection | null {
-  const run = findRun(context, key);
-  if (run === undefined || !runSelectable(run)) {
-    return null;
-  }
-  return runSelection(context.index, run, context.layersOn);
 }
 
 /**

@@ -1,7 +1,7 @@
 # FRVT API Authentication Hardening
 
 **Document:** `frvt-11-api-auth-hardening-spec-1`
-**Status:** Authoritative for the HTTP Basic gate, failed-auth limiter, path opt-out, default-credential warning, and `too_many_requests` error code. The same rules are written up in [docs/api.md](../../../docs/api.md).
+**Status:** Authoritative for the HTTP Basic gate, failed-auth limiter, path opt-out, default-credential warning, and `too_many_requests` error code. The same rules are written up in [doc/api.md](../../../doc/api.md).
 **Audience:** Implementers and reviewers of the FastAPI process and the existing web client's error-code union
 **Scope:** In-process HTTP Basic middleware already registered on the app. This document supersedes [frvt-3-http-api-spec-1.md](../frvt-3/frvt-3-http-api-spec-1.md) §3 and [frvt-3-server-and-api-spec-1.md](../frvt-3/frvt-3-server-and-api-spec-1.md) §5.3 / §5.4 **only where they conflict**. Do not edit those FRVT-3 files. AWS controls, Redis, cookies, OAuth, CORS, anonymous health, Playwright, and new UI chrome are out of scope.
 

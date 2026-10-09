@@ -46,7 +46,6 @@ describe("MatrixView", () => {
         layersOn={new Set(["scheme"])}
         focus={null}
         onSelect={() => undefined}
-        onHover={() => undefined}
       />,
     );
     expect(container.querySelector('rect[stroke-dasharray="2 1.6"]')).not.toBeNull();
@@ -137,7 +136,6 @@ function renderMatrix(next: DivergenceReport) {
       layersOn={new Set(["scheme"])}
       focus={null}
       onSelect={() => undefined}
-      onHover={() => undefined}
     />,
   );
 }

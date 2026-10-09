@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Write docs/openapi.json from the FastAPI application.
+"""Write doc/openapi.json from the FastAPI application.
 
 Adds HTTP Basic (middleware is invisible to FastAPI's generator), a local
 server URL, ErrorBody schemas, and rewrites 422/401/429 (plus health 503 and
@@ -7,7 +7,7 @@ ingest 413) to that envelope so the file matches live responses. GET
 /openapi.json on a running server is still FastAPI's unpatched output.
 Run from the repository root:
 
-    PYTHONPATH=. frvt/.venv/bin/python docs/export-openapi.py
+    PYTHONPATH=. frvt/.venv/bin/python doc/export-openapi.py
 """
 
 from __future__ import annotations
@@ -18,9 +18,10 @@ from pathlib import Path
 
 from frvt.api.main import create_app
 
-# Repository root: docs/export-openapi.py → parents[1].
+# Repository root: doc/export-openapi.py → parents[1].
 _REPO_ROOT = Path(__file__).resolve().parents[1]
-_OUTPUT = _REPO_ROOT / "docs" / "openapi.json"
+# Checked-in OpenAPI document this script overwrites after route or model changes.
+_OUTPUT = _REPO_ROOT / "doc" / "openapi.json"
 # Methods that carry a responses object in an OpenAPI Path Item.
 _HTTP_METHODS = frozenset({"get", "put", "post", "delete", "options", "head", "patch", "trace"})
 _HTTP_VALIDATION_REF = "#/components/schemas/HTTPValidationError"
@@ -55,7 +56,7 @@ def _patch_live_error_envelope(spec: dict) -> None:
     """Make checked-in operations describe the envelope the server actually returns.
 
     FastAPI still advertises HTTPValidationError on GET /openapi.json. The process
-    rewrites those bodies to ErrorBody. This patch is only for docs/openapi.json.
+    rewrites those bodies to ErrorBody. This patch is only for doc/openapi.json.
     """
     _replace_http_validation_refs(spec)
     for path, item in spec.get("paths", {}).items():
@@ -113,7 +114,7 @@ def _spec_with_integrator_metadata() -> dict:
         "responses to ErrorBody ({detail, code, errors?}), which is what the running "
         "server returns. GET /openapi.json on a live process is FastAPI's unpatched "
         "generator output (HTTPValidationError on many 422s, no Basic scheme). "
-        "Human guide: docs/api.md."
+        "Human guide: doc/api.md."
     )
     spec["servers"] = [
         {

@@ -5,10 +5,10 @@
 **Related:**
 
 - [frvt-12-acceptance-criteria-1.md](./frvt-12-acceptance-criteria-1.md)
-- Product API spec: [frvt-12-translation-index-api-spec-1.md](./frvt-12-translation-index-api-spec-1.md). Live routes and fields are in [docs/api.md](../../../docs/api.md).
+- Product API spec: [frvt-12-translation-index-api-spec-1.md](./frvt-12-translation-index-api-spec-1.md). Live routes and fields are in [doc/api.md](../../../doc/api.md).
 - [frvt-8-batch-mapping-api-spec-1.md](../frvt-8/frvt-8-batch-mapping-api-spec-1.md) (batch routes that must consume indexes when ready)
 - [frvt-3-http-api-spec-1.md](../frvt-3/frvt-3-http-api-spec-1.md) (inherited Basic auth, error envelope, pagination)
-- [docs/api.md](../../../docs/api.md) (live HTTP surface for non-index routes)
+- [doc/api.md](../../../doc/api.md) (live HTTP surface for non-index routes)
 
 ---
 

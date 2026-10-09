@@ -145,7 +145,7 @@ Add to `Settings` in [`frvt/api/config.py`](../../../frvt/api/config.py), each w
 
 **New:** `.spec/frvt-12-translation-index-api-spec-1.md`; `frvt/api/indexing/{__init__,keys,fingerprint,registry,builder,worker,invalidation,lookup}.py`; `frvt/api/routers/indexes.py`; one Alembic revision; `frvt/tests/test_index_keys.py`, `test_index_fingerprint.py`, `test_index_registry.py`, `test_index_builder.py`, `test_index_worker.py`, `test_index_invalidation.py`, `test_api_indexes.py`, `test_index_read_path.py`, `test_span_finder.py`; `.test/scripts/run-index-benchmark.sh`.
 
-**Changed:** `frvt/api/models/__init__.py`, `frvt/api/schemas/__init__.py`, `frvt/api/config.py`, `frvt/api/main.py`, `frvt/api/ports/span_lookup.py`, `frvt/api/ports/resolver_port.py`, `frvt/api/resolve_batch.py`, `frvt/api/routers/{translations,versifications,associations}.py`, `frvt/api/ports/ingest_port.py`, `frvt/tests/conftest.py`, `docs/api.md`, `docs/openapi.json`.
+**Changed:** `frvt/api/models/__init__.py`, `frvt/api/schemas/__init__.py`, `frvt/api/config.py`, `frvt/api/main.py`, `frvt/api/ports/span_lookup.py`, `frvt/api/ports/resolver_port.py`, `frvt/api/resolve_batch.py`, `frvt/api/routers/{translations,versifications,associations}.py`, `frvt/api/ports/ingest_port.py`, `frvt/tests/conftest.py`, `doc/api.md`, `doc/openapi.json`.
 
 **Explicitly unchanged:** `frvt/resolver/**`, `frvt/api/resolve_chapter.py`, `frvt/api/routers/navigation.py`, `frvt/api/jump_cancel.py`, `frvt/web/**`.
 
@@ -378,7 +378,7 @@ Create `frvt/tests/test_index_read_path.py` (component) and extend `tests/test_a
 
 - Run the full suite and all three quality gates.
 - Create `.test/scripts/run-index-benchmark.sh`, following [`run-frvt-8-test-plan.sh`](../../../.test/scripts/run-frvt-8-test-plan.sh) for shape and conventions: ingest two sample translations, create both indexes, poll until `ready`, then time `POST /api/resolve/verses` with about 50 refs both with and without the index, printing both. Record the measured numbers and the host they came from in the spec document. Note that `LOG_LEVEL` defaults to `DEBUG` and should be raised for benchmarking and batch workloads.
-- Regenerate `docs/openapi.json` with the command in [`README.md`](../../../README.md), and add the index endpoints plus the `index_used` field to `docs/api.md`.
+- Regenerate `doc/openapi.json` with the command in [`README.md`](../../../README.md), and add the index endpoints plus the `index_used` field to `doc/api.md`.
 - Diff the built behavior against the Phase 0 spec. For each difference, change the code or the spec deliberately, and say which.
 - Re-read the new modules against Rules 2, 4, 9, and 10, and grep the new and changed source for leaked plan or phase identifiers (Rule 12).
 - Report to the owner: files added and changed, the endpoints as built, measured benchmark numbers, the storage cost observed, and any spec deviation. **Do not commit and do not push.**

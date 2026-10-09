@@ -20,7 +20,7 @@ export interface ScopeHeadingProps {
   subtitle?: string | null;
 }
 
-/** Everything the column needs to describe the hovered or pinned scope. */
+/** Everything the column needs to describe the pinned scope. */
 export interface ScopeHeadingModel {
   /** Book or chapter name, the event's catalog label, or the whole-comparison title. */
   title: string;
@@ -50,7 +50,7 @@ export function ScopeHeading({ title, subtitle = null }: ScopeHeadingProps) {
 }
 
 /**
- * Heading above the donut for the hovered or pinned cell.
+ * Heading above the donut for the pinned cell.
  * Nothing selected, or a book the index does not know, shows the comparison
  * total and names no book, so the column shows no buttons. A verse label replaces the chapter name
  * and the explanation stays the chapter. A book summary, or a cell with no chapter,

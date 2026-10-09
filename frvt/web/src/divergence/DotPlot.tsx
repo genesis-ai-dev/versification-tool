@@ -42,8 +42,6 @@ export interface DotPlotProps {
 export function DotPlot({ runs, index, magnify, highlight }: DotPlotProps) {
   const ref = useRef<HTMLCanvasElement>(null);
   const layoutRef = useRef<DotPlotLayout>(EMPTY_LAYOUT);
-  /** Last run reported from the pointer, so moving along one stroke does not repeat the hover. */
-  const lastHoverRef = useRef<string | null>(null);
   const pick = highlight.onPick;
   const activeKey = highlight.activeKey;
   useEffect(() => {
@@ -132,15 +130,9 @@ export function DotPlot({ runs, index, magnify, highlight }: DotPlotProps) {
           DOT_HIT_SLOP_PX,
         );
         event.currentTarget.style.cursor = key === null ? "default" : "pointer";
-        if (key === null || key === lastHoverRef.current) {
-          return;
-        }
-        lastHoverRef.current = key;
-        highlight.onHover(key);
       }}
       onMouseLeave={(event) => {
         event.currentTarget.style.cursor = "default";
-        lastHoverRef.current = null;
       }}
     />
   );

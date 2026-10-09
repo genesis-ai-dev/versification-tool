@@ -63,7 +63,7 @@ describe("Inspector", () => {
     vi.useRealTimers();
   });
 
-  it("shows the hover hint and no actions when nothing is selected", () => {
+  it("shows the selection prompt and no actions when nothing is selected", () => {
     render(
       <Inspector
         index={index}
@@ -75,7 +75,9 @@ describe("Inspector", () => {
     );
     expect(screen.queryByRole("heading")).not.toBeInTheDocument();
     expect(
-      screen.getByText("Hover or click a chapter. Arrow keys move through the matrix."),
+      screen.getByText(
+        "Click a chapter, book, or event. Arrow keys move through the matrix.",
+      ),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Details" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Clear" })).not.toBeInTheDocument();
@@ -210,7 +212,7 @@ describe("Inspector", () => {
     expect(screen.queryByText("text omission")).not.toBeInTheDocument();
   });
 
-  it("shows the hover hint when the book is not in the index", () => {
+  it("shows the selection prompt when the book is not in the index", () => {
     render(
       <Inspector
         index={index}
@@ -221,7 +223,9 @@ describe("Inspector", () => {
       />,
     );
     expect(
-      screen.getByText("Hover or click a chapter. Arrow keys move through the matrix."),
+      screen.getByText(
+        "Click a chapter, book, or event. Arrow keys move through the matrix.",
+      ),
     ).toBeInTheDocument();
   });
 });

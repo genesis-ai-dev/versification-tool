@@ -11,13 +11,13 @@ export interface ScopeActionsProps {
   showDetails?: boolean;
   /** Opens the Details tab for the selected book. */
   onOpenBook: (code: string) => void;
-  /** Clears the hover, the pin, the keyboard focus, and the strip highlight. */
+  /** Clears the pin, the keyboard focus, and the strip highlight. */
   onClear: () => void;
 }
 
 /**
  * Buttons under the event list, as in the prototype.
- * The book detail button shows for a hovered or pinned book unless the Details tab is open.
+ * The book detail button shows for the selected book unless the Details tab is open.
  * Clear selection shows only while a selection is pinned. When neither applies, the row is not rendered.
  */
 export function ScopeActions({

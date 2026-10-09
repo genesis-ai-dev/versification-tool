@@ -153,7 +153,6 @@ export function DetailView({
             sideNames={sideNames}
             activeEvent={highlight.activeEvent}
             onPick={highlight.onPickEvent}
-            onHover={highlight.onHoverEvent}
           />
         ) : (
           <div className="dv-dot-panel">

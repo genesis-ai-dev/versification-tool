@@ -3,7 +3,7 @@
   "info": {
     "title": "FRVT Versification Viewer",
     "version": "0.1.0",
-    "description": "HTTP API for the FRVT versification viewer. Every path requires HTTP Basic. This checked-in document adds a Basic security scheme and rewrites error responses to ErrorBody ({detail, code, errors?}), which is what the running server returns. GET /openapi.json on a live process is FastAPI's unpatched generator output (HTTPValidationError on many 422s, no Basic scheme). Human guide: docs/api.md."
+    "description": "HTTP API for the FRVT versification viewer. Every path requires HTTP Basic. This checked-in document adds a Basic security scheme and rewrites error responses to ErrorBody ({detail, code, errors?}), which is what the running server returns. GET /openapi.json on a live process is FastAPI's unpatched generator output (HTTPValidationError on many 422s, no Basic scheme). Human guide: doc/api.md."
   },
   "paths": {
     "/api/health": {

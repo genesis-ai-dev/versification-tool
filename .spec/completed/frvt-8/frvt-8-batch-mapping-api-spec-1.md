@@ -1,6 +1,6 @@
 # Batch Mapping API
 
-**Status:** Contract for the batch verse-mapping endpoints. The current HTTP write-up is [docs/api.md](../../../docs/api.md).
+**Status:** Contract for the batch verse-mapping endpoints. The current HTTP write-up is [doc/api.md](../../../doc/api.md).
 **Audience:** Implementers and reviewers of [frvt-8-acceptance-criteria-1.md](./frvt-8-acceptance-criteria-1.md)
 **Scope:** `GET /api/resolve/range` and `POST /api/resolve/verses`. Existing single-verse and chapter resolve routes are unchanged.
 

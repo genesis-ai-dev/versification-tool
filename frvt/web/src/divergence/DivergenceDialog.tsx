@@ -15,8 +15,6 @@ import { MatrixView, targetsFor } from "./MatrixView";
 import { defaultBook } from "./model/detail";
 import {
   coversWholeBook,
-  eventSelection,
-  hoverSelection,
   pickEvent as nextEventPick,
   pickRun as nextRunPick,
   type DetailPick,
@@ -44,9 +42,9 @@ type Tab = "overview" | "radial" | "detail";
 
 /**
  * Full-screen comparison of the two open translations.
- * The donut follows the pinned chapter or book, or the whole report when nothing
- * is pinned. The heading above it follows the hover or the pin, and names every
- * deviance when neither is set. The book detail button sits under the event list,
+ * The donut, the heading above it, and the event list follow the pinned chapter, book,
+ * or event, and describe the whole comparison when nothing is pinned. Pointer movement
+ * alone changes none of them. The book detail button sits under the event list,
  * and Clear selection joins it while a selection is pinned. A key under the chart
  * names the colors currently drawn, and a chart key under the toggles explains
  * the marks used in every view. An info control beside the title holds the
@@ -69,7 +67,6 @@ export function DivergenceDialog({
     true,
   );
   const [pin, setPin] = useState<MatrixSelection | null>(null);
-  const [hover, setHover] = useState<MatrixSelection | null>(null);
   const [focus, setFocus] = useState<number | null>(null);
   const [tab, setTab] = useState<Tab>("overview");
   const [layout, setLayout] = useState<"slices" | "rings">("slices");
@@ -102,7 +99,6 @@ export function DivergenceDialog({
     () => (report === null ? null : breakdown(report, scope, layersOn)),
     [report, scope, layersOn],
   );
-  const shown = pin ?? hover;
   /**
    * Pin a cell from the matrix, the radial chart, or the arrow keys.
    * The selection is stored as given, so a radial ribbon keeps the event it names.
@@ -123,7 +119,6 @@ export function DivergenceDialog({
         return;
       }
       setRunKey(next.runKey);
-      setHover(null);
       setPin(next.pin);
       if (next.pin === null) {
         setFocus(null);
@@ -149,38 +144,6 @@ export function DivergenceDialog({
     [applyPick, pickContext, pin, runKey],
   );
   /**
-   * Column contents while the pointer is over a ribbon or a dot mark.
-   * A pin keeps the column on the selection. An unchanged run changes nothing.
-   */
-  const onHover = useCallback(
-    (key: string) => {
-      if (pinRef.current !== null || pickContext === null) {
-        return;
-      }
-      const next = hoverSelection(pickContext, key);
-      if (next !== null) {
-        setHover(next);
-      }
-    },
-    [pickContext],
-  );
-  /**
-   * Column contents while the pointer is over a table row.
-   * A pin keeps the column on the selection.
-   */
-  const onHoverEvent = useCallback(
-    (event: IndexedEvent) => {
-      if (pinRef.current !== null || index === null) {
-        return;
-      }
-      const next = eventSelection(index, event, detailBookCode);
-      if (next !== null) {
-        setHover(next);
-      }
-    },
-    [detailBookCode, index],
-  );
-  /**
    * Highlight from a table row.
    * The row's event is pinned even when no ribbon matches it. Clicking it again clears the pin.
    */
@@ -201,7 +164,7 @@ export function DivergenceDialog({
     index === null || chart === null || comparison === undefined
       ? null
       : scopeHeading(
-          shown,
+          pin,
           index,
           comparisonTotal(chart.layerStats),
           { a: comparison.a, b: comparison.b },
@@ -398,7 +361,6 @@ export function DivergenceDialog({
                       focus={focus}
                       onSelect={(selection) => {
                         pinChapter(selection);
-                        setHover(null);
                         const next = targetsFor(index, layerSet).findIndex(
                           (target) =>
                             target.bookCode === selection.bookCode &&
@@ -408,11 +370,6 @@ export function DivergenceDialog({
                           setFocus(next);
                         }
                       }}
-                      onHover={(selection) => {
-                        if (pinRef.current === null) {
-                          setHover(selection);
-                        }
-                      }}
                     />
                   )}
                   {tab === "radial" && (
@@ -420,13 +377,7 @@ export function DivergenceDialog({
                       index={index}
                       layersOn={layerSet}
                       layout={layout}
-                      pinned={pin !== null}
                       onSelect={(selection) => pinChapter(selection)}
-                      onHover={(selection) => {
-                        if (pinRef.current === null) {
-                          setHover(selection);
-                        }
-                      }}
                     />
                   )}
                   {tab === "detail" && (
@@ -443,8 +394,6 @@ export function DivergenceDialog({
                         onPick: pickRun,
                         activeEvent: pin?.eventIndex ?? null,
                         onPickEvent: pickEventFromTable,
-                        onHover,
-                        onHoverEvent,
                       }}
                     />
                   )}
@@ -461,7 +410,7 @@ export function DivergenceDialog({
                   <DonutKey layers={chart.layers} types={chart.types} />
                   <Inspector
                     index={index}
-                    selection={shown}
+                    selection={pin}
                     layersOn={layerSet}
                     notes={report.eventNotes}
                     sideNames={{ a: comparison.a, b: comparison.b }}
@@ -476,7 +425,6 @@ export function DivergenceDialog({
                     }}
                     onClear={() => {
                       setPin(null);
-                      setHover(null);
                       setFocus(null);
                       setRunKey(null);
                     }}

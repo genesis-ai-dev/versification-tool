@@ -28,8 +28,6 @@ export interface MatrixViewProps {
   focus: number | null;
   /** Click, which pins the chapter or the book summary. */
   onSelect: (selection: MatrixSelection) => void;
-  /** Hover, which updates the inspector and does not pin. */
-  onHover: (selection: MatrixSelection) => void;
 }
 
 const SECTION_NAME: Record<string, string> = {
@@ -42,19 +40,13 @@ const SECTION_NAME: Record<string, string> = {
 
 /**
  * Draw the chapter matrix into a scrollable SVG.
- * Hover reports a chapter without pinning it. Click pins it.
+ * A click pins a chapter or a book.
  */
-export function MatrixView({
-  index,
-  layersOn,
-  focus,
-  onSelect,
-  onHover,
-}: MatrixViewProps) {
+export function MatrixView({ index, layersOn, focus, onSelect }: MatrixViewProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const hatchId = useId().replace(/:/g, "");
-  const handlers = useRef({ onSelect, onHover });
-  handlers.current = { onSelect, onHover };
+  const handlers = useRef({ onSelect });
+  handlers.current = { onSelect };
 
   useEffect(() => {
     const host = hostRef.current;
@@ -142,10 +134,16 @@ export function MatrixView({
           .attr("y", item.y + 10)
           .text(book.name.length > 18 ? `${book.name.slice(0, 17)}…` : book.name);
         const summary = { bookCode: book.code, chapter: null, summary: true };
-        drawCell(drawing, MATRIX.left, item.y, bookState(index, book, layersOn), hatchId, {
-          onSelect: () => handlers.current.onSelect(summary),
-          onHover: () => handlers.current.onHover(summary),
-        });
+        drawCell(
+          drawing,
+          MATRIX.left,
+          item.y,
+          bookState(index, book, layersOn),
+          hatchId,
+          {
+            onSelect: () => handlers.current.onSelect(summary),
+          },
+        );
       } else {
         drawing
           .append("text")
@@ -195,7 +193,6 @@ export function MatrixView({
           .attr("height", MATRIX.cell)
           .attr("fill", "transparent")
           .style("cursor", "pointer")
-          .on("mouseenter", () => handlers.current.onHover(selection))
           .on("click", () => handlers.current.onSelect(selection));
       }
     }
@@ -216,12 +213,10 @@ export function MatrixView({
   return <div className="dv-matrix" ref={hostRef} />;
 }
 
-/** Click and hover for the book-summary cell. Chapter cells pass null. */
+/** Click for the book-summary cell. Chapter cells pass null. */
 interface BookSummaryHandlers {
   /** Pins the whole book. */
   onSelect: () => void;
-  /** Reports the book while nothing is pinned. */
-  onHover: () => void;
 }
 
 /** Draw one colored cell. ``summary`` is set only for the book-level cell. */
@@ -278,10 +273,7 @@ function drawCell(
       .attr("fill", COUNT_DOT);
   }
   if (summary !== null) {
-    group
-      .style("cursor", "pointer")
-      .on("click", summary.onSelect)
-      .on("mouseenter", summary.onHover);
+    group.style("cursor", "pointer").on("click", summary.onSelect);
   }
 }
 
