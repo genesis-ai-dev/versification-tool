@@ -1,0 +1,177 @@
+/* The selection column, event items, flag chips, and the event table in the divergence dialog. */
+
+.dv-column {
+  min-width: 0;
+  padding: 0.875rem 1rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.dv-scope-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.625rem;
+}
+
+/* Sits under the centered scope heading when the pin has no deviances. */
+.dv-inspector-empty {
+  margin: 0.35rem 0 0;
+  text-align: center;
+}
+
+.dv-events {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dv-event {
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.dv-event:first-child {
+  border-top: 0;
+}
+
+.dv-event-type {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+}
+
+.dv-event-severity {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.dv-refs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1px 0.625rem;
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+}
+
+/* Equal tracks, not 50% 50%: the column gap would otherwise overflow the panel.
+   min-width: 0 lets a nowrap name shrink to half the row and ellipsize. */
+.dv-refs dt {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dv-ref-name {
+  display: block;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dv-refs dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.dv-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.3rem;
+}
+
+.dv-flag {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0 0.45rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.dv-flag.is-warning {
+  border-color: var(--dv-accent);
+  color: var(--dv-accent);
+}
+
+.dv-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.dv-table th,
+.dv-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 0.25rem 0.4rem;
+  text-align: left;
+}
+
+.dv-table tbody tr[aria-selected] {
+  cursor: pointer;
+}
+
+.dv-table tbody tr[aria-selected="true"] {
+  background: color-mix(in srgb, var(--dv-accent) 28%, transparent);
+}
+
+.dv-table-wrap {
+  max-height: 420px;
+  min-width: 0;
+  overflow: auto;
+}
+
+.dv-table th {
+  position: sticky;
+  top: 0;
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.dv-table td,
+.dv-table th {
+  white-space: nowrap;
+}
+
+/* The verse reference sets the width. The translation name is taken out of that
+   measurement and cut off when it is longer than the reference. The sticky header
+   is its positioning box, so the name stays in the cell. With no references, the
+   header keeps enough width to show a shortened name. */
+.dv-table :is(th, td).dv-loc {
+  width: 1px;
+}
+
+.dv-table:not(:has(td.dv-loc)) th.dv-loc {
+  min-width: 8rem;
+}
+
+.dv-loc-name {
+  position: absolute;
+  left: 0.4rem;
+  right: 0.4rem;
+  top: 50%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transform: translateY(-50%);
+}
+
+/* A flag can name a translation. Wrapping it keeps that name from widening the table. */
+.dv-table td.dv-flags {
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+.dv-table .dv-swatch {
+  display: inline-block;
+  margin-right: 0.4rem;
+  vertical-align: -1px;
+}

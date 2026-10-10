@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
+from uuid import UUID
 
 from fastapi import FastAPI
 
@@ -12,11 +13,14 @@ from frvt.api.auth import BasicAuthMiddleware, warn_if_default_basic_credentials
 from frvt.api.bootstrap import seed_canonical
 from frvt.api.config import get_settings
 from frvt.api.db import get_session_factory
+from frvt.api.divergence.precompute import schedule_precompute
+from frvt.api.divergence.runner import DivergenceRunner
 from frvt.api.errors import register_exception_handlers
 from frvt.api.indexing.worker import IndexWorker
 from frvt.api.logging_config import configure_logging, get_logger
 from frvt.api.routers import (
     associations,
+    divergence,
     health,
     indexes,
     ingest,
@@ -69,11 +73,26 @@ def create_app(
                 raise
             finally:
                 session.close()
+        runner: DivergenceRunner = _app.state.divergence_runner
+        runner.start()
+
+        def _on_index_ready(index_id: UUID) -> None:
+            """Schedule comparisons for a newly ready index. Never fails the build."""
+            if not get_settings().divergence_precompute_enabled:
+                return
+            try:
+                schedule_precompute(index_id, runner)
+            except Exception:
+                logger.error(
+                    "Divergence precompute failed index=%s", index_id, exc_info=True
+                )
+
         worker: IndexWorker | None = None
         if run_index_worker and settings.index_worker_enabled:
-            worker = IndexWorker()
+            worker = IndexWorker(on_index_ready=_on_index_ready)
             worker.start()
         yield
+        runner.stop()
         if worker is not None:
             worker.stop()
         logger.debug("Application shutdown")
@@ -97,6 +116,10 @@ def create_app(
     app.include_router(resolve.router)
     app.include_router(navigation.router)
     app.include_router(indexes.router)
+    app.include_router(divergence.router)
+    app.state.divergence_runner = DivergenceRunner(
+        threads=settings.divergence_runner_threads
+    )
 
     if _WEB_DIST.is_dir():
         # Mount after API routes so ``/api/...`` is never shadowed by static files.

@@ -4,6 +4,9 @@ import { BrowserRouter } from "react-router-dom";
 import { App } from "./App";
 import "./styles/tokens.css";
 import "./styles/app.css";
+import "./styles/modal.css";
+import "./styles/divergence.css";
+import "./styles/divergence-events.css";
 
 const root = document.getElementById("root");
 if (!root) {

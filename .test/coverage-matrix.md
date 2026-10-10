@@ -2,7 +2,7 @@
 
 **Purpose:** Trace each `TC-*` from the test plans to an automated test and track status.
 **Status values:** `pending` | `deferred-phaseN` | `in-progress` | `done` | `oos-confirmed` | `blocked`
-**Oracle:** [frvt-3-test-execution-plan-1.md](../.spec/frvt-3-test-execution-plan-1.md) and the five area test-plan files.
+**Oracle:** [frvt-3-test-execution-plan-1.md](../.spec/completed/frvt-3/frvt-3-test-execution-plan-1.md) and the five area test-plan files.
 
 Update this file whenever you implement or defer a case. Phase 12 requires no `pending` or `deferred-*` rows.
 

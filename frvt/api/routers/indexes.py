@@ -98,6 +98,8 @@ def index_usage_endpoint(session: Session = Depends(get_session)) -> IndexUsageO
         mapping_rows=usage.mapping_rows,
         mapping_bytes=usage.mapping_bytes,
         reclaim_pending=usage.reclaim_pending,
+        divergence_reports=usage.divergence_reports,
+        divergence_bytes=usage.divergence_bytes,
     )
 
 

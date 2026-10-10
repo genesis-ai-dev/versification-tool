@@ -18,12 +18,14 @@ from frvt.api.models import (
     VerseSpan,
     VersificationScheme,
 )
+from frvt.api.models.divergence import VersificationSource
 from frvt.api.schemas import ProjectIngestOut, TranslationOut, VersificationOut
 from frvt.ingest.derive_combined_milestones import apply_combined_milestone_splits
 from frvt.ingest.derive_mappings import derive_mapping_records
 from frvt.ingest.ingest_api import ingest_project, ingest_versification
 from frvt.ingest.metadata_parse import ProjectMetadata, resolve_text_direction
 from frvt.ingest.project_zip import locate_project_members
+from frvt.ingest.source_document import SourceDocument
 from frvt.ingest.types import IngestIssue, ParsedScheme, ParsedSpan
 
 logger = get_logger(__name__)
@@ -111,6 +113,31 @@ def _insert_mapping_rows(
         session.execute(insert(MappingRecord), rows)
 
 
+def _insert_source(
+    session: Session, scheme_id: UUID, source: SourceDocument | None
+) -> None:
+    """Persist the verbatim upload when ingest produced one.
+
+    Milestone refresh rebuilds a ``ParsedScheme`` without a source and must not
+    call this. Replacing an existing source is the attach endpoint's job.
+    """
+    if source is None:
+        return
+    logger.debug(
+        "Storing versification source scheme=%s format=%s", scheme_id, source.format
+    )
+    session.add(
+        VersificationSource(
+            scheme_id=scheme_id,
+            format=source.format,
+            document_text=source.document_text,
+            companion_vrs_text=source.companion_vrs_text,
+            filename=source.filename,
+            sha256=source.sha256,
+        )
+    )
+
+
 def _infer_source_format(archive_bytes: bytes) -> str:
     """Infer ``usx`` vs ``usfm`` from zip members (both present → ``usx``)."""
     located = locate_project_members(archive_bytes)
@@ -139,6 +166,7 @@ def persist_versification(
             based_on=scheme.based_on,
             canonical=False,
             ingredient=scheme.ingredient,
+            source=scheme.source,
         )
     base = _lookup_base(session, scheme.based_on)
     row = VersificationScheme(
@@ -151,6 +179,7 @@ def persist_versification(
     session.add(row)
     session.flush()
     _insert_mapping_rows(session, row.id, scheme)
+    _insert_source(session, row.id, scheme.source)
     session.flush()
     return VersificationOut.model_validate(row)
 
@@ -298,8 +327,10 @@ def persist_project(
         based_on=result.scheme.based_on,
         canonical=False,
         ingredient=ingredient,
+        source=result.scheme.source,
     )
     _insert_mapping_rows(session, scheme_row.id, ingest_scheme)
+    _insert_source(session, scheme_row.id, ingest_scheme.source)
     session.add(
         TranslationVersification(
             translation_id=translation.id,

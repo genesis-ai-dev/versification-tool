@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
+
+if TYPE_CHECKING:
+    from frvt.ingest.source_document import SourceDocument
 
 from frvt.ingest.metadata_parse import ProjectMetadata
 
@@ -40,8 +43,10 @@ class ParsedScheme:
     based_on: str | None
     # Always false from ingest; canonical roots come only from bootstrap.
     canonical: bool
-    # Validated ingredient document (system of record).
+    # Derived ingredient: normalized and, for projects, milestone-augmented.
     ingredient: dict[str, Any]
+    # Original upload. None only for callers that rebuild a scheme from a row.
+    source: SourceDocument | None = None
 
 
 @dataclass(frozen=True)

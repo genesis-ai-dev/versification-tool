@@ -1,0 +1,94 @@
+/* Dialog chrome shared by manage modals and the comparison dialog. */
+
+.modal input[type="text"],
+.modal input[type="file"],
+.modal select {
+  background: var(--surface-raised);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.35rem 0.55rem;
+  min-width: 5rem;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal);
+}
+
+.modal {
+  width: min(28rem, calc(100vw - 2rem));
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.modal-header {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: #111923;
+}
+
+.modal-title {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: #f1f5f9;
+}
+
+/* The header is darker than the dialog body, so the shared faint icon would disappear. */
+.modal-title .dv-info-icon {
+  color: var(--text-muted);
+}
+
+.modal-title .dv-tip-trigger:hover .dv-info-icon,
+.modal-title .dv-tip-trigger:focus-visible .dv-info-icon {
+  color: var(--text);
+}
+
+.modal-body {
+  padding: 1rem;
+}
+
+.modal-body label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.85rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.modal-body label .field-hint {
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
