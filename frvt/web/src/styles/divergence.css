@@ -493,9 +493,10 @@
   font-weight: 500;
 }
 
+/* The swatch starts at the top of the name, including when that name wraps. */
 .dv-key-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.35rem;
   margin: 0.15rem 0;
 }

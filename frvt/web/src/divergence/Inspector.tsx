@@ -33,9 +33,10 @@ export interface InspectorProps {
  * The severity scale sits above that list, in line with each event's swatch, when the list
  * has at least one event. The list's divider is drawn above and below that scale.
  * The scale stays put while the list scrolls.
- * The title, its actions, and the meta line sit above the donut. This panel is the
- * selection prompt when nothing is selected or the book is missing, and the event list when
- * a known book is selected. A selection that names one event lists only that event.
+ * The title, its actions, and the meta line sit above the donut. This panel renders
+ * nothing when nothing is selected or the book is missing, and the event list when a
+ * known book is selected. A chapter or book with no events in the visible layers says
+ * there are no deviances there. A selection that names one event lists only that event.
  * Each event shows its catalog label, both sides, and flag chips. A data-warning chip
  * includes the notes stored for that event.
  */
@@ -48,11 +49,11 @@ export function Inspector({
   locale,
 }: InspectorProps) {
   if (selection === null) {
-    return selectionPrompt();
+    return null;
   }
   const book = index.byCode.get(selection.bookCode);
   if (book === undefined) {
-    return selectionPrompt();
+    return null;
   }
   const bookWide = coversWholeBook(selection);
   const chosen = pinnedEvent(index, selection, layersOn);
@@ -67,7 +68,7 @@ export function Inspector({
   return (
     <div className="dv-inspector">
       {events.length === 0 ? (
-        <p>Same numbering on both sides in the visible layers.</p>
+        <p className="dv-inspector-empty">{emptySelectionText(selection)}</p>
       ) : (
         <>
           <SeverityKey />
@@ -194,16 +195,14 @@ function EventItem({ event, notes, sideNames, locale }: EventItemProps) {
 }
 
 /**
- * Prompt shown when the panel has no chapter or book to list.
- * Used when nothing is pinned, and when the selection names a book
- * the index does not contain.
+ * Sentence for a pinned chapter or book with no events in the visible layers.
+ * A book summary, or a pin without a chapter, names the book. Every other pin
+ * names the chapter.
  */
-function selectionPrompt() {
-  return (
-    <div className="dv-inspector">
-      <p>Click a chapter, book, or event. Arrow keys move through the matrix.</p>
-    </div>
-  );
+function emptySelectionText(selection: MatrixSelection): string {
+  return coversWholeBook(selection)
+    ? "No deviances in this book."
+    : "No deviances in this chapter.";
 }
 
 /** Tip for one flag. Data warnings append the event's notes. */

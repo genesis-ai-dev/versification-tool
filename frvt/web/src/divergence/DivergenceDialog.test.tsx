@@ -45,8 +45,6 @@ vi.mock("./useDivergenceReport", () => ({
   }),
 }));
 
-const PROMPT = "Click a chapter, book, or event. Arrow keys move through the matrix.";
-
 describe("DivergenceDialog", () => {
   it("keeps the column on the comparison until a chapter is clicked", async () => {
     const { container } = render(
@@ -71,10 +69,41 @@ describe("DivergenceDialog", () => {
     expect(
       screen.getByRole("heading", { level: 2, name: /^All Deviances/ }),
     ).toBeInTheDocument();
-    expect(screen.getByText(PROMPT)).toBeInTheDocument();
+    expect(screen.queryByText(/Click a chapter, book, or event/)).not.toBeInTheDocument();
     fireEvent.click(chapter);
     expect(
       screen.getByRole("heading", { level: 2, name: "Genesis 1" }),
     ).toBeInTheDocument();
+    expect(container.querySelector(".dv-donut")).not.toBeNull();
+    expect(screen.queryByText("No deviances in this chapter.")).not.toBeInTheDocument();
+  });
+
+  it("hides the donut for a chapter with no deviances", async () => {
+    const { container } = render(
+      <DivergenceDialog
+        fromTranslationId="from"
+        toTranslationId="to"
+        fromSchemeId={null}
+        toSchemeId={null}
+        onClose={() => undefined}
+      />,
+    );
+    await waitFor(() => {
+      expect(
+        container.querySelectorAll(".dv-matrix rect[fill='transparent']").length,
+      ).toBeGreaterThan(1);
+    });
+    const chapter = container.querySelectorAll(".dv-matrix rect[fill='transparent']")[1];
+    if (chapter === undefined) {
+      throw new Error("empty chapter target missing");
+    }
+    fireEvent.click(chapter);
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Genesis 2" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("No deviances in this chapter.")).toBeInTheDocument();
+    expect(screen.queryByText("No differences in this chapter.")).not.toBeInTheDocument();
+    expect(screen.queryByText("No slices in this chart.")).not.toBeInTheDocument();
+    expect(container.querySelector(".dv-donut")).toBeNull();
   });
 });

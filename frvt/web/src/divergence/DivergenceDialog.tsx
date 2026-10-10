@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { ModalShell } from "../manage/modals/ModalShell";
-import { breakdown, type BreakdownScope } from "./breakdown";
+import { breakdown, type BreakdownScope, type Slice } from "./breakdown";
 import { ChartKey } from "./ChartKey";
 import { comparisonTotal } from "./counts";
 import { DetailView } from "./DetailView";
@@ -46,9 +46,10 @@ type Tab = "overview" | "radial" | "detail";
  * or event, and describe the whole comparison when nothing is pinned. Pointer movement
  * alone changes none of them. The book detail button sits under the event list,
  * and Clear selection joins it while a selection is pinned. Slice names beside the donut
- * name the colors currently drawn. Deviance severity is left-aligned with the event
- * swatches and uses their size, between the donut and the event list, when that
- * list has events. The list's divider is drawn above and below it. The donut and
+ * name the colors currently drawn. A pinned chapter or book with no events in the
+ * visible layers omits the donut and those names. Deviance severity is left-aligned
+ * with the event swatches and uses their size, between the donut and the event list,
+ * when that list has events. The list's divider is drawn above and below it. The donut and
  * that scale stay put while the event list scrolls.
  * The other marks are centered at the top of the Overview and Radial charts.
  * An info control beside the title holds the comparison sentence.
@@ -410,14 +411,16 @@ export function DivergenceDialog({
                 <aside className="dv-column">
                   <figure className="dv-summary">
                     <ScopeHeading title={heading.title} subtitle={heading.subtitle} />
-                    <div className="dv-donut-row">
-                      <Donut
-                        layers={chart.layers}
-                        types={chart.types}
-                        scope={pinScopeLabel(pin)}
-                      />
-                      <DonutKey layers={chart.layers} types={chart.types} />
-                    </div>
+                    {!hidePinnedChart(pin, chart.layers, chart.types) && (
+                      <div className="dv-donut-row">
+                        <Donut
+                          layers={chart.layers}
+                          types={chart.types}
+                          scope={pinScopeLabel(pin)}
+                        />
+                        <DonutKey layers={chart.layers} types={chart.types} />
+                      </div>
+                    )}
                   </figure>
                   <div className="dv-column-scroll">
                     <Inspector
@@ -460,6 +463,19 @@ function pinScope(pin: MatrixSelection): BreakdownScope {
     book: pin.bookCode,
     chapter: coversWholeBook(pin) ? null : pin.chapter,
   };
+}
+
+/**
+ * Whether a pinned chapter or book has no donut to draw.
+ * Both rings are empty when the visible layers have no events in that scope.
+ * With nothing pinned, the comparison still draws its chart, including the empty note.
+ */
+function hidePinnedChart(
+  pin: MatrixSelection | null,
+  layers: readonly Slice[],
+  types: readonly Slice[],
+): boolean {
+  return pin !== null && layers.length === 0 && types.length === 0;
 }
 
 /**

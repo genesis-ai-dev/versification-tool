@@ -77,7 +77,7 @@ The viewer is two equal columns with a gutter between them. Each column has its 
 
 A manage page is a heading row, with the page title on the left and the page's primary action on the right, then one table.
 
-The divergence dialog is a large modal. The chart stage takes the remaining width on the left. A fixed-width selection column on the right holds the scope heading, the donut, the slice names beside it, the event list, and the scope actions. Tabs and layer toggles run across the top. Deviance severity is left-aligned with the swatch on each event, between the donut and the event list, when that list has events. Its squares match those swatches, and the list's divider is drawn above and below it. The donut and that scale stay in place while the event list scrolls. The other chart marks are centered at the top of the Overview and Radial chart areas. Slice names beside the donut, the ring headings, and the empty-slice sentence are 30% smaller than the column text. The pie is centered on the slice-name list. Each info control stays beside its slice name when that name wraps.
+The divergence dialog is a large modal. The chart stage takes the remaining width on the left. A fixed-width selection column on the right holds the scope heading, the donut, the slice names beside it, the event list, and the scope actions. A pinned chapter or book with no deviances omits the donut and the slice names, and centers the no-deviances sentence under the scope heading. Tabs and layer toggles run across the top. Deviance severity is left-aligned with the swatch on each event, between the donut and the event list, when that list has events. Its squares match those swatches, and the list's divider is drawn above and below it. The donut and that scale stay in place while the event list scrolls. The other chart marks are centered at the top of the Overview and Radial chart areas. Slice names beside the donut, the ring headings, and the empty-slice sentence are 30% smaller than the column text. The pie is centered on the slice-name list. Each slice's color block lines up with the top of its name. Each info control stays beside its slice name when that name wraps.
 
 ## Control patterns
 
@@ -138,7 +138,7 @@ All modals share one shell: a darker header with the title and a ghost close but
 
 ### Empty states and placeholders
 
-An empty library shows a raised panel with a short title, one sentence on what is needed, a primary action, and a ghost action. A column with no translation shows one faint centered line. The dialog's selection column shows a one-line prompt until something is pinned. Each empty state names the next step.
+An empty library shows a raised panel with a short title, one sentence on what is needed, a primary action, and a ghost action. A column with no translation shows one faint centered line. Both name the next step. With nothing pinned, the dialog's event list is blank.
 
 ## Application-specific guidelines
 

@@ -63,8 +63,8 @@ describe("Inspector", () => {
     vi.useRealTimers();
   });
 
-  it("shows the selection prompt and no actions when nothing is selected", () => {
-    render(
+  it("shows nothing and no actions when nothing is selected", () => {
+    const { container } = render(
       <Inspector
         index={index}
         selection={null}
@@ -73,12 +73,8 @@ describe("Inspector", () => {
         sideNames={{ a: "A", b: "B" }}
       />,
     );
+    expect(container).toBeEmptyDOMElement();
     expect(screen.queryByRole("heading")).not.toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Click a chapter, book, or event. Arrow keys move through the matrix.",
-      ),
-    ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Details" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Clear" })).not.toBeInTheDocument();
     expect(screen.queryByText("Deviance severity (1-4)")).not.toBeInTheDocument();
@@ -103,7 +99,7 @@ describe("Inspector", () => {
     expect(screen.getByText("Deviance severity (1-4)")).toBeInTheDocument();
   });
 
-  it("hides the severity scale when the visible layers have no events", () => {
+  it("says a chapter has no deviances when the visible layers have no events", () => {
     render(
       <Inspector
         index={index}
@@ -113,10 +109,21 @@ describe("Inspector", () => {
         sideNames={{ a: "A", b: "B" }}
       />,
     );
-    expect(
-      screen.getByText("Same numbering on both sides in the visible layers."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("No deviances in this chapter.")).toBeInTheDocument();
     expect(screen.queryByText("Deviance severity (1-4)")).not.toBeInTheDocument();
+  });
+
+  it("says a book has no deviances when the visible layers have no events", () => {
+    render(
+      <Inspector
+        index={index}
+        selection={{ bookCode: "GEN", chapter: null, summary: true }}
+        layersOn={new Set()}
+        notes={[]}
+        sideNames={{ a: "A", b: "B" }}
+      />,
+    );
+    expect(screen.getByText("No deviances in this book.")).toBeInTheDocument();
   });
 
   it("formats a large verse count", () => {
@@ -230,8 +237,8 @@ describe("Inspector", () => {
     expect(screen.queryByText("text omission")).not.toBeInTheDocument();
   });
 
-  it("shows the selection prompt when the book is not in the index", () => {
-    render(
+  it("shows nothing when the book is not in the index", () => {
+    const { container } = render(
       <Inspector
         index={index}
         selection={{ bookCode: "ZZZ", chapter: 1, summary: false }}
@@ -240,11 +247,7 @@ describe("Inspector", () => {
         sideNames={{ a: "A", b: "B" }}
       />,
     );
-    expect(
-      screen.getByText(
-        "Click a chapter, book, or event. Arrow keys move through the matrix.",
-      ),
-    ).toBeInTheDocument();
+    expect(container).toBeEmptyDOMElement();
     expect(screen.queryByText("Deviance severity (1-4)")).not.toBeInTheDocument();
   });
 });

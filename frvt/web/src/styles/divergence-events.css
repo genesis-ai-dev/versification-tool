@@ -15,6 +15,12 @@
   margin-top: 0.625rem;
 }
 
+/* Sits under the centered scope heading when the pin has no deviances. */
+.dv-inspector-empty {
+  margin: 0.35rem 0 0;
+  text-align: center;
+}
+
 .dv-events {
   margin: 0;
   padding: 0;
