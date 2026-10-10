@@ -45,10 +45,13 @@ type Tab = "overview" | "radial" | "detail";
  * The donut, the heading above it, and the event list follow the pinned chapter, book,
  * or event, and describe the whole comparison when nothing is pinned. Pointer movement
  * alone changes none of them. The book detail button sits under the event list,
- * and Clear selection joins it while a selection is pinned. A key under the chart
- * names the colors currently drawn, and a chart key under the toggles explains
- * the marks used in every view. An info control beside the title holds the
- * comparison sentence.
+ * and Clear selection joins it while a selection is pinned. Slice names beside the donut
+ * name the colors currently drawn. Deviance severity is left-aligned with the event
+ * swatches and uses their size, between the donut and the event list, when that
+ * list has events. The list's divider is drawn above and below it. The donut and
+ * that scale stay put while the event list scrolls.
+ * The other marks are centered at the top of the Overview and Radial charts.
+ * An info control beside the title holds the comparison sentence.
  * Layer toggles stay on the whole comparison, and add the pin's own share
  * while a cell is pinned.
  */
@@ -283,7 +286,6 @@ export function DivergenceDialog({
                   </span>
                 ))}
               </div>
-              <ChartKey index={index} showRibbons={tab === "radial"} />
               {tab === "radial" && (
                 <div className="dv-controls">
                   <button
@@ -354,81 +356,92 @@ export function DivergenceDialog({
                     }
                   }}
                 >
-                  {tab === "overview" && (
-                    <MatrixView
-                      index={index}
-                      layersOn={layerSet}
-                      focus={focus}
-                      onSelect={(selection) => {
-                        pinChapter(selection);
-                        const next = targetsFor(index, layerSet).findIndex(
-                          (target) =>
-                            target.bookCode === selection.bookCode &&
-                            target.chapter === selection.chapter,
-                        );
-                        if (next >= 0) {
-                          setFocus(next);
-                        }
-                      }}
-                    />
+                  {(tab === "overview" || tab === "radial") && (
+                    <div className="dv-stage-key">
+                      <ChartKey index={index} showRibbons={tab === "radial"} />
+                    </div>
                   )}
-                  {tab === "radial" && (
-                    <RadialView
-                      index={index}
-                      layersOn={layerSet}
-                      layout={layout}
-                      onSelect={(selection) => pinChapter(selection)}
-                    />
-                  )}
-                  {tab === "detail" && (
-                    <DetailView
-                      index={index}
-                      runs={comparison.runs}
-                      org={report.org ?? {}}
-                      layersOn={layerSet}
-                      book={detailBookCode}
-                      sideNames={{ a: comparison.a, b: comparison.b }}
-                      onBook={setDetailBook}
-                      highlight={{
-                        activeKey: runKey,
-                        onPick: pickRun,
-                        activeEvent: pin?.eventIndex ?? null,
-                        onPickEvent: pickEventFromTable,
-                      }}
-                    />
-                  )}
+                  <div className="dv-stage-scroll">
+                    {tab === "overview" && (
+                      <MatrixView
+                        index={index}
+                        layersOn={layerSet}
+                        focus={focus}
+                        onSelect={(selection) => {
+                          pinChapter(selection);
+                          const next = targetsFor(index, layerSet).findIndex(
+                            (target) =>
+                              target.bookCode === selection.bookCode &&
+                              target.chapter === selection.chapter,
+                          );
+                          if (next >= 0) {
+                            setFocus(next);
+                          }
+                        }}
+                      />
+                    )}
+                    {tab === "radial" && (
+                      <RadialView
+                        index={index}
+                        layersOn={layerSet}
+                        layout={layout}
+                        onSelect={(selection) => pinChapter(selection)}
+                      />
+                    )}
+                    {tab === "detail" && (
+                      <DetailView
+                        index={index}
+                        runs={comparison.runs}
+                        org={report.org ?? {}}
+                        layersOn={layerSet}
+                        book={detailBookCode}
+                        sideNames={{ a: comparison.a, b: comparison.b }}
+                        onBook={setDetailBook}
+                        highlight={{
+                          activeKey: runKey,
+                          onPick: pickRun,
+                          activeEvent: pin?.eventIndex ?? null,
+                          onPickEvent: pickEventFromTable,
+                        }}
+                      />
+                    )}
+                  </div>
                 </div>
                 <aside className="dv-column">
                   <figure className="dv-summary">
                     <ScopeHeading title={heading.title} subtitle={heading.subtitle} />
-                    <Donut
-                      layers={chart.layers}
-                      types={chart.types}
-                      scope={pinScopeLabel(pin)}
-                    />
+                    <div className="dv-donut-row">
+                      <Donut
+                        layers={chart.layers}
+                        types={chart.types}
+                        scope={pinScopeLabel(pin)}
+                      />
+                      <DonutKey layers={chart.layers} types={chart.types} />
+                    </div>
                   </figure>
-                  <DonutKey layers={chart.layers} types={chart.types} />
-                  <Inspector
-                    index={index}
-                    selection={pin}
-                    layersOn={layerSet}
-                    notes={report.eventNotes}
-                    sideNames={{ a: comparison.a, b: comparison.b }}
-                  />
-                  <ScopeActions
-                    bookCode={heading.bookCode}
-                    pinned={pin !== null}
-                    showDetails={tab !== "detail"}
-                    onOpenBook={(code) => {
-                      setDetailBook(code);
-                      setTab("detail");
-                    }}
-                    onClear={() => {
-                      setPin(null);
-                      setFocus(null);
-                      setRunKey(null);
-                    }}
-                  />
+                  <div className="dv-column-scroll">
+                    <Inspector
+                      index={index}
+                      selection={pin}
+                      layersOn={layerSet}
+                      notes={report.eventNotes}
+                      sideNames={{ a: comparison.a, b: comparison.b }}
+                    />
+                    <ScopeActions
+                      bookCode={heading.bookCode}
+                      pinned={pin !== null}
+                      showDetails={tab !== "detail"}
+                      onOpenBook={(code) => {
+                        setDetailBook(code);
+                        setTab("detail");
+                      }}
+                      onClear={() => {
+                        setPin(null);
+                        setFocus(null);
+                        setRunKey(null);
+                      }}
+                    />
+                  </div>
                 </aside>
               </div>
             </>

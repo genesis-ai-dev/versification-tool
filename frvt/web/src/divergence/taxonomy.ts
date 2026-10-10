@@ -7,8 +7,8 @@ export type LayerId = (typeof LAYER_IDS)[number];
 export const LAYER_LABELS: Record<LayerId, string> = {
   scheme: "Numbering",
   segment: "Verse segments",
-  text: "Bridges and omissions",
-  canon: "Books on one side only",
+  text: "Bridges & omissions",
+  canon: "Single-sided books",
 };
 
 /** Short names used in the comparison summary, in ``LAYER_IDS`` order. */
@@ -53,3 +53,17 @@ export const TYPE_LABELS = [
   "Present on one side only",
   "Book on one side only",
 ] as const;
+
+/**
+ * Name of one type slice on the donut.
+ * The event list, the book-detail table, and the scope heading keep typeLabel.
+ * ONE_SIDED is the exception: the donut says "Single-sided verse", and those
+ * other surfaces keep "Present on one side only". Every other index uses TYPE_LABELS.
+ * An index outside the catalog returns an empty string.
+ */
+export function donutTypeLabel(index: number): string {
+  if (TYPE_IDS[index] === "ONE_SIDED") {
+    return "Single-sided verse";
+  }
+  return TYPE_LABELS[index] ?? "";
+}

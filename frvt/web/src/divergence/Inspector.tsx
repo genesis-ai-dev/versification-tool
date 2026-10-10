@@ -1,3 +1,4 @@
+import { SeverityKey } from "./ChartKey";
 import { formatCount } from "./counts";
 import { eventSwatch, flagText, formatRef, typeLabel } from "./eventFormat";
 import { HoverTip } from "./HoverTip";
@@ -29,6 +30,9 @@ export interface InspectorProps {
 
 /**
  * List the events for the pinned chapter, book, or single event.
+ * The severity scale sits above that list, in line with each event's swatch, when the list
+ * has at least one event. The list's divider is drawn above and below that scale.
+ * The scale stays put while the list scrolls.
  * The title, its actions, and the meta line sit above the donut. This panel is the
  * selection prompt when nothing is selected or the book is missing, and the event list when
  * a known book is selected. A selection that names one event lists only that event.
@@ -66,6 +70,7 @@ export function Inspector({
         <p>Same numbering on both sides in the visible layers.</p>
       ) : (
         <>
+          <SeverityKey />
           <ol className="dv-events">
             {shown.map((event) => (
               <EventItem

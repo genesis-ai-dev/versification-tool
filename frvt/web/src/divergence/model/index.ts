@@ -247,15 +247,29 @@ export function bookState(
 }
 
 /**
- * Radius of the dot that marks a chapter with several events.
- * Two to four events use the smaller dot. Five or more use the larger one.
- * Fewer than two returns null, so the cell draws no dot.
+ * Fewest events that draw the smaller count dot on a matrix square.
+ * Book squares and chapter squares share this threshold.
+ * Counts below this draw no dot. The chart key starts its smaller range here.
+ */
+export const COUNT_DOT_SMALL_FROM = 2;
+
+/**
+ * Fewest events that draw the larger count dot on a matrix square.
+ * There is no upper bound. The chart key prints this value followed by +.
+ */
+export const COUNT_DOT_LARGE_FROM = 5;
+
+/**
+ * Radius of the dot on a book square or a chapter square that has several events.
+ * Counts from COUNT_DOT_SMALL_FROM up to but not including COUNT_DOT_LARGE_FROM
+ * use the smaller dot. COUNT_DOT_LARGE_FROM and above use the larger one.
+ * A count below COUNT_DOT_SMALL_FROM returns null, and the cell draws no dot.
  */
 export function countDotRadius(count: number): number | null {
-  if (count >= 5) {
+  if (count >= COUNT_DOT_LARGE_FROM) {
     return 2.3;
   }
-  return count >= 2 ? 1.5 : null;
+  return count >= COUNT_DOT_SMALL_FROM ? 1.5 : null;
 }
 
 /** True when a chapter should merge into the unchanged bar. */

@@ -5,6 +5,8 @@ import { drawDotPlot } from "./dotPlot";
 import {
   buildIndex,
   cellState,
+  COUNT_DOT_LARGE_FROM,
+  COUNT_DOT_SMALL_FROM,
   countDotRadius,
   matrixTargets,
   moveFocus,
@@ -74,9 +76,13 @@ describe("comparison index", () => {
 });
 
 describe("countDotRadius", () => {
-  it("draws no dot for one event, a small dot for two, and a larger dot for five", () => {
+  it("draws no dot below two events, a small dot through four, and a larger dot from five", () => {
+    expect(COUNT_DOT_SMALL_FROM).toBe(2);
+    expect(COUNT_DOT_LARGE_FROM).toBe(5);
+    expect(countDotRadius(0)).toBeNull();
     expect(countDotRadius(1)).toBeNull();
     expect(countDotRadius(2)).toBe(1.5);
+    expect(countDotRadius(COUNT_DOT_LARGE_FROM - 1)).toBe(1.5);
     expect(countDotRadius(5)).toBe(2.3);
   });
 });

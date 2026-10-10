@@ -81,6 +81,7 @@ describe("Inspector", () => {
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Details" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Clear" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Deviance severity (1-4)")).not.toBeInTheDocument();
   });
 
   it("lists the chapter events without a title or actions", () => {
@@ -99,6 +100,23 @@ describe("Inspector", () => {
     expect(screen.queryByRole("button", { name: "Clear" })).not.toBeInTheDocument();
     expect(screen.getByText("Renumbered run")).toBeInTheDocument();
     expect(screen.getByText("1 (renumber)")).toBeInTheDocument();
+    expect(screen.getByText("Deviance severity (1-4)")).toBeInTheDocument();
+  });
+
+  it("hides the severity scale when the visible layers have no events", () => {
+    render(
+      <Inspector
+        index={index}
+        selection={{ bookCode: "GEN", chapter: 1, summary: false }}
+        layersOn={new Set()}
+        notes={[]}
+        sideNames={{ a: "A", b: "B" }}
+      />,
+    );
+    expect(
+      screen.getByText("Same numbering on both sides in the visible layers."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Deviance severity (1-4)")).not.toBeInTheDocument();
   });
 
   it("formats a large verse count", () => {
@@ -227,5 +245,6 @@ describe("Inspector", () => {
         "Click a chapter, book, or event. Arrow keys move through the matrix.",
       ),
     ).toBeInTheDocument();
+    expect(screen.queryByText("Deviance severity (1-4)")).not.toBeInTheDocument();
   });
 });

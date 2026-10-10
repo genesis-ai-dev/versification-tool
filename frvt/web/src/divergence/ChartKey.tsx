@@ -1,17 +1,25 @@
 import { useId } from "react";
 import { severityOf } from "./model/detail";
-import type { ComparisonIndex } from "./model/index";
 import {
   ACCENT,
   APPROXIMATE_DASH,
+  COUNT_DOT,
   HATCH,
+  MUTED,
   NEUTRAL,
   devianceColor,
   severityColor,
 } from "./model/colors";
+import {
+  COUNT_DOT_LARGE_FROM,
+  COUNT_DOT_SMALL_FROM,
+  MATRIX,
+  countDotRadius,
+  type ComparisonIndex,
+} from "./model/index";
 import { RIBBON_LABELS, RIBBON_TYPES, ribbonStyle } from "./model/radial";
 
-/** Props for the chart key shown on every tab. */
+/** Props for the marks at the top of Overview and Radial. */
 export interface ChartKeyProps {
   /** Comparison index. Ribbon items take their severity from its types. */
   index: ComparisonIndex;
@@ -20,12 +28,40 @@ export interface ChartKeyProps {
 }
 
 /**
- * Color key for the matrix, the radial chart, and the strip.
- * It sits under the layer toggles on every tab. The move items appear only
- * while the radial chart is showing, because that is where the arrows are drawn.
+ * Deviance-severity scale for the selection column. The legend reads "Deviance severity (1-4)".
+ * Inspector renders it above the event list when that list has at least one event.
+ * Its squares are the event swatches and start at the same left edge. The list's
+ * divider is drawn above and below the scale. It does not change the pin.
+ */
+export function SeverityKey() {
+  return (
+    <ul className="dv-chart-key" aria-label="Deviance severity">
+      <li>
+        <span className="dv-key-severities" aria-hidden="true">
+          {[1, 2, 3, 4].map((severity) => (
+            <span
+              key={severity}
+              className="dv-swatch"
+              style={{ background: severityColor(severity) }}
+            />
+          ))}
+        </span>
+        Deviance severity (1-4)
+      </li>
+    </ul>
+  );
+}
+
+/**
+ * Marks for the matrix and the radial chart.
+ * Overview and Radial render it at the top of the chart. Details does not.
+ * Move items appear only while the radial chart is showing, because that
+ * is where the arrows are drawn.
  */
 export function ChartKey({ index, showRibbons }: ChartKeyProps) {
   const hatchId = useId().replace(/:/g, "");
+  const smallDot = countDotRadiusForKey(COUNT_DOT_SMALL_FROM);
+  const largeDot = countDotRadiusForKey(COUNT_DOT_LARGE_FROM);
   return (
     <ul className="dv-chart-key" aria-label="Chart key">
       <li>
@@ -43,16 +79,17 @@ export function ChartKey({ index, showRibbons }: ChartKeyProps) {
         Less → more chapter deviance
       </li>
       <li>
-        <span className="dv-key-severities" aria-hidden="true">
-          {[1, 2, 3, 4].map((severity) => (
-            <Square key={severity} color={severityColor(severity)} />
-          ))}
-        </span>
-        Event severity 1 to 4
+        <span>Deviances:</span>
+        <CountDotSwatch radius={smallDot} />
+        <span className="sr-only"> small dot </span>
+        <span>{`= ${COUNT_DOT_SMALL_FROM}–${COUNT_DOT_LARGE_FROM - 1},`}</span>
+        <CountDotSwatch radius={largeDot} />
+        <span className="sr-only"> large dot </span>
+        <span>{`= ${COUNT_DOT_LARGE_FROM}+`}</span>
       </li>
       <li>
         <HatchSwatch patternId={hatchId} />
-        Chapter on one side only
+        Single-sided chapters
       </li>
       <li>
         <ApproximateSwatch />
@@ -73,14 +110,55 @@ export function ChartKey({ index, showRibbons }: ChartKeyProps) {
   );
 }
 
-/** A flat color square used for Same and for one severity. */
+/**
+ * Side of a chart-key mark, in px.
+ * CountDotSwatch uses it for the square and to scale the dot.
+ * It matches `.dv-key-mark` in divergence.css. The matrix cell stays MATRIX.cell.
+ */
+const KEY_MARK = 14;
+
+/**
+ * Radius for a count the chart key is defined to draw.
+ * Throws when countDotRadius returns null, which means the key ranges
+ * no longer match the thresholds.
+ */
+function countDotRadiusForKey(count: number): number {
+  const radius = countDotRadius(count);
+  if (radius === null) {
+    throw new Error(`No count dot for ${count} events`);
+  }
+  return radius;
+}
+
+/**
+ * Grey chapter square with one count dot, for the chart key.
+ * The matrix draws this dot on a colored cell. The key uses the muted grey
+ * so the page-colored dot stays visible. Pass a radius from countDotRadiusForKey.
+ */
+function CountDotSwatch({
+  radius,
+}: {
+  /** Dot radius in matrix pixels, before this swatch scales it up to KEY_MARK. */
+  radius: number;
+}) {
+  const scale = KEY_MARK / MATRIX.cell;
+  const center = KEY_MARK / 2;
+  return (
+    <svg className="dv-key-mark" aria-hidden="true">
+      <rect width={KEY_MARK} height={KEY_MARK} rx="2" fill={MUTED} />
+      <circle cx={center} cy={center} r={radius * scale} fill={COUNT_DOT} />
+    </svg>
+  );
+}
+
+/** A flat color square for the Same mark. */
 function Square({ color }: { /** Fill of the square. */ color: string }) {
   return (
     <span className="dv-key-swatch" aria-hidden="true" style={{ background: color }} />
   );
 }
 
-/** Hatched square for a chapter that exists on only one side. */
+/** Hatched square for a chapter or a whole book that exists on only one side. */
 function HatchSwatch({
   patternId,
 }: {

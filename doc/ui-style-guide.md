@@ -77,7 +77,7 @@ The viewer is two equal columns with a gutter between them. Each column has its 
 
 A manage page is a heading row, with the page title on the left and the page's primary action on the right, then one table.
 
-The divergence dialog is a large modal. The chart stage takes the remaining width on the left. A fixed-width selection column on the right holds the scope heading, the donut, its key, the event list, and the scope actions. Tabs and layer toggles run across the top, with the chart key under them.
+The divergence dialog is a large modal. The chart stage takes the remaining width on the left. A fixed-width selection column on the right holds the scope heading, the donut, the slice names beside it, the event list, and the scope actions. Tabs and layer toggles run across the top. Deviance severity is left-aligned with the swatch on each event, between the donut and the event list, when that list has events. Its squares match those swatches, and the list's divider is drawn above and below it. The donut and that scale stay in place while the event list scrolls. The other chart marks are centered at the top of the Overview and Radial chart areas. Slice names beside the donut, the ring headings, and the empty-slice sentence are 30% smaller than the column text. The pie is centered on the slice-name list. Each info control stays beside its slice name when that name wraps.
 
 ## Control patterns
 
@@ -169,18 +169,19 @@ Participating verses get a rounded outline in the relation color. Badges are sma
 
 ### Divergence dialog
 
-The dialog's marks follow these rules on every tab, and the chart key under the toggles names them:
+The dialog's marks follow these rules:
 
 - **Same** is a neutral dark fill. A layer the reader hides is drawn as Same, not removed, so the shape of the book stays in place.
 - **Chapter deviance** is a continuous green-to-red scale, from little to much. It colors matrix and radial cells.
-- **Event severity** is a perceptually even sequential scale, darker for low severity. It colors event swatches and the chapter-move and order-inversion ribbons.
+- **Deviance severity** is a perceptually even sequential scale, darker for low severity. It colors event swatches and the chapter-move and order-inversion ribbons.
+- **Count dot** is a page-colored dot centered on a matrix chapter or book square. Two to four deviances in that square use the smaller dot. Five or more use the larger. The mark line at the top of the chart draws both on a muted grey square, because the page-colored dot disappears on the neutral cell fill. The matrix still draws the dot on the deviance color.
 - **Cross-book moves** have their own blue so they read apart from in-book moves.
 - **Data warning** uses the dialog accent: a corner mark on a matrix cell, a thin band on the outer edge of a radial cell, an outline on a ladder ribbon, and a highlighted chip on an event.
 - **Selection** also uses the dialog accent: a heavier stroke on the selected ribbon or dot-plot mark, a tint on the selected table row, and an outline on the matrix cell under keyboard focus.
 - **Approximate** is a dashed outline.
-- **One-sided chapter** is a diagonal hatch over the neutral fill.
+- **Single-sided chapters** is the chart-key name for a diagonal hatch over the neutral fill. The hatch marks a chapter, or a whole book, that exists on one side only.
 
-Ribbons ([domain-model.md](domain-model.md#ribbon)) grow wider with the number of verses they carry, up to a cap. Moves end in an arrowhead at the destination. Order inversions have no arrowhead. Ribbon items appear in the chart key only on the radial tab, because that is the only view that draws them.
+Ribbons ([domain-model.md](domain-model.md#ribbon)) grow wider with the number of verses they carry, up to a cap. Moves end in an arrowhead at the destination. Order inversions have no arrowhead. Ribbon items appear on the mark line at the top of the radial chart, because that is the only view that draws them.
 
 The donut's inner ring is layers and its outer ring is types. A layer keeps one color whichever layers are drawn. A type keeps its color by its catalog position, so hiding one type never recolors another. The [ladder](domain-model.md#ladder) names its three axes with the two translation names and lowercase `org`. Side names are translation names throughout the dialog, never "A" and "B".
 

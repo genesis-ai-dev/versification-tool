@@ -20,15 +20,15 @@ const renumbered: Slice = {
 };
 
 describe("DonutKey", () => {
-  it("starts closed and lists the drawn slices after it is opened", async () => {
+  it("lists the drawn slices", async () => {
     const user = userEvent.setup();
     render(<DonutKey layers={[numbering]} types={[renumbered]} />);
-    const key = screen.getByText("Key").closest("details");
-    expect(key).not.toHaveAttribute("open");
-    await user.click(screen.getByText("Key"));
-    expect(key).toHaveAttribute("open");
+    const key = screen.getByText("Inner ring: layers").closest(".dv-donut-key");
     expect(screen.getByText("Numbering")).toBeInTheDocument();
-    expect(screen.getByText("Renumbered run")).toBeInTheDocument();
+    expect(key).toHaveTextContent("Renumbered run");
+    expect(key).not.toHaveTextContent("Bridges & omissions");
+    expect(screen.getByText("Inner ring: layers")).toBeInTheDocument();
+    expect(screen.getByText("Outer ring: types")).toBeInTheDocument();
     const numberingTip = screen.getByRole("button", { name: "Numbering explanation" });
     const renumberedTip = screen.getByRole("button", {
       name: "Renumbered run explanation",
@@ -36,16 +36,13 @@ describe("DonutKey", () => {
     await user.click(numberingTip);
     const layerTip = screen.getByRole("tooltip");
     expect(layerTip.parentElement).toBe(document.body);
-    expect(key).not.toContainElement(layerTip);
     expect(layerTip).toHaveTextContent("Psalm-title numbering");
     await user.click(numberingTip);
     await user.click(renumberedTip);
     expect(screen.getByRole("tooltip")).toHaveTextContent("Genesis 32:1–32");
-    expect(screen.queryByText("Bridges and omissions")).not.toBeInTheDocument();
   });
 
-  it("explains every layer and every divergence type", async () => {
-    const user = userEvent.setup();
+  it("explains every layer and every divergence type", () => {
     const layers: Slice[] = LAYER_IDS.map((id) => ({
       key: `layer-${id}`,
       label: LAYER_LABELS[id],
@@ -59,29 +56,24 @@ describe("DonutKey", () => {
       percent: 1,
     }));
     render(<DonutKey layers={layers} types={types} />);
-    await user.click(screen.getByText("Key"));
     expect(screen.getAllByRole("button", { name: /explanation$/ })).toHaveLength(
       LAYER_IDS.length + TYPE_IDS.length,
     );
   });
 
-  it("draws no explanation for a slice it does not recognize", async () => {
-    const user = userEvent.setup();
+  it("draws no explanation for a slice it does not recognize", () => {
     render(
       <DonutKey
         layers={[]}
         types={[{ key: "note", label: "Note", value: 1, percent: 100 }]}
       />,
     );
-    await user.click(screen.getByText("Key"));
     expect(screen.getByText("Note")).toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
-  it("says when the chart has no slices", async () => {
-    const user = userEvent.setup();
+  it("says when the chart has no slices", () => {
     render(<DonutKey layers={[]} types={[]} />);
-    await user.click(screen.getByText("Key"));
     expect(screen.getByText("No slices in this chart.")).toBeInTheDocument();
   });
 });

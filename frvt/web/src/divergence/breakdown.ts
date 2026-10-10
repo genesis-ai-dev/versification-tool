@@ -1,4 +1,10 @@
-import { LAYER_IDS, LAYER_LABELS, TYPE_LABELS, type LayerId } from "./taxonomy";
+import {
+  donutTypeLabel,
+  LAYER_IDS,
+  LAYER_LABELS,
+  TYPE_LABELS,
+  type LayerId,
+} from "./taxonomy";
 import type { DivergenceReport, EventRow, Span } from "./types";
 
 /** Counts for one ring of the donut. */
@@ -92,12 +98,19 @@ export function breakdown(
     layers: LAYER_IDS.filter((id) => layersOn[id] !== false && ringLayers[id] > 0).map(
       (id) => slice(`layer-${id}`, LAYER_LABELS[id], ringLayers[id], visible),
     ),
-    types: TYPE_LABELS.map((label, index) => ({ label, index }))
+    types: TYPE_LABELS.map((_, index) => ({ index }))
       .filter((item) => {
         const layer = report.types[item.index]?.layer;
         return layersOn[layer] !== false && rings[item.index] > 0;
       })
-      .map((item) => slice(`type-${item.index}`, item.label, rings[item.index], visible)),
+      .map((item) =>
+        slice(
+          `type-${item.index}`,
+          donutTypeLabel(item.index),
+          rings[item.index],
+          visible,
+        ),
+      ),
     layerStats: LAYER_IDS.map((id) => ({
       id,
       label: LAYER_LABELS[id],

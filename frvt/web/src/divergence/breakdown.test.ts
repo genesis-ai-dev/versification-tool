@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { breakdown, type BreakdownScope } from "./breakdown";
+import { LAYER_SHORT } from "./taxonomy";
 import { dataWarningTip } from "./help";
 import { divergenceLauncherEnabled } from "./launcher";
 import type { DivergenceReport, EventRow } from "./types";
@@ -88,6 +89,28 @@ describe("breakdown", () => {
     expect(
       chart.layerStats.map((item) => item.percent).reduce((sum, value) => sum + value, 0),
     ).toBeCloseTo(100);
+    expect(chart.layerStats.map((item) => item.label)).toEqual([
+      "Numbering",
+      "Verse segments",
+      "Bridges & omissions",
+      "Single-sided books",
+    ]);
+    expect(LAYER_SHORT.text).toBe("bridge or omission");
+    expect(LAYER_SHORT.canon).toBe("one-sided book");
+  });
+
+  it("names a one-sided verse on the donut and keeps the book type's catalog name", () => {
+    const oneSided = report.types.findIndex((type) => type.id === "ONE_SIDED");
+    const bookOneSided = report.types.findIndex((type) => type.id === "BOOK_ONE_SIDED");
+    const chart = breakdown(
+      withEvents([event(oneSided, "GEN", 1), event(bookOneSided, "GEN", 1)]),
+      bookPin("GEN"),
+      allOn,
+    );
+    expect(chart.types.map((item) => item.label)).toEqual([
+      "Single-sided verse",
+      "Book on one side only",
+    ]);
   });
 
   it("limits the rings to the pinned book", () => {

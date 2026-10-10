@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { schemeSet3 } from "d3";
 import type { Slice } from "./breakdown";
 import { LAYER_COLORS, sliceColor } from "./Donut";
@@ -6,7 +7,7 @@ import { InfoIcon } from "./InfoIcon";
 import { InfoTip } from "./InfoTip";
 import { TYPE_IDS } from "./taxonomy";
 
-/** Props for the color key under the donut. */
+/** Props for the slice names beside the donut. */
 export interface DonutKeyProps {
   /** Inner-ring slices currently drawn. */
   layers: Slice[];
@@ -15,14 +16,15 @@ export interface DonutKeyProps {
 }
 
 /**
- * Collapsed key for the colors on the donut.
- * It starts closed. Each layer and type opens its explanation from the info control.
+ * Slice names beside the donut.
+ * Layers are the inner ring and types are the outer ring. An empty chart
+ * says so in this column. Each known slice opens its explanation from an info
+ * control that stays beside the name when the name wraps.
  */
 export function DonutKey({ layers, types }: DonutKeyProps) {
   const empty = layers.length === 0 && types.length === 0;
   return (
-    <details className="dv-key">
-      <summary>Key</summary>
+    <div className="dv-donut-key">
       {empty ? (
         <p>No slices in this chart.</p>
       ) : (
@@ -35,13 +37,14 @@ export function DonutKey({ layers, types }: DonutKeyProps) {
           <SliceGroup heading="Outer ring: types" slices={types} colors={schemeSet3} />
         </>
       )}
-    </details>
+    </div>
   );
 }
 
 /**
  * One group of swatches.
- * An empty group renders nothing. A slice with a stored explanation gets an info control.
+ * An empty group renders nothing. A slice with a stored explanation gets an info
+ * control beside its name.
  */
 function SliceGroup({
   heading,
@@ -71,18 +74,38 @@ function SliceGroup({
                 aria-hidden="true"
                 style={{ background: sliceColor(slice.key, colors) }}
               />
-              <span>{slice.label}</span>
-              {help !== undefined && (
-                <InfoTip label={`${slice.label} explanation`} text={help}>
-                  <InfoIcon />
-                </InfoTip>
-              )}
+              <span className="dv-key-label">{sliceName(slice.label, help)}</span>
             </li>
           );
         })}
       </ul>
     </div>
   );
+}
+
+/**
+ * Slice name and its info control, as one run of text.
+ * The last word and the control stay on the same line, so a wrapped name keeps
+ * the icon beside the words. They are returned together so nothing is inserted
+ * between them; the icon's margin is the gap. A slice with no explanation is
+ * the name alone.
+ */
+function sliceName(label: string, help: string | undefined): ReactNode {
+  if (help === undefined) {
+    return label;
+  }
+  const split = label.lastIndexOf(" ");
+  const lead = split === -1 ? "" : label.slice(0, split + 1);
+  const tail = split === -1 ? label : label.slice(split + 1);
+  return [
+    lead,
+    <span key="tail" className="dv-key-tail">
+      {tail}
+      <InfoTip label={`${label} explanation`} text={help}>
+        <InfoIcon />
+      </InfoTip>
+    </span>,
+  ];
 }
 
 /**

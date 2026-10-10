@@ -14,6 +14,8 @@ describe("typeLabel", () => {
   it("uses the catalog label and returns an unknown id unchanged", () => {
     expect(typeLabel("CHAPTER_MOVE")).toBe("Chapter move");
     expect(typeLabel("OTHER")).toBe("OTHER");
+    expect(typeLabel("ONE_SIDED")).toBe("Present on one side only");
+    expect(typeLabel("BOOK_ONE_SIDED")).toBe("Book on one side only");
   });
 });
 
