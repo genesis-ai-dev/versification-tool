@@ -47,7 +47,10 @@ type Tab = "overview" | "radial" | "detail";
  * alone changes none of them. The book detail button sits under the event list,
  * and Clear selection joins it while a selection is pinned. Slice names beside the donut
  * name the colors currently drawn. A pinned chapter or book with no events in the
- * visible layers omits the donut and those names. Deviance severity is left-aligned
+ * visible layers omits the donut and those names and says there are no deviances there.
+ * When nothing is pinned and both rings are empty, the column omits the donut and those
+ * names and says there are no differences in this comparison, with no buttons.
+ * Deviance severity is left-aligned
  * with the event swatches and uses their size, between the donut and the event list,
  * when that list has events. The list's divider is drawn above and below it. The donut and
  * that scale stay put while the event list scrolls.
@@ -174,6 +177,12 @@ export function DivergenceDialog({
           { a: comparison.a, b: comparison.b },
           layerSet,
         );
+  /**
+   * True when both donut rings have no slices.
+   * The column omits the chart. Nothing pinned then shows the comparison sentence.
+   * A pin keeps its own empty sentence and its buttons.
+   */
+  const chartHidden = chart !== null && chartIsEmpty(chart.layers, chart.types);
 
   /** Sentence for the info control, or the agreement line when the report has no events. */
   const summaryText =
@@ -411,7 +420,7 @@ export function DivergenceDialog({
                 <aside className="dv-column">
                   <figure className="dv-summary">
                     <ScopeHeading title={heading.title} subtitle={heading.subtitle} />
-                    {!hidePinnedChart(pin, chart.layers, chart.types) && (
+                    {!chartHidden && (
                       <div className="dv-donut-row">
                         <Donut
                           layers={chart.layers}
@@ -430,6 +439,11 @@ export function DivergenceDialog({
                       notes={report.eventNotes}
                       sideNames={{ a: comparison.a, b: comparison.b }}
                     />
+                    {pin === null && chartHidden && (
+                      <p className="dv-inspector-empty">
+                        No differences in this comparison.
+                      </p>
+                    )}
                     <ScopeActions
                       bookCode={heading.bookCode}
                       pinned={pin !== null}
@@ -466,21 +480,21 @@ function pinScope(pin: MatrixSelection): BreakdownScope {
 }
 
 /**
- * Whether a pinned chapter or book has no donut to draw.
- * Both rings are empty when the visible layers have no events in that scope.
- * With nothing pinned, the comparison still draws its chart, including the empty note.
+ * Whether both rings have no slices.
+ * Pass the slices `breakdown` returned for this render. The column omits the
+ * donut when this is true. Nothing pinned then centers "No differences in this
+ * comparison." under the heading and draws no buttons. A pinned chapter or book
+ * keeps its own empty sentence and its buttons.
  */
-function hidePinnedChart(
-  pin: MatrixSelection | null,
-  layers: readonly Slice[],
-  types: readonly Slice[],
-): boolean {
-  return pin !== null && layers.length === 0 && types.length === 0;
+function chartIsEmpty(layers: readonly Slice[], types: readonly Slice[]): boolean {
+  return layers.length === 0 && types.length === 0;
 }
 
 /**
- * Donut tip scope for the current pin.
- * Slice tips and the empty message use this wording.
+ * Scope named in a donut slice tip.
+ * Nothing pinned reads "this comparison". A book pin reads "this book", and a
+ * chapter pin reads "this chapter". The column's empty comparison sentence is
+ * separate and does not use this wording.
  */
 function pinScopeLabel(pin: MatrixSelection | null): string {
   if (pin === null) {
