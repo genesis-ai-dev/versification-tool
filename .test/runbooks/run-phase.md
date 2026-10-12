@@ -1,6 +1,6 @@
 # Runbook: Run a phase gate
 
-Execute one phase of [frvt-3-test-execution-plan-1.md](../../.spec/frvt-3-test-execution-plan-1.md) and stop on failure.
+Execute one phase of [frvt-3-test-execution-plan-1.md](../../.spec/completed/frvt-3/frvt-3-test-execution-plan-1.md) and stop on failure.
 
 ## Preconditions
 
@@ -13,12 +13,12 @@ Execute one phase of [frvt-3-test-execution-plan-1.md](../../.spec/frvt-3-test-e
 
 From repo root:
 
-```powershell
-cd F:\Projects\FrontierResearch
-.\frvt\.venv\Scripts\Activate.ps1
-$env:PYTHONPATH = "F:\Projects\FrontierResearch"
-python -m frvt.testops.run_suite --phase N
+```bash
+cd "$REPO"
+PYTHONPATH="$REPO" ./frvt/.venv/bin/python -m frvt.testops.run_suite --phase N
 ```
+
+PowerShell: activate `frvt\.venv`, set `PYTHONPATH` to the clone root, then `python -m frvt.testops.run_suite --phase N`.
 
 Replace `N` with `0` … `12`.
 

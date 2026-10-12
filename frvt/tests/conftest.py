@@ -6,6 +6,7 @@ import base64
 import os
 from collections.abc import Generator
 
+import frvt.api.models.divergence  # noqa: F401
 import pytest
 from fastapi.testclient import TestClient
 from frvt.api.bootstrap import seed_canonical

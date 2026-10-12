@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -17,13 +17,16 @@ from frvt.api.indexing.invalidation import (
 )
 from frvt.api.logging_config import get_logger
 from frvt.api.models import Translation, TranslationVersification, VersificationScheme
+from frvt.api.models.divergence import VersificationSource
 from frvt.api.schemas import (
     Page,
     VersificationDetailOut,
     VersificationOut,
     VersificationUpdate,
 )
+from frvt.api.schemas.versification_source import VersificationSourceOut
 from frvt.api.scheme_select import clamp_page, require_scheme
+from frvt.api.source_attach import attach_source, source_body, source_meta
 
 logger = get_logger(__name__)
 
@@ -95,7 +98,56 @@ def get_versification(
     """Return one scheme including its stored ingredient."""
     logger.debug("Getting versification id=%s", scheme_id)
     row = require_scheme(session, scheme_id)
-    return VersificationDetailOut.model_validate(row)
+    stored = session.get(VersificationSource, row.id)
+    return VersificationDetailOut.model_validate(row).model_copy(
+        update={"source": source_meta(stored)}
+    )
+
+
+@router.get(
+    "/api/versifications/{scheme_id}/source",
+    response_model=VersificationSourceOut,
+)
+def get_versification_source(
+    scheme_id: UUID,
+    session: Session = Depends(get_session),
+) -> VersificationSourceOut:
+    """Return the verbatim source for one scheme."""
+    logger.debug("Getting versification source id=%s", scheme_id)
+    require_scheme(session, scheme_id)
+    stored = session.get(VersificationSource, scheme_id)
+    if stored is None:
+        raise AppError(404, "Versification source not found.", code="not_found")
+    return source_body(stored)
+
+
+@router.put(
+    "/api/versifications/{scheme_id}/source",
+    response_model=VersificationSourceOut,
+)
+async def put_versification_source(
+    scheme_id: UUID,
+    file: UploadFile = File(...),
+    session: Session = Depends(get_session),
+) -> VersificationSourceOut:
+    """Attach an original file to a custom scheme that does not have one yet."""
+    filename = file.filename or "versification.json"
+    logger.debug("Putting versification source id=%s filename=%s", scheme_id, filename)
+    scheme = require_scheme(session, scheme_id)
+    raw = await file.read()
+    text = raw.decode("utf-8-sig", errors="replace")
+    if filename.lower().endswith(".json") or text.lstrip().startswith("{"):
+        source_format = "copenhagen_json"
+    else:
+        source_format = "vrs"
+    stored = attach_source(
+        session,
+        scheme,
+        filename=filename,
+        document_text=text,
+        source_format=source_format,
+    )
+    return source_body(stored)
 
 
 @router.patch("/api/versifications/{scheme_id}", response_model=VersificationOut)

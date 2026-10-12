@@ -10,12 +10,12 @@ Run all phase gates fail-fast after environment is ready. Intended for phase 12 
 
 ## Command
 
-```powershell
-cd F:\Projects\FrontierResearch
-.\frvt\.venv\Scripts\Activate.ps1
-$env:PYTHONPATH = "F:\Projects\FrontierResearch"
-python -m frvt.testops.run_suite --all
+```bash
+cd "$REPO"
+PYTHONPATH="$REPO" ./frvt/.venv/bin/python -m frvt.testops.run_suite --all
 ```
+
+PowerShell: activate `frvt\.venv`, set `PYTHONPATH` to the clone root, then `python -m frvt.testops.run_suite --all`.
 
 `--all` runs phases 0→12 in order and stops at the first non-zero exit.
 

@@ -2,19 +2,17 @@
 
 from __future__ import annotations
 
-import json
 import xml.etree.ElementTree as ET
 from pathlib import PurePosixPath
 from typing import Any
 
 from frvt.api.logging_config import get_logger
-from frvt.ingest.burrito_validate import validate_ingredient
 from frvt.ingest.metadata_parse import parse_dbl_metadata
 from frvt.ingest.normalize import normalize_ingredient
 from frvt.ingest.project_zip import locate_project_members
+from frvt.ingest.source_document import SourceDocument, derive_ingredient, make_source
 from frvt.ingest.types import IngestIssue, ParsedScheme, ProjectIngestResult
 from frvt.ingest.usx_parse import parse_usx_files
-from frvt.ingest.vrs_convert import convert_vrs
 
 logger = get_logger(__name__)
 
@@ -23,6 +21,7 @@ def _scheme_from_ingredient(
     ingredient: dict[str, Any],
     *,
     name: str,
+    source: SourceDocument | None = None,
 ) -> ParsedScheme:
     """Build a non-canonical ``ParsedScheme`` from a normalized ingredient."""
     normalized = normalize_ingredient(ingredient)
@@ -32,6 +31,7 @@ def _scheme_from_ingredient(
         based_on=str(based_on),
         canonical=False,
         ingredient=normalized,
+        source=source,
     )
 
 
@@ -40,37 +40,15 @@ def ingest_versification(
 ) -> tuple[ParsedScheme | None, tuple[IngestIssue, ...]]:
     """Detect VRS vs JSON, convert/validate, and return a parsed scheme."""
     logger.debug("Ingesting versification file=%s bytes=%s", filename, len(file_bytes))
-    issues: list[IngestIssue] = []
     name_stem = PurePosixPath(filename).stem or "custom"
     lower = filename.lower()
     text = file_bytes.decode("utf-8-sig", errors="replace")
     stripped = text.lstrip()
 
-    ingredient: dict[str, Any] | None = None
     if lower.endswith(".json") or stripped.startswith("{"):
-        try:
-            loaded = json.loads(text)
-        except json.JSONDecodeError as exc:
-            logger.error("Invalid JSON versification", exc_info=True)
-            return None, (
-                IngestIssue(
-                    kind="invalid",
-                    field=filename,
-                    message=f"Invalid JSON: {exc.msg}",
-                ),
-            )
-        if not isinstance(loaded, dict):
-            return None, (
-                IngestIssue(
-                    kind="invalid",
-                    field=filename,
-                    message="Ingredient JSON must be an object",
-                ),
-            )
-        ingredient = loaded
+        source_format = "copenhagen_json"
     elif lower.endswith(".vrs") or "=" in text or _looks_like_vrs(text):
-        ingredient, vrs_issues = convert_vrs(text)
-        issues.extend(vrs_issues)
+        source_format = "vrs"
     else:
         return None, (
             IngestIssue(
@@ -80,13 +58,12 @@ def ingest_versification(
             ),
         )
 
-    assert ingredient is not None
-    ingredient = normalize_ingredient(ingredient)
-    issues.extend(validate_ingredient(ingredient))
-    if issues:
-        return None, tuple(issues)
+    source = make_source(format=source_format, document_text=text, filename=filename)
+    ingredient, issues = derive_ingredient(source)
+    if ingredient is None:
+        return None, issues
 
-    scheme = _scheme_from_ingredient(ingredient, name=name_stem)
+    scheme = _scheme_from_ingredient(ingredient, name=name_stem, source=source)
     return scheme, ()
 
 
@@ -117,13 +94,16 @@ def ingest_project(archive_bytes: bytes) -> ProjectIngestResult:
         )
 
     assert located.vrs_text is not None
-    ingredient, vrs_issues = convert_vrs(located.vrs_text)
-    issues: list[IngestIssue] = list(vrs_issues)
-    ingredient = normalize_ingredient(ingredient)
-    issues.extend(validate_ingredient(ingredient))
-    if issues:
+    vrs_name = PurePosixPath(located.vrs_path or "versification.vrs").stem
+    source = make_source(
+        format="vrs",
+        document_text=located.vrs_text,
+        filename=located.vrs_path or "versification.vrs",
+    )
+    ingredient, issues = derive_ingredient(source)
+    if ingredient is None:
         return ProjectIngestResult(
-            spans=(), scheme=None, metadata=metadata, issues=tuple(issues)
+            spans=(), scheme=None, metadata=metadata, issues=issues
         )
 
     try:
@@ -155,8 +135,7 @@ def ingest_project(archive_bytes: bytes) -> ProjectIngestResult:
                 ),
             ),
         )
-    vrs_name = PurePosixPath(located.vrs_path or "versification.vrs").stem
-    scheme = _scheme_from_ingredient(ingredient, name=vrs_name)
+    scheme = _scheme_from_ingredient(ingredient, name=vrs_name, source=source)
     return ProjectIngestResult(
         spans=tuple(spans),
         scheme=scheme,

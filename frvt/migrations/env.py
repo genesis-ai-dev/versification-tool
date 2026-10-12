@@ -14,6 +14,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
+import frvt.api.models.divergence  # noqa: E402, F401
 from frvt.api.config import get_settings  # noqa: E402
 from frvt.api.models import Base  # noqa: E402
 

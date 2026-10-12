@@ -46,6 +46,10 @@ class IndexUsage:
     mapping_bytes: int
     # Deleted indexes whose mapping rows are still awaiting cleanup.
     reclaim_pending: int
+    # Cached divergence reports, any status.
+    divergence_reports: int = 0
+    # Bytes stored in divergence report payloads.
+    divergence_bytes: int = 0
 
 
 def create_index(
@@ -252,12 +256,22 @@ def usage_summary(session: Session) -> IndexUsage:
         text("SELECT pg_total_relation_size('index_mapping')")
     )
     reclaim_pending = session.scalar(select(func.count()).select_from(IndexReclaim))
+    from frvt.api.models.divergence import DivergenceReport
+
+    divergence_reports = session.scalar(
+        select(func.count()).select_from(DivergenceReport)
+    )
+    divergence_bytes = session.scalar(
+        text("SELECT COALESCE(SUM(octet_length(payload)), 0) FROM divergence_report")
+    )
     return IndexUsage(
         total_indexes=int(total or 0),
         ready_indexes=int(ready or 0),
         mapping_rows=int(mapping_rows or 0),
         mapping_bytes=int(mapping_bytes or 0),
         reclaim_pending=int(reclaim_pending or 0),
+        divergence_reports=int(divergence_reports or 0),
+        divergence_bytes=int(divergence_bytes or 0),
     )
 
 

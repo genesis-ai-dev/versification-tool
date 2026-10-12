@@ -2,6 +2,8 @@
 
 A viewer-first React proof of concept for comparing two Bible translations whose chapter and verse numbering systems differ.
 
+This directory is the early frontend prototype. The product UI is [`frvt/web`](../../../frvt/web/README.md), served by the FastAPI process in the repository README.
+
 The interface renders two independently navigable translation columns and visualizes resolved relationships between their spans, including:
 
 - one-to-one mappings
@@ -38,7 +40,7 @@ The POC is intentionally frontend-only. It uses an asynchronous in-memory API cl
 - `mockClient.ts` implements that boundary with modest latency so loading states are exercised.
 - `mockData.ts` contains representative translations, spans, versifications, navigation data, and mapping examples.
 
-Viewer components depend on the API interface rather than importing fixtures directly. When the FastAPI backend is available, a fetch-based implementation can replace the mock client without changing the viewer component contracts.
+Viewer components depend on the API interface rather than importing fixtures directly. The product app did not grow out of this mock client; it is a separate tree under `frvt/web`.
 
 ## Connector rendering
 

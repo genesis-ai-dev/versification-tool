@@ -15,10 +15,17 @@ from frvt.api.models import (
     TranslationVersification,
     VersificationScheme,
 )
+from frvt.api.models.divergence import VersificationSource
 from frvt.ingest.derive_mappings import derive_mapping_records
 from frvt.ingest.normalize import normalize_ingredient
+from frvt.ingest.source_document import make_source
 from frvt.ingest.types import ParsedScheme
-from frvt.resources import CANONICAL_NAMES, load_canonical_ingredient
+from frvt.resources import (
+    CANONICAL_NAMES,
+    load_canonical_ingredient,
+    load_canonical_text,
+    load_companion_vrs,
+)
 
 logger = get_logger(__name__)
 
@@ -91,6 +98,44 @@ def _ensure_mapping_rows(
     ]
     if rows:
         session.execute(insert(MappingRecord), rows)
+
+
+def _ensure_source(session: Session, scheme: VersificationScheme, name: str) -> None:
+    """Upsert the packaged JSON and companion .vrs when the digest changed.
+
+    Leaves the scheme row alone. A matching digest means a restart has nothing
+    to write.
+    """
+    source = make_source(
+        format="copenhagen_json",
+        document_text=load_canonical_text(name),
+        filename=f"{name}.json",
+        companion_vrs_text=load_companion_vrs(name),
+    )
+    row = session.get(VersificationSource, scheme.id)
+    if row is not None and row.sha256 == source.sha256:
+        logger.trace(  # type: ignore[attr-defined]
+            "Canonical source unchanged scheme=%s", scheme.name
+        )
+        return
+    logger.debug("Writing canonical source scheme=%s", scheme.name)
+    if row is None:
+        session.add(
+            VersificationSource(
+                scheme_id=scheme.id,
+                format=source.format,
+                document_text=source.document_text,
+                companion_vrs_text=source.companion_vrs_text,
+                filename=source.filename,
+                sha256=source.sha256,
+            )
+        )
+        return
+    row.format = source.format
+    row.document_text = source.document_text
+    row.companion_vrs_text = source.companion_vrs_text
+    row.filename = source.filename
+    row.sha256 = source.sha256
 
 
 def _ensure_preferred_association(
@@ -184,9 +229,13 @@ def seed_canonical(session: Session) -> None:
         else:
             scheme.based_on_name = based_on_name
             scheme.based_on_id = based_on_id
-            scheme.ingredient = ingredient
             scheme.canonical = True
+            # Assigning an equal ingredient still marks the column dirty on some
+            # JSONB round-trips and bumps updated_at, which invalidates indexes.
+            if scheme.ingredient != ingredient:
+                scheme.ingredient = ingredient
 
+        _ensure_source(session, scheme, name)
         _ensure_mapping_rows(session, scheme, ingredient)
         _ensure_preferred_association(session, translation, scheme)
 

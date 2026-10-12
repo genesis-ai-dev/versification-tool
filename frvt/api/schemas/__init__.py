@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, StringConstraints, model_serializer
 from pydantic_core.core_schema import SerializerFunctionWrapHandler
 
 from frvt.api.errors import ErrorCode
+from frvt.api.schemas.versification_source import VersificationSourceMetaOut
 from frvt.api.scheme_select import MAX_LIMIT
 
 # Item type carried by the reusable paginated response envelope.
@@ -140,6 +141,10 @@ class IndexUsageOut(BaseModel):
     mapping_bytes: int
     # Deleted indexes whose mapping rows are still being reclaimed.
     reclaim_pending: int
+    # Cached divergence reports, any status.
+    divergence_reports: int = 0
+    # Bytes stored in divergence report payloads.
+    divergence_bytes: int = 0
 
 
 class VerseSpanOut(BaseModel):
@@ -193,8 +198,10 @@ class VersificationOut(BaseModel):
 class VersificationDetailOut(VersificationOut):
     """Scheme detail including the stored Copenhagen ingredient."""
 
-    # Full ingredient document (system of record).
+    # Derived ingredient stored for the resolver. The verbatim source is separate.
     ingredient: dict[str, object]
+    # Metadata for the verbatim source, or null for a scheme ingested before sources.
+    source: VersificationSourceMetaOut | None = None
 
 
 class VersificationUpdate(BaseModel):
